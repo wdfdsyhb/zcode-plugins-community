@@ -1,0 +1,24 @@
+name: sync-pages
+on:
+  push:
+    branches: [main]
+    paths: ["marketplace.json"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy marketplace.json into docs/ (Pages source)
+        run: cp marketplace.json docs/marketplace.json
+      - name: Commit if changed
+        run: |
+          if [[ -n "$(git status --porcelain docs/marketplace.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/marketplace.json
+            git commit -m "chore: sync marketplace.json to docs/ [skip ci]"
+            git push
+          fi
