@@ -1,0 +1,27 @@
+{
+  "name": "picturereader",
+  "version": "1.0.2",
+  "description": "Gives text-only models the ability to 'read' images: image_scan (coarse pixel grid + hue/color/structure analysis), image_ocr (Windows or PaddleOCR text recognition) and image_sample (exact pixel texture sampling), plus the image-reading methodology skill. Everything runs locally, no vision API required.",
+  "author": {
+    "name": "picturereader"
+  },
+  "license": "MIT",
+  "skills": "skills",
+  "mcpServers": {
+    "picturereader": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\coding\\picturereader_zcode\\mcp\\server.js"
+      ],
+      "cwd": "${ZCODE_PROJECT_DIR}",
+      "timeoutMs": 120000,
+      "env": {
+        "PICTUREREADER_CWD": "${ZCODE_PROJECT_DIR}"
+      }
+    }
+  },
+  "description_i18n": {
+    "en": "Gives text-only models the ability to 'read' images: image_scan (coarse pixel grid + hue/color/structure analysis), image_ocr (Windows or PaddleOCR text recognition) and image_sample (exact pixel texture sampling), plus the image-reading methodology skill. Everything runs locally, no vision API required.",
+    "zh-CN": "赋予纯文本模型“读图”能力:image_scan(粗像素网格+色相/颜色/结构分析)、image_ocr、image_sample 等工具经 MCP 提供,另附读图技能。"
+  }
+}

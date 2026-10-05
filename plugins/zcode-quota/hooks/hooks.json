@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/quota-server.py",
+              "--ensure"
+            ],
+            "timeoutMs": 10000,
+            "statusMessage": "启动余额服务"
+          },
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/patch-zcode.py",
+              "--ensure"
+            ],
+            "timeoutMs": 20000,
+            "statusMessage": "检查界面补丁"
+          },
+          {
+            "type": "process",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/quota.py",
+              "--hook"
+            ],
+            "timeoutMs": 15000,
+            "statusMessage": "读取 API 余额"
+          }
+        ]
+      }
+    ]
+  }
+}

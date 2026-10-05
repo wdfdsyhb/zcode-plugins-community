@@ -26,6 +26,12 @@ zcode plugins marketplace add https://cdn.jsdelivr.net/gh/wdfdsyhb/zcode-plugins
 | [data-competition-pack](plugins/data-competition-pack/) | data-science | 天池/Kaggle 六阶段竞赛方法论 + 过拟合诊断 |
 | [bruce-drawio](plugins/bruce-drawio/) | dev-tools | draw.io 图表生成（流程/架构/UML/ER），CLI 导出 PNG/SVG/PDF · by [bruc3van](https://github.com/bruc3van/bruce-drawio) |
 | [awwwards-mcp](plugins/awwwards-mcp/) | dev-tools | 获奖网站设计灵感 MCP，真实截图检索 · by [INSANE0777](https://github.com/INSANE0777/Awwwards-mcp) |
+| [zcode-tps-monitor](plugins/zcode-tps-monitor/) | productivity | 每轮回复末尾真实 tok/s + /tps 命令 + 实时大屏 · by [shy3130](https://github.com/shy3130/zcode-tps-monitor) |
+| [zcode-auto-resume](plugins/zcode-auto-resume/) | productivity | 系统繁忙/限流/超时中断后自动续跑 · by [cv-superding](https://github.com/cv-superding/zcode-auto-resume) |
+| [api-quota](plugins/zcode-quota/) | productivity | API 余额与速度状态条 + /quota + 悬浮窗 · by [2877905731](https://github.com/2877905731/zcode-quota) |
+| [picturereader](plugins/picturereader-zcode/) | productivity | 纯文本模型读图：像素网格分析 + OCR · by [jing-hy](https://github.com/jing-hy/picturereader-zcode) |
+| [innovation-proposal](plugins/innovation-proposal/) | education | 大创/挑战杯/三创赛策划书，内置 2026 官方评审规则 · by [xwu43361-sys](https://github.com/xwu43361-sys/innovation-proposal) |
+| [md-convert](plugins/md-convert-skill/) | docs-writing | Markdown 转 Word/PDF/HTML，中文排版规范 · by [whlle-yi](https://github.com/whlle-yi/md-convert-skill) |
 
 更多条目见 [marketplace.json](marketplace.json)。收录标准见 [docs/SUBMIT.md](docs/SUBMIT.md)。
 

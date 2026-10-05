@@ -81,6 +81,114 @@
       "author": { "name": "INSANE0777", "url": "https://github.com/INSANE0777/Awwwards-mcp" },
       "category": "dev-tools",
       "keywords": ["mcp", "design", "frontend", "ui"]
+    },
+    {
+      "name": "zcode-tps-monitor",
+      "source": "./plugins/zcode-tps-monitor",
+      "displayName": "Token 速率监控",
+      "displayName_i18n": {
+        "en": "Token Speed Monitor",
+        "zh-CN": "Token 速率监控"
+      },
+      "description": "Real tok/s after each tool-using reply (reads the ZCode usage DB), plus /tps command, MCP tools and a live dashboard. By shy3130.",
+      "description_i18n": {
+        "en": "Real tok/s after each tool-using reply (reads the ZCode usage DB), plus /tps command, MCP tools and a live dashboard. By shy3130.",
+        "zh-CN": "shy3130 的 Token 速率监控：每条调用工具的回答末尾自动附真实 tok/s（读 ZCode usage 数据库），附 /tps 命令、MCP 工具与实时监控大屏，另支持业务 TPS 监控。"
+      },
+      "version": "0.8.5",
+      "author": { "name": "shy3130", "url": "https://github.com/shy3130/zcode-tps-monitor" },
+      "category": "productivity",
+      "keywords": ["monitor", "tps", "usage", "dashboard"]
+    },
+    {
+      "name": "zcode-auto-resume",
+      "source": "./plugins/zcode-auto-resume",
+      "displayName": "自动续跑",
+      "displayName_i18n": {
+        "en": "Auto Resume",
+        "zh-CN": "自动续跑"
+      },
+      "description": "Auto-injects a continue instruction when a turn dies from transient errors (rate limit / 5xx / timeout); never blindly retries permanent errors. By cv-superding.",
+      "description_i18n": {
+        "en": "Auto-injects a continue instruction when a turn dies from transient errors (rate limit / 5xx / timeout); never blindly retries permanent errors. By cv-superding.",
+        "zh-CN": "cv-superding 的自动续跑插件：回合因「系统繁忙 / 限流 / 5xx / 超时 / 网络错误」中断时自动注入继续指令恢复任务；认证、余额等永久性错误不盲目重试。"
+      },
+      "version": "0.1.0",
+      "author": { "name": "cv-superding", "url": "https://github.com/cv-superding/zcode-auto-resume" },
+      "category": "productivity",
+      "keywords": ["resume", "retry", "hooks", "reliability"]
+    },
+    {
+      "name": "api-quota",
+      "source": "./plugins/zcode-quota",
+      "displayName": "API 余额状态条",
+      "displayName_i18n": {
+        "en": "API Quota Statusbar",
+        "zh-CN": "API 余额状态条"
+      },
+      "description": "Remaining API balance / plan quota and generation speed as a status bar under the input box, with /quota command and a floating widget. By 2877905731.",
+      "description_i18n": {
+        "en": "Remaining API balance / plan quota and generation speed as a status bar under the input box, with /quota command and a floating widget. By 2877905731.",
+        "zh-CN": "2877905731 的余额与速度状态条：输入框下方显示 API 剩余余额/套餐额度与生成速度，附 /quota 命令、会话启动自动注入与常驻悬浮窗。"
+      },
+      "version": "1.1.1",
+      "author": { "name": "2877905731", "url": "https://github.com/2877905731/zcode-quota" },
+      "category": "productivity",
+      "keywords": ["quota", "balance", "statusbar"]
+    },
+    {
+      "name": "picturereader",
+      "source": "./plugins/picturereader-zcode",
+      "displayName": "图片读取器",
+      "displayName_i18n": {
+        "en": "Picture Reader",
+        "zh-CN": "图片读取器"
+      },
+      "description": "Gives text-only models the ability to read images: image_scan (pixel grid + color/structure analysis), image_ocr, image_sample via MCP. By jing-hy.",
+      "description_i18n": {
+        "en": "Gives text-only models the ability to read images: image_scan (pixel grid + color/structure analysis), image_ocr, image_sample via MCP. By jing-hy.",
+        "zh-CN": "jing-hy 的图片读取插件：赋予纯文本模型「读图」能力——image_scan（粗像素网格+色相/结构分析）、image_ocr、image_sample 经 MCP 提供，另附读图技能。"
+      },
+      "version": "1.0.2",
+      "author": { "name": "jing-hy", "url": "https://github.com/jing-hy/picturereader-zcode" },
+      "category": "productivity",
+      "keywords": ["image", "ocr", "mcp", "vision"]
+    },
+    {
+      "name": "innovation-proposal",
+      "source": "./plugins/innovation-proposal",
+      "displayName": "大赛策划书写作",
+      "displayName_i18n": {
+        "en": "Contest Proposal Writer",
+        "zh-CN": "大赛策划书写作"
+      },
+      "description": "Business-plan writer with the official 2026 China innovation-contest judging rubric built in; adapts to Challenge Cup and more. By xwu43361-sys.",
+      "description_i18n": {
+        "en": "Business-plan writer with the official 2026 China innovation-contest judging rubric built in; adapts to Challenge Cup and more. By xwu43361-sys.",
+        "zh-CN": "xwu43361-sys 的大赛策划书技能：内置中国国际大学生创新大赛 2026 官方评审规则，适配挑战杯、创青春、三创赛、大创计划等。触发词：大创赛、商业计划书。"
+      },
+      "version": "0.1.0",
+      "author": { "name": "xwu43361-sys", "url": "https://github.com/xwu43361-sys/innovation-proposal" },
+      "category": "education",
+      "keywords": ["education", "contest", "business-plan"]
+    },
+    {
+      "name": "md-convert",
+      "source": "./plugins/md-convert-skill",
+      "displayName": "MD 文档转换",
+      "displayName_i18n": {
+        "en": "Markdown Converter",
+        "zh-CN": "MD 文档转换"
+      },
+      "description": "Markdown to Word/PDF/HTML with Chinese typography rules (SongTi+Times, true bold, three-line tables, native formulas). By whlle-yi.",
+      "description_i18n": {
+        "en": "Markdown to Word/PDF/HTML with Chinese typography rules (SongTi+Times, true bold, three-line tables, native formulas). By whlle-yi.",
+        "zh-CN": "whlle-yi 的 Markdown 转 Word/PDF/HTML 技能：内置中文排版规范——宋体+Times、无伪粗体、三线表、原生公式，可生成可提交的正式文档/论文。"
+      },
+      "version": "0.1.0",
+      "author": { "name": "whlle-yi", "url": "https://github.com/whlle-yi/md-convert-skill" },
+      "category": "docs-writing",
+      "keywords": ["markdown", "docx", "pdf", "typography"]
     }
   ]
 }

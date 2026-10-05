@@ -25,4 +25,4 @@ zcode plugins marketplace add <本仓库路径> --scope user
 
 ## 分类体系（category 自定值）
 
-`security` / `data-science` / `docs-writing` / `dev-tools` / `productivity` / `osint` / `fun`
+`security` / `data-science` / `docs-writing` / `dev-tools` / `productivity` / `education` / `osint` / `fun`

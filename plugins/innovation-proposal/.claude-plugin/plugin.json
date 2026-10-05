@@ -1,0 +1,21 @@
+{
+  "name": "innovation-proposal",
+  "version": "0.1.0",
+  "description": "Business-plan writer for Chinese student innovation & entrepreneurship contests, by xwu43361-sys. Embeds the official 2026 China International College Students' Innovation Competition (formerly 'Internet+') judging rubric, and adapts to Challenge Cup, Chuangqingchun, Sanchuang, national innovation programs and provincial contests.",
+  "description_i18n": {
+    "en": "Business-plan writer for Chinese student innovation & entrepreneurship contests, by xwu43361-sys. Embeds the official 2026 China International College Students' Innovation Competition (formerly 'Internet+') judging rubric, and adapts to Challenge Cup, Chuangqingchun, Sanchuang, national innovation programs and provincial contests.",
+    "zh-CN": "xwu43361-sys 的大赛策划书写作技能：内置中国国际大学生创新大赛（原互联网+）2026 官方评审规则全文，适配挑战杯、创青春、三创赛、大创计划（国创）、iCAN 及各类省赛校赛。从项目简介到完整策划书、路演备赛、计划书打磨全流程。触发词：大创赛、互联网+、挑战杯、商业计划书。"
+  },
+  "author": {
+    "name": "xwu43361-sys",
+    "url": "https://github.com/xwu43361-sys/innovation-proposal"
+  },
+  "license": "MIT",
+  "keywords": [
+    "education",
+    "contest",
+    "business-plan",
+    "大创",
+    "挑战杯"
+  ]
+}

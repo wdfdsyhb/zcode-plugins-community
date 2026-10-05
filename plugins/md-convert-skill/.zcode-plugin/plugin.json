@@ -1,0 +1,21 @@
+{
+  "name": "md-convert",
+  "version": "0.1.0",
+  "description": "High-fidelity Markdown to Word/PDF/HTML conversion by whlle-yi. Chinese typography rules built in: SongTi + Times New Roman, true bold instead of fake-heavy emphasis, three-line tables, native formulas.",
+  "description_i18n": {
+    "en": "High-fidelity Markdown to Word/PDF/HTML conversion by whlle-yi. Chinese typography rules built in: SongTi + Times New Roman, true bold instead of fake-heavy emphasis, three-line tables, native formulas.",
+    "zh-CN": "whlle-yi 的高质量 Markdown 转 Word/PDF/HTML 技能：内置中文排版规范——宋体 + Times New Roman、Heavy 强调无伪粗体、三线表、原生公式。触发：md 转 word、导出正式文档/论文。"
+  },
+  "author": {
+    "name": "whlle-yi",
+    "url": "https://github.com/whlle-yi/md-convert-skill"
+  },
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "docx",
+    "pdf",
+    "typography",
+    "文档"
+  ]
+}
