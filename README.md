@@ -42,5 +42,6 @@ zcode plugins marketplace add https://cdn.jsdelivr.net/gh/wdfdsyhb/zcode-plugins
 ## 说明
 
 - 本市场为社区项目，与 Z.ai 官方无隶属关系；官方市场见 [zai-org/zcode-plugins](https://github.com/zai-org/zcode-plugins)。
-- 收录的第三方插件版权归原作者，收录前已通过基础安全审计；使用产生的风险自担。
+- 收录的第三方插件版权归原作者，均保留原 LICENSE 与署名并链接回原仓库；如你是收录项目的作者且不希望被收录，开一个 issue 即可撤条目，无需理由。
+- 收录前已通过基础安全审计（gitleaks + 入口文件检查）；使用产生的风险自担。
 - 安全技能内容仅用于授权测试与防御学习场景。
