@@ -1,0 +1,15 @@
+{
+  "name": "ai-skill-engine",
+  "version": "0.1.0",
+  "description": "ai-skill-engine",
+  "author": {
+    "name": "mikasaw",
+    "url": "https://github.com/mikasaw"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "ai-skill-engine",
+    "zh-CN": "AI skill 引擎:洋葱模型中间件核心+Multica 小队派单/验收"
+  }
+}

@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.venv-ppocr/
+
+# Output
+learn-output/
+collected/
+
+# OS
+Thumbs.db
+.DS_Store
+
+nul
+
+# Path artifacts (Windows full-path dirs)
+C:*

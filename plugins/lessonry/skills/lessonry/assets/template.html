@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>【主题】：副标题 · 交互讲解</title>
+<!--
+  ══════════════════════════════════════════════════════════════════
+  lessonry 单文件交互学习网页模板
+  用法：整页复制改名 → 改头部标题/palette → 换掉演示章节 sec1 → 按需增删章节
+  规则见 skill：references/pedagogy.md（怎么教）、patterns.md（交互形态）、
+                engine-guide.md（API）、checklist.md（交付前必跑的验证）
+  ══════════════════════════════════════════════════════════════════
+-->
+<style>
+:root{
+  --bg:#f7f7f7; --ink:#262626; --muted:#6d6d6d; --line:#dfdfdf;
+  /* 主题色板：整个页面只用这几个语义色，新主题只改这里 + JS 里的 C 对象 */
+  --c1:#4477AA;   /* 主角色（品牌/核心概念） */
+  --c2:#D96F32;   /* 对比色（对立概念/讲解要点边框） */
+  --c3:#228833;   /* 成功/记忆色（recap/正确） */
+  --c4:#B57BDC;   /* 特殊单元 */
+  --c5:#AA3377;   /* 高亮/危险动作 */
+  --err:#CC3333;  /* 错误/禁止 */
+  --warn:#B89B23; /* 注意/等待 */
+  --mono:'SFMono-Regular',Menlo,Consolas,'Liberation Mono',monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; color:var(--ink); background:var(--bg);
+  background-image:
+    linear-gradient(rgba(0,0,0,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.055) 1px, transparent 1px);
+  background-size:24px 24px;
+  font-family:Inter,'Helvetica Neue',Arial,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  line-height:1.65; font-size:15.5px;
+}
+.wrap{max-width:1140px;margin:0 auto;padding:0 18px 90px}
+header.top{padding:42px 0 8px}
+header.top h1{font-size:30px;font-weight:750;letter-spacing:-.02em;margin:0 0 10px;line-height:1.3}
+header.top .sub{color:var(--muted);font-size:14.5px;max-width:900px}
+nav.toc{position:sticky;top:0;z-index:50;background:rgba(247,247,247,.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);margin:18px -18px 26px;padding:10px 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+nav.toc a{font-family:var(--mono);font-size:12.5px;text-decoration:none;color:var(--ink);
+  border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 11px;transition:transform .15s, box-shadow .15s}
+nav.toc a:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.08)}
+nav.toc .spacer{flex:1}
+nav.toc select{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:#fff}
+section.card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.055);
+  padding:26px 28px;margin:26px 0;scroll-margin-top:64px}
+h2.sec{display:flex;align-items:center;gap:10px;font-size:21px;margin:0 0 14px;letter-spacing:-.01em}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;
+  background:var(--ink);color:#fff;font-size:14px;font-weight:700;font-family:var(--mono)}
+.badge.star{background:var(--c1)}
+p{margin:8px 0}
+.note{border-left:4px solid var(--c2);background:#fdf6f1;padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14.5px}
+.note.warn{border-color:var(--err);background:#fbf1f1}
+.note.io{border-color:var(--c1);background:#f1f5f9}
+.note.tip{border-color:var(--c3);background:#f1f8f2}
+.formula{background:#f3f6f8;border-left:4px solid var(--c1);border-radius:0 8px 8px 0;padding:10px 16px;margin:12px 0;
+  font-size:17px;overflow-x:auto}
+.controls{display:flex;gap:10px;margin:14px 0 8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 16px;font-size:14px;cursor:pointer;
+  transition:transform .12s, box-shadow .12s;font-family:inherit}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.caption{background:#f7f7f9;border:1px dashed #cfcfcf;border-radius:9px;padding:9px 13px;font-size:14px;margin:8px 0;min-height:42px}
+.caption .n{font-family:var(--mono);color:var(--c1);font-weight:700;margin-right:10px}
+.diagram{width:100%;height:auto;display:block}
+.scroller{overflow-x:auto;position:relative}
+.scroller .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:2px 0 4px;display:none}
+@media(max-width:700px){.scroller .hint{display:block}}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 2px;font-size:13px;color:var(--muted)}
+.legend .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+.trio .tcard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fcfcfd}
+.trio .tcard h4{margin:2px 0 8px;font-size:15px}
+.trio .tcard p{font-size:13.5px;color:#444;margin:0}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;border-radius:6px;padding:2px 8px;color:#fff;margin-bottom:8px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+.cards .scard{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fcfcfd}
+.cards .scard b{display:block;font-size:14.5px;margin-bottom:6px;font-family:var(--mono)}
+.cards .scard span{font-size:13px;color:#555}
+@media(max-width:860px){.trio{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.cards{grid-template-columns:1fr}}
+.recap{border-left:4px solid var(--c3);background:#f1f8f2;padding:10px 14px;border-radius:0 8px 8px 0;margin:18px 0 4px;font-size:14px}
+.recap .rl{display:block;margin-top:4px;color:#3a5c3a}
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.roadmap .st{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fbfbfd;font-size:12.5px;line-height:1.5}
+.roadmap .st b{display:block;font-size:13.5px;margin:2px 0}
+.roadmap .st span{color:#fff;font-family:var(--mono);font-size:10.5px;border-radius:5px;padding:1px 7px;display:inline-block}
+@media(max-width:860px){.roadmap{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.roadmap{grid-template-columns:1fr}}
+.tipbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+.tipbar span{font-size:12.5px;border:1px dashed var(--line);border-radius:99px;padding:4px 12px;background:#fff;color:#555}
+.pg-row{display:flex;align-items:center;gap:10px;margin:10px 0}
+.pg-lab{font-size:13.5px;min-width:150px}
+.pg-val{font-family:var(--mono);font-size:13px;min-width:60px;text-align:right}
+input[type=range]{flex:1;accent-color:var(--c1)}
+.lab{display:grid;grid-template-columns:1fr 340px;gap:16px;border:1px solid var(--line);border-radius:10px;padding:14px;background:#fcfcfd}
+.lab.wide{grid-template-columns:1fr}
+@media(max-width:860px){.lab{grid-template-columns:1fr}}
+.lab .stat{font-family:var(--mono);font-size:12.5px;background:#1e1e28;color:#e6e6f0;border-radius:10px;padding:12px 14px;line-height:1.7}
+.lab .stat b{color:#f0b86e}
+pre.code{background:#1e1e28;color:#e6e6f0;border-radius:10px;padding:16px 18px;font-family:var(--mono);
+  font-size:13px;line-height:1.6;overflow-x:auto;white-space:pre}
+pre.code .cm{color:#8a8aa3}
+pre.code .kw{color:#c792ea}
+pre.code .st{color:#a8d08d}
+pre.code .fn{color:#82c4ff}
+pre.code .num{color:#f0b86e}
+pre.code .ln{display:block;width:100%;border-radius:4px;padding:0 6px;margin:0 -6px}
+pre.code .ln.on{background:rgba(170,51,119,.45)}
+.quiz{border:1px solid var(--line);border-radius:10px;background:#fbfbfc;padding:16px 18px;margin:18px 0 4px}
+.quiz h4{margin:0 0 10px;font-size:15.5px}
+.q{margin:12px 0 18px}
+.qt{font-size:14.5px;margin-bottom:8px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 13px;font-size:14px;
+  cursor:pointer;font-family:inherit;transition:background .15s}
+.opt:hover{background:#f2f2f5}
+.opt.right{background:#e7f5ea;border-color:#228833;font-weight:600}
+.opt.wrong{background:#fbeaea;border-color:#cc3333}
+.exp{margin-top:9px;font-size:13.5px;background:#f4f7f4;border-radius:8px;padding:9px 12px;border-left:4px solid var(--c3)}
+.qscore{font-family:var(--mono);font-size:13px;color:var(--muted)}
+footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:#fff}
+:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
+@media(pointer:coarse){.btn,.opt{padding:11px 16px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>【主题】<br><span style="font-size:20px;font-weight:600;color:var(--muted)">【一句话副标题：读完你能明白什么】· 交互讲解</span></h1>
+  <p class="sub">领域定位：本页属于【哪个领域/方向】。读完本页你会明白：【收获 1】、【收获 2】、【收获 3】。</p>
+</header>
+
+<nav class="toc" id="toc">
+  <a href="#sec1">1 · 演示章节</a>
+  <span class="spacer"></span>
+  <label style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">动画速度
+    <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+  </label>
+</nav>
+
+<!-- ══════════ 示例章节：替换成真实内容时保留这个结构 ══════════
+     每章五件套：① 橙色"讲解要点"note（动机+类比） → ② 步骤播放器（controls+caption+svg）
+     → ③ legend 图例 → ④ 绿色 recap（📌一句话总结 + ✅自查） → ⑤ <div class="quiz" id="quizN"> -->
+<section class="card" id="sec1">
+  <h2 class="sec"><span class="badge star">1</span>示例章节：烧水给你看播放器怎么用</h2>
+  <div class="note"><b>讲解要点：</b>这是一个<b>最小演示章节</b>——演示每章的固定结构和动画原语的用法。真正的页面里，这里写本章的动机与类比（先"为什么"再"是什么"），步骤字幕里对"你"说话。</div>
+
+  <div class="controls">
+    <button class="btn primary" id="play1">▶ 播放</button>
+    <button class="btn" id="step1">⏭ 单步</button>
+    <button class="btn" id="reset1">↺ 重置</button>
+  </div>
+  <div class="caption" id="cap1"></div>
+  <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+    <svg class="diagram" id="svg1" viewBox="0 0 660 300"></svg></div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--c1)"></i>水壶（主角）</span>
+    <span><i class="dot" style="background:var(--c2)"></i>火焰（加热）</span>
+    <span><i class="dot" style="background:var(--c5)"></i>水蒸气（结果）</span>
+  </div>
+
+  <div class="formula" data-tex="Q = c\,m\,\Delta t" data-plain="Q = c·m·Δt （热量 = 比热容 × 质量 × 温升）"></div>
+
+  <div class="recap">
+    <span class="rl"><b>📌 一句话总结：</b>把本页最核心的结论压缩成一句能背的话。</span>
+    <span class="rl"><b>✅ 自查：</b>用一个问题让读者检验自己，括号里给答案。（答：…）</span>
+  </div>
+  <div class="quiz" id="quiz1"></div>
+</section>
+
+<footer>交互式学习笔记 ·【主题】 · 动画与数值均为教学示意。快捷键：<kbd>空格</kbd>播放/暂停 · <kbd>→</kbd>单步 · <kbd>R</kbd>重置。</footer>
+
+<script>
+/* ═══════════════ 基础工具（勿改） ═══════════════ */
+const $=id=>document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+let SPEED=1;
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep=ms=>new Promise(r=>setTimeout(r,RM?Math.min(50,ms):ms/SPEED));
+function el(n,a={},p){const e=document.createElementNS(NS,n);for(const k in a){if(k==='text')e.textContent=a[k];else e.setAttribute(k,a[k]);}if(p)p.appendChild(e);return e;}
+function txt(p,x,y,s,{fs=13,fill='#262626',anchor='start',w=400,mono=false}={}){const t=el('text',{x,y,'text-anchor':anchor,'font-size':fs,fill,'font-weight':w,...(mono?{'font-family':'SFMono-Regular,Menlo,Consolas,monospace'}:{})},p);t.textContent=s;return t;}
+function chip(p,x,y,w,h,label,fill,{fs=13,tc='#fff',rx=8,stroke='rgba(0,0,0,.18)'}={}){const g0=el('g',{},p);el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':1},g0);const lines=label.split('\n');lines.forEach((l,i)=>txt(g0,x+w/2,y+h/2-(lines.length-1)*fs*.62+fs*.36+i*fs*1.24,l,{fs,anchor:'middle',fill:tc,w:600}));return g0;}
+function boxRect(p,x,y,w,h,fill,{rx=10,stroke='rgba(0,0,0,.2)',sw=1.2,dash}={}){return el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':sw,...(dash?{'stroke-dasharray':dash}:{})},p);}
+function defArrow(svg,id,color){const d=el('defs',{},svg);const m=el('marker',{id,viewBox:'0 0 10 10',refX:8.5,refY:5,markerWidth:6.5,markerHeight:6.5,orient:'auto-start-reverse'},d);el('path',{d:'M0,0 L10,5 L0,10 z',fill:color},m);}
+async function css(node,st,ms=350){node.style.transition='all '+(RM?0:ms/SPEED)+'ms cubic-bezier(.4,0,.2,1)';for(const k in st)node.style[k]=st[k];await sleep(ms);}
+async function draw(p,ms=600){const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L;p.style.opacity=1;p.getBoundingClientRect();p.style.transition='stroke-dashoffset '+(RM?0:ms/SPEED)+'ms ease';p.style.strokeDashoffset=0;await sleep(ms);}
+function packet(path,color='#D96F32',r=4,dur=700){return new Promise(res=>{if(RM||document.hidden){res();return;}const c=el('circle',{r,fill:color,opacity:.95},path.parentNode);const L=path.getTotalLength();const t0=performance.now();(function f(t){let k=(t-t0)/(RM?1:dur/SPEED);if(k>=1){c.remove();res();return;}const pt=path.getPointAtLength(L*Math.min(k,1));c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);requestAnimationFrame(f);})(t0);});}
+async function pulse(node,ms=460){await css(node,{opacity:.3},ms/2);await css(node,{opacity:1},ms/2);}
+function curve(x1,y1,x2,y2,bend=0.35){const mx=(x1+x2)/2,my=(y1+y2)/2;const dx=x2-x1,dy=y2-y1;const cx=mx-dy*bend,cy=my+dx*bend;return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;}
+
+/* ═══════════════ KaTeX（CDN + 离线降级，勿改） ═══════════════ */
+function renderStaticTex(){document.querySelectorAll('.formula[data-tex]').forEach(n=>{const sp=document.createElement('span');n.textContent='';n.appendChild(sp);if(typeof katex!=='undefined'){try{katex.render(n.getAttribute('data-tex'),sp,{throwOnError:false});return;}catch(e){}}sp.textContent=n.getAttribute('data-plain');});}
+(function(){const l=document.createElement('link');l.rel='stylesheet';l.href='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';document.head.appendChild(l);
+ const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js';s.onload=renderStaticTex;s.onerror=renderStaticTex;document.head.appendChild(s);})();
+
+/* ═══════════════ 步骤播放器（勿改） ═══════════════
+   initSection(N, buildFn)：N 章号；buildFn(sec) 每次重置时重建 SVG 并注册 sec.steps
+   每个 step = {label:'本步字幕（支持 <b> 标签）', go:async(sec)=>{动画}}。
+   并发保护：gen/gate 机制——播放中点单步/重置不会串帧。 */
+const SECTIONS={};let ACTIVE=null;
+function hint(){return '点击 <b>▶ 播放</b> 自动演示，或 <b>⏭ 单步</b> 逐帧观看（<kbd>空格</kbd>播放/暂停 · <kbd>→</kbd>单步 · <kbd>R</kbd>重置）';}
+function doneMsg(){return '<span class="n">✓</span>演示结束，点击 <b>↺ 重置</b> 可重播';}
+function initSection(num,buildFn){
+ const cap=$('cap'+num),svg=$('svg'+num);
+ const sec={num,svg,cap,steps:[],idx:0,playing:false,busy:false,gen:0,gateRes:null,timers:[]};
+ sec.ui={play:$('play'+num),step:$('step'+num),reset:$('reset'+num)};
+ sec.update=()=>{sec.ui.play.textContent=sec.playing?'⏸ 暂停':'▶ 播放';};
+ sec.gate=()=>sec.playing?Promise.resolve():new Promise(r=>sec.gateRes=r);
+ sec.loop=async g=>{sec.busy=true;
+  while(sec.idx<sec.steps.length){if(g!==sec.gen)return;
+   const st=sec.steps[sec.idx];cap.innerHTML='<span class="n">'+(sec.idx+1)+'/'+sec.steps.length+'</span>'+st.label;
+   try{await st.go(g);}catch(e){console.warn('sec'+num,e);}
+   if(g!==sec.gen)return;sec.idx++;
+   if(sec.idx<sec.steps.length){await sec.gate();if(g!==sec.gen)return;}}
+  sec.playing=false;sec.busy=false;cap.innerHTML=doneMsg();sec.update();};
+ sec.play=async()=>{if(sec.busy){sec.playing=!sec.playing;if(sec.playing&&sec.gateRes){const r=sec.gateRes;sec.gateRes=null;r();}sec.update();return;}
+   if(sec.idx>=sec.steps.length)sec.reset();
+   sec.playing=true;sec.update();const g=sec.gen;await sec.loop(g);};
+ sec.step=async()=>{if(sec.busy)return;if(sec.idx>=sec.steps.length)sec.reset();
+   sec.playing=false;sec.update();const g=sec.gen;sec.busy=true;const st=sec.steps[sec.idx];
+   cap.innerHTML='<span class="n">'+(sec.idx+1)+'/'+sec.steps.length+'</span>'+st.label;
+   try{await st.go(g);}catch(e){console.warn('sec'+num,e);}if(g!==sec.gen)return;sec.idx++;sec.busy=false;
+   if(sec.idx>=sec.steps.length)cap.innerHTML=doneMsg();};
+ sec.reset=()=>{sec.gen++;sec.playing=false;sec.busy=false;sec.idx=0;
+   cap.innerHTML=hint();sec.ui.play.textContent='▶ 播放';try{buildFn(sec);}catch(e){console.warn('build'+num,e);}};
+ sec.ui.play.onclick=()=>{ACTIVE=num;sec.play();};sec.ui.step.onclick=()=>{ACTIVE=num;sec.step();};sec.ui.reset.onclick=()=>{ACTIVE=num;sec.reset();};
+ svg.addEventListener('mousedown',()=>{ACTIVE=num;});
+ sec.reset();SECTIONS[num]=sec;return sec;}
+
+/* ═══════════════ 测验引擎（勿改） ═══════════════
+   initQuiz('quizN',[{q,opts:[4 项],a:正确下标,exp:'解析'}]) */
+function initQuiz(id,questions){
+ const box=$(id);let done=0,score=0;
+ box.innerHTML='<h4>📝 自测</h4>'+questions.map((q,i)=>
+  `<div class="q"><div class="qt"><b>Q${i+1}.</b> ${q.q}</div><div class="opts">${q.opts.map((o,j)=>`<button class="opt" data-j="${j}">${'ABCD'[j]}. ${o}</button>`).join('')}</div><div class="exp" hidden></div></div>`).join('')+`<div class="qscore"></div>`;
+ const scEl=box.querySelector('.qscore');
+ box.querySelectorAll('.q').forEach((qEl,i)=>{const exp=qEl.querySelector('.exp');
+  qEl.querySelectorAll('.opt').forEach(btn=>{btn.onclick=()=>{if(qEl.classList.contains('answered'))return;
+   qEl.classList.add('answered');const j=+btn.dataset.j,ok=j===questions[i].a;
+   btn.classList.add(ok?'right':'wrong');if(!ok)qEl.querySelectorAll('.opt')[questions[i].a].classList.add('right');
+   exp.hidden=false;exp.innerHTML=(ok?'✅ <b>答对了！</b> ':'❌ <b>正确答案是 '+(questions[i].a+1)+'。</b> ')+questions[i].exp;
+   done++;if(ok)score++;scEl.textContent=`已答 ${done}/${questions.length} · 正确 ${score}`;};});});}
+
+/* ═══════════════ 速度与键盘（勿改） ═══════════════ */
+$('speed').onchange=e=>{SPEED=+e.target.value;};
+document.addEventListener('keydown',e=>{
+ const tag=(document.activeElement&&document.activeElement.tagName)||'';
+ if(e.isComposing||/INPUT|TEXTAREA|SELECT/.test(tag))return;
+ if(!ACTIVE||!SECTIONS[ACTIVE])return;
+ if(e.code==='Space'){e.preventDefault();SECTIONS[ACTIVE].play();}
+ else if(e.key==='ArrowRight'){e.preventDefault();SECTIONS[ACTIVE].step();}
+ else if(e.key==='r'||e.key==='R'){SECTIONS[ACTIVE].reset();}});
+
+/* ═══════════════ 主题调色板（与 :root CSS 变量保持一致！） ═══════════════
+   ⚠ 只在这里定义一次；引用不存在的键（如 C.grad）会静默画不出东西。 */
+const C={c1:'#4477AA',c2:'#D96F32',c3:'#228833',c4:'#B57BDC',c5:'#AA3377',err:'#CC3333',warn:'#B89B23',grad:'#2e8b57'};
+
+/* ═══════════════ 章节注册（示例：烧水）—— 替换成真实章节 ═══════════════ */
+initSection(1,sec=>{
+ const svg=sec.svg;svg.innerHTML='';defArrow(svg,'ah1','#9a9a9a');
+ // 静态布景
+ const stove=boxRect(svg,60,180,220,60,'#f4f4f6',{stroke:'#c9c9c9'});
+ txt(svg,170,215,'炉子',{fs:12,anchor:'middle',fill:'#888'});
+ const kettle=chip(svg,90,110,160,62,'水壶\n（20°C 的水）',C.c1,{fs:13});
+ const flame=chip(svg,120,250,100,40,'🔥 加热',C.c2,{fs:13});flame.style.opacity=0;
+ const steam=chip(svg,420,80,180,50,'💨 水蒸气（100°C）',C.c5,{fs:12.5});steam.style.opacity=0;
+ const pipe=el('path',{d:'M 250 140 C 320 140, 340 105, 418 105',stroke:C.c5,'stroke-width':2.5,fill:'none','marker-end':'url(#ah1)'},svg);pipe.style.opacity=0;
+ // 动态元素：温度计读数
+ const therm=txt(svg,470,180,'20°C',{fs:26,anchor:'middle',mono:true,w:700,fill:C.c1});therm.style.opacity=0;
+
+ sec.steps=[
+  {label:'初始状态：一壶 20°C 的水放在炉子上。动画的第一步永远是"建立场景"——告诉观众现在是什么、接下来要看什么。',
+   go:async()=>{kettle.style.opacity=1;therm.style.opacity=1;await pulse(kettle,400);}},
+  {label:'点火加热：火焰把热量传给水。注意字幕与画面是同步讲同一个东西——写步骤时必须保持这种对齐。',
+   go:async()=>{flame.style.opacity=1;await pulse(flame,300);await css(therm,{opacity:1},200);}},
+  {label:'温度攀升：每秒都在变热——到 100°C 就沸腾。需要数字变化的步骤用 css() 过渡或逐帧循环。',
+   go:async()=>{for(let t=20;t<=100;t+=20){therm.textContent=t+'°C';await sleep(240);}}},
+  {label:'沸腾输出：水变成蒸气沿管道离开——就像数据沿管线流动。最后一步收束到本节结论。',
+   go:async()=>{pipe.style.opacity=1;steam.style.opacity=1;await packet(pipe,C.c5,6,800);await pulse(steam,350);}},
+ ]});
+
+initQuiz('quiz1',[
+ {q:'这是一个示例题：烧水时温度从 20°C 升到 100°C，温升 Δt 是多少？',opts:['80°C','100°C','120°C','20°C'],a:0,exp:'Δt = 100 − 20 = 80。示例解析要给出完整的推导过程，让答错的读者也能看懂。'},
+ {q:'播放器的快捷键中，"单步前进"是哪个？',opts:['空格','→ 方向键','R','Esc'],a:1,exp:'空格 = 播放/暂停，→ = 单步，R = 重置。页面底部也有提示。'}]);
+
+/* ═══════════════ 启动（勿改） ═══════════════
+   #autoplay：SPEED=8 并把每个播放器步进到最后一帧——供无头截图/快速预览用 */
+if(location.hash==='#autoplay'){SPEED=8;const sp=$('speed');sp.value='4';sp.dispatchEvent(new Event('change'));
+ Object.keys(SECTIONS).forEach(k=>{const s=SECTIONS[k];(async()=>{const total=(s.steps&&s.steps.length)?s.steps.length:30;for(let i=0;i<total;i++){await s.step();}})();});}
+console.log('%c交互讲解已加载','color:#4477AA;font-weight:bold');
+</script>
+</div>
+</body>
+</html>

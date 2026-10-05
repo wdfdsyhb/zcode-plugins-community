@@ -1,0 +1,64 @@
+{
+  "name": "git-worktrees",
+  "version": "0.5.2",
+  "description": "Every thread automatically gets its own isolated git worktree — parallel work with zero setup. Snapshot-safe removal, background agent tasks, PR checkouts, and retention cleanup included.",
+  "author": {
+    "name": "Alfredo Gallardo",
+    "url": "https://github.com/agallardol"
+  },
+  "license": "MIT",
+  "commands": "commands",
+  "skills": "skills",
+  "mcpServers": {
+    "git-worktrees": {
+      "command": "node",
+      "args": [
+        "${ZCODE_PLUGIN_ROOT}/mcp/server.mjs"
+      ],
+      "cwd": "${ZCODE_PROJECT_DIR}",
+      "env": {
+        "ZCODE_WORKTREE_ROOT": "${user_config.worktree_root}",
+        "ZCODE_WORKTREE_DEFAULT_BASE": "${user_config.default_base}",
+        "ZCODE_WORKTREE_MAX_AGE_DAYS": "${user_config.max_age_days}",
+        "ZCODE_WORKTREE_MAX_COUNT": "${user_config.max_count}",
+        "ZCODE_WORKTREE_AUTO_SESSION": "${user_config.auto_session}"
+      }
+    }
+  },
+  "userConfig": {
+    "worktree_root": {
+      "type": "string",
+      "default": "~/.zcode/worktrees",
+      "title": "Worktree root",
+      "description": "Directory where worktrees are stored, one subdirectory per project. Shorthand ~ is allowed."
+    },
+    "default_base": {
+      "type": "string",
+      "default": "fresh",
+      "title": "Default base",
+      "description": "Base for new worktrees: \"fresh\" (origin/HEAD, fetched if stale, falls back to local HEAD when offline), \"head\" (current local HEAD), or any explicit branch, tag, or commit."
+    },
+    "max_age_days": {
+      "type": "number",
+      "default": 14,
+      "title": "Max age (days)",
+      "description": "Managed worktrees with no activity for longer than this are removed by worktrees_cleanup (dirty or locked ones are always skipped)."
+    },
+    "max_count": {
+      "type": "number",
+      "default": 15,
+      "title": "Max worktrees per project",
+      "description": "worktrees_cleanup keeps at most this many managed worktrees per project, removing the least recently active ones first."
+    },
+    "auto_session": {
+      "type": "boolean",
+      "default": true,
+      "title": "Auto session worktrees",
+      "description": "Give every new session in a repository's main checkout its own isolated worktree (resumes return to it; main-checkout edits are redirected). Applies from the next session. The /worktree:auto command also toggles it (most recent change wins), and a repo can opt out via .zcode/worktree.json {\"autoSession\": false}."
+    }
+  },
+  "description_i18n": {
+    "en": "Every thread automatically gets its own isolated git worktree — parallel work with zero setup. Snapshot-safe removal, background agent tasks, PR checkouts, and retention cleanup included.",
+    "zh-CN": "agallardol 的 Git worktree 并行工作流:隔离工作区+快照+自动会话隔离+保留清理。"
+  }
+}

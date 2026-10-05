@@ -1,0 +1,113 @@
+# ============================================================
+# academic-search · 追踪主题配置
+# ============================================================
+# 首次使用：复制本文件为 topics.yaml，然后编辑其中的主题。
+#   cp topics.yaml.example topics.yaml
+#
+# 修改本文件后无需改任何代码，直接重跑 incremental_search 即可生效。
+# OpenAlex query 语法见 SKILL.md「OpenAlex Query 语法速查」。
+# ============================================================
+
+# 论文发表年份范围（超出范围的论文会被过滤为 old_year）
+# 跨年时手动更新，例如 2027 年改为 [2026, 2027]
+year_window: [2025, 2026]
+
+# 每个主题每次 OpenAlex 检索返回的最大结果数
+num_results: 50
+
+# 排序方式: date（按日期）或 relevance（按相关度）
+sort_by: date
+
+# ------------------------------------------------------------------
+# 全局排除词
+# ------------------------------------------------------------------
+# 标题级排除词：论文标题命中任一即判为跑偏（生物医学/临床/农业等无关领域）
+# 按你的领域增删。留空列表 [] 表示不按标题排除。
+exclude_title_keywords:
+  - cancer
+  - tumor
+  - tumour
+  - clinical
+  - patient
+  - disease
+  - therapy
+  - therapeutic
+  - drug delivery
+  - pharmac
+  - vaccine
+  - antibod
+  - infection
+  - virus
+  - viral
+  - diagnos
+  - crop
+  - plant
+  - agricultur
+  - soil
+  - stem cell
+  - apoptosis
+  - gene expression
+  - mouse
+  - mice
+  - in vivo
+  - in vitro
+  - skin
+  - wound
+  - dental
+  - cosmetic
+
+# 期刊级硬排除：期刊名含这些子串直接判为跑偏，不看标题
+exclude_journal_keywords:
+  - frontiers in plant
+  - frontiers in cell
+  - nutrients
+  - pharmaceutics
+  - pharmaceuticals
+  - foods
+  - cells
+  - viruses
+  - vaccines
+  - cancers
+  - biomolecules
+  - pathogens
+  - toxins
+  - microorganisms
+  - marine drugs
+  - antibiotics
+  - diagnostics
+  - plants
+  - agriculture
+  - agronomy
+
+# ------------------------------------------------------------------
+# 追踪主题列表
+# ------------------------------------------------------------------
+# 每个主题字段说明：
+#   key            : 唯一标识（英文，用于 DB 存储与文件命名，勿重复）
+#   display        : 中文显示名（报告标题）
+#   query          : OpenAlex 搜索 query（支持 OR/AND/引号布尔语法）
+#   allow_preprint : 是否允许 arXiv 等预印本进入报告（CS 领域建议 true）
+#   whitelist      : 期刊白名单策略
+#                     auto       = 首次检索时自动生成 IF≥阈值期刊白名单
+#                     文件名.md  = 使用 references/ 下的指定白名单文件
+#                     null       = 不限期刊（靠标题/期刊排除词过滤）
+#   theme_color    : HTML 报告中该主题的主题色（Hex 值）
+#   if_threshold   : （仅 whitelist=auto 时生效）自动白名单的 IF 下限，默认 3.0
+#
+# 示例：以下两个主题供参考，请替换为你自己的方向
+topics:
+  - key: solid_state_battery
+    display: 固态电池电解质
+    query: "solid state electrolyte lithium OR solid-state battery electrolyte OR sulfide electrolyte OR polymer electrolyte lithium"
+    allow_preprint: false
+    whitelist: auto
+    theme_color: "#e67e22"
+    if_threshold: 3.0
+
+  - key: polymer_ai
+    display: 高分子 + AI
+    query: "polymer machine learning OR polymer neural network OR polymer deep learning OR polymer artificial intelligence OR polymer data-driven OR polymer informatics"
+    allow_preprint: false
+    whitelist: auto
+    theme_color: "#2874a6"
+    if_threshold: 3.0

@@ -1,0 +1,26 @@
+{
+  "name": "zcode-remotion-demo",
+  "version": "1.0.0",
+  "description": "ZCode Remotion Plugin official demo video - 一句话，一部片",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.518",
+    "@remotion/google-fonts": "4.0.518",
+    "@remotion/transitions": "4.0.518",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.518"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion bundle",
+    "lint": "tsc",
+    "remotion": "remotion",
+    "stills": "remotion still ZCodeRemotionDemo out/gate-40.png --frame=40"
+  }
+}

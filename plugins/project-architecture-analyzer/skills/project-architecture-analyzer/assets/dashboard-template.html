@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>架构分析看板</title>
+<style>
+:root{
+  --bg:#0e1420; --panel:#151d2e; --panel2:#1a2438; --line:#24304a;
+  --tx:#dfe7f5; --tx2:#8fa0bd; --acc:#6c8cff; --acc2:#38d1c0;
+  --ok:#3ecf8e; --warn:#f5b356; --info:#5aa9f8; --bad:#f2708a;
+  --mono:"Cascadia Code",Consolas,"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;background:var(--bg);color:var(--tx);font:14px/1.7 "Segoe UI","Microsoft YaHei",sans-serif;min-height:100vh}
+a{color:var(--acc)}
+/* ---------- 侧边栏 ---------- */
+#sidebar{width:230px;min-width:230px;position:sticky;top:0;height:100vh;padding:20px 14px;border-right:1px solid var(--line);background:var(--panel)}
+.brand{font-size:16px;font-weight:700;padding:6px 10px 18px;letter-spacing:.5px}
+#nav{display:flex;flex-direction:column;gap:4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--tx2);transition:.15s}
+.nav-item:hover{background:var(--panel2);color:var(--tx)}
+.nav-item.on{background:linear-gradient(90deg,#26324f,#1e2a44);color:var(--tx);border-left:3px solid var(--acc)}
+.side-foot{position:absolute;bottom:16px;left:14px;right:14px;font-size:11px;color:var(--tx2);line-height:1.5}
+/* ---------- 主区 ---------- */
+#main{flex:1;padding:30px 38px 80px;max-width:1080px}
+h1{font-size:24px;margin-bottom:4px}
+h2{font-size:19px;margin:34px 0 12px;padding-left:10px;border-left:4px solid var(--acc)}
+h3{font-size:15px;margin:18px 0 8px;color:var(--acc2)}
+.sub{color:var(--tx2);margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:10px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.muted{color:var(--tx2)} .mono{font-family:var(--mono);font-size:13px}
+code{font-family:var(--mono);background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px;color:#b8c8ee}
+ul.plain{list-style:none} ul.plain li{padding:4px 0}
+/* ---------- 徽章/标记 ---------- */
+.ev{display:inline-block;padding:0 8px;border-radius:9px;font-size:11.5px;vertical-align:1px;white-space:nowrap}
+.ev.ok{background:rgba(62,207,142,.14);color:var(--ok);border:1px solid rgba(62,207,142,.35)}
+.ev.warn{background:rgba(245,179,86,.13);color:var(--warn);border:1px solid rgba(245,179,86,.35)}
+.ev.info{background:rgba(90,169,248,.13);color:var(--info);border:1px solid rgba(90,169,248,.35)}
+.ev.bad{background:rgba(242,112,138,.13);color:var(--bad);border:1px solid rgba(242,112,138,.35)}
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+th{color:var(--tx2);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid rgba(36,48,74,.55);vertical-align:top}
+tr:hover td{background:rgba(108,140,255,.05)}
+/* ---------- 方法徽章 ---------- */
+.m{display:inline-block;min-width:52px;text-align:center;padding:1px 8px;border-radius:7px;font-family:var(--mono);font-size:11.5px;font-weight:700}
+.m.GET{background:rgba(62,207,142,.15);color:var(--ok)}
+.m.POST{background:rgba(108,140,255,.18);color:#9db1ff}
+.m.PUT{background:rgba(245,179,86,.15);color:var(--warn)}
+.m.PATCH{background:rgba(245,179,86,.15);color:var(--warn)}
+.m.DELETE{background:rgba(242,112,138,.15);color:var(--bad)}
+.m.WS{background:rgba(90,169,248,.15);color:var(--info)}
+/* ---------- 调用链 ---------- */
+.chain{border-left:2px solid var(--line);margin:8px 0 8px 6px;padding-left:0}
+.chain .step{position:relative;padding:5px 0 5px 20px;font-family:var(--mono);font-size:13px}
+.chain .step::before{content:"";position:absolute;left:-5px;top:12px;width:8px;height:8px;border-radius:50%;background:var(--acc)}
+/* ---------- 数据流时间线 ---------- */
+.flow{position:relative;border-left:2px solid var(--line);margin-left:8px;padding-left:22px}
+.flow .fs{position:relative;padding:8px 0}
+.flow .fs::before{content:attr(data-n);position:absolute;left:-30px;top:8px;width:20px;height:20px;border-radius:50%;background:var(--panel2);border:1px solid var(--acc);color:var(--acc);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+/* ---------- 架构图（模型用类拼装） ---------- */
+.dwrap{display:flex;flex-direction:column;align-items:center;gap:0;padding:8px 0}
+.dbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 18px;text-align:center;min-width:280px}
+.dbox b{color:var(--acc2)} .dbox .mono{font-size:12px;color:var(--tx2)}
+.drow{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.darr{color:var(--acc);font-size:16px;padding:2px 0;text-align:center;width:100%}
+.dside{border-style:dashed;background:rgba(108,140,255,.06)}
+/* ---------- 接口详情/面试题 ---------- */
+.detail{display:none;background:var(--panel2);border-radius:10px;padding:6px 16px 14px;margin:6px 0 10px}
+.detail.open{display:block}
+.rowtoggle{cursor:pointer}
+.qcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0;cursor:pointer}
+.qcard .ans{display:none;margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+.qcard.open .ans{display:block}
+/* ---------- 其他 ---------- */
+.search{width:100%;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font-size:13.5px;margin:8px 0 4px}
+.search:focus{outline:1px solid var(--acc)}
+.empty{color:var(--tx2);padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px;margin:12px 0}
+.check span{margin-right:8px}
+.tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:1px 10px;margin:2px 4px 2px 0;font-size:12.5px;color:var(--tx2)}
+.xz{background:linear-gradient(135deg,rgba(56,209,192,.08),rgba(108,140,255,.08));border:1px dashed rgba(56,209,192,.4)}
+@media print{#sidebar{display:none}#main{max-width:none}}
+@media (max-width:900px){#sidebar{display:none}#main{padding:18px}}
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <div class="brand">🔍 <span id="brand">架构分析看板</span></div>
+  <nav id="nav"></nav>
+  <div class="side-foot" id="sidefoot"></div>
+</aside>
+<main id="main"></main>
+<noscript>此看板需要启用 JavaScript。</noscript>
+<script>
+/* ==================== DATA-START：分析数据填写区 ====================
+   使用规则（见 skill references/dashboard-data.md）：
+   1. 仅替换 __ANALYSIS_DATA__ 为真实分析数据对象，勿改渲染代码；
+   2. 所有结论文字内联标注证据：【已确认：…】【推测】【框架行为】【待确认】；
+   3. 字段均可缺省，渲染器会显示空状态。 */
+const DATA = __ANALYSIS_DATA__;
+/* ==================== DATA-END ==================== */
+
+/* ==================== 渲染代码（勿改） ==================== */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const fmt=s=>esc(s)
+  .replace(/【(已确认)([^】]*)】/g,'<span class="ev ok">已确认$2</span>')
+  .replace(/【(推测)([^】]*)】/g,'<span class="ev warn">推测$2</span>')
+  .replace(/【(框架行为)([^】]*)】/g,'<span class="ev info">框架行为$2</span>')
+  .replace(/【(待确认)([^】]*)】/g,'<span class="ev bad">待确认$2</span>')
+  .replace(/【(无法从当前代码确定)([^】]*)】/g,'<span class="ev bad">无法确定$2</span>')
+  .replace(/\n/g,"<br>");
+const mchip=m=>`<span class="m ${esc(m)}">${esc(m)}</span>`;
+const tbl=(head,rows)=>`<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${typeof r==="string"?r:r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+const chainHtml=arr=>`<div class="chain">${arr.map(l=>`<div class="step">${fmt(l)}</div>`).join("")}</div>`;
+
+function rOverview(){
+  const o=DATA.overview||{};
+  return `<h1>${esc(DATA.meta?.project||"")}</h1>
+  <p class="sub">${fmt(DATA.meta?.tagline||"")}　·　生成于 ${esc(DATA.meta?.generatedAt||"")}</p>
+  ${o.checklist?`<div class="card check">${o.checklist.map(c=>`<span>${c.checked?"✅":"⬜"} ${esc(c.label)}</span>`).join("")}<p class="muted" style="margin-top:8px">${fmt(o.checklistBasis||"")}</p></div>`:""}
+  ${o.backend?`<h2>后端技术栈</h2>${tbl(["技术","版本","用途","证据"],o.backend.map(b=>[esc(b.tech),esc(b.version||"-"),esc(b.purpose),fmt(b.evidence)]))}`:""}
+  ${o.frontend?`<h2>前端技术栈</h2>${tbl(["技术","用途","证据"],o.frontend.map(f=>[esc(f.tech),esc(f.purpose),fmt(f.evidence)]))}`:""}
+  ${o.runtime?`<h2>运行环境</h2>${tbl(["项","说明"],o.runtime.map(r=>[esc(r[0]),fmt(r[1])]))}`:""}
+  ${o.conclusions?`<h2>核心结论</h2><div class="card"><ul class="plain">${o.conclusions.map(c=>`<li>▪ ${fmt(c.text)}</li>`).join("")}</ul></div>`:""}
+  ${o.pending&&o.pending.length?`<h2>【待确认】清单</h2>${tbl(["待确认项","去哪里确认"],o.pending.map(p=>[fmt(p.item),fmt(p.clue)]))}`:""}`;
+}
+function rArch(){
+  const a=DATA.architecture||{};
+  return `<h1>🏗️ 架构总览</h1>
+  ${a.packages?`<h2>包结构</h2>${tbl(["包路径","职责"],a.packages.map(p=>[`<code>${esc(p.path)}</code>`,fmt(p.duty)]))}`:""}
+  ${a.diagramHtml?`<h2>分层与调用关系</h2><div class="card"><div class="dwrap">${a.diagramHtml}</div></div>`:""}
+  ${a.features?`<h2>关键架构特征</h2>${a.features.map(f=>`<div class="card"><b>${esc(f.title)}</b><br>${fmt(f.text)}</div>`).join("")}`:""}
+  ${a.extras?`<h2>其他组件速览</h2>${tbl(["组件","用途","证据"],a.extras.map(e=>[esc(e[0]),esc(e[1]),fmt(e[2])]))}`:""}`;
+}
+let mq="";
+function rModules(){
+  const mods=DATA.modules||[];
+  const q=mq.trim().toLowerCase();
+  const hit=i=>!q||(`${i.method} ${i.path} ${i.handler} ${i.summary||""}`).toLowerCase().includes(q);
+  return `<h1>📦 模块与接口</h1>
+  <p class="sub">共 ${mods.reduce((n,m)=>n+(m.interfaces||[]).length,0)} 个端点。带 <span class="ev warn">⚡</span> 标注表示有限流；点击行展开完整档案。</p>
+  <input class="search" id="msearch" placeholder="🔍 过滤接口（路径 / 方法 / 说明）…" value="${esc(mq)}">
+  ${mods.map((m,mi)=>{
+    const list=(m.interfaces||[]).filter(hit);
+    if(q&&!list.length)return"";
+    return `<h2>${esc(m.name)} <span class="muted" style="font-size:12.5px">· ${esc(m.pkg||"")} · ${list.length} 个接口</span></h2>
+    ${m.desc?`<p class="muted">${fmt(m.desc)}</p>`:""}
+    ${tbl(["方法","路径","Controller 方法","说明",""],
+      list.map((i,ix)=>{
+        const id=`if${mi}-${ix}`;
+        return `<tr class="rowtoggle" data-act="toggle" data-t="${esc(id)}"><td>${mchip(i.method)}</td><td class="mono">${fmt(i.path)}</td><td class="mono">${esc(i.handler||"")}</td><td>${fmt(i.summary||"")}${i.rate?` <span class="ev warn">${esc(i.rate)}</span>`:""}</td><td>${i.detail?"▸":""}</td></tr>`
+          +(i.detail?`<tr><td colspan="5" style="padding:0;border:none"><div class="detail" id="d-${esc(id)}">${detailHtml(i.detail)}</div></td></tr>`:"");
+      }))}`;
+  }).join("")}`;
+}
+function detailHtml(d){
+  const sec=(t,v)=>v?`<h3>${t}</h3><div>${v}</div>`:"";
+  return sec("① 功能",d.purpose&&fmt(d.purpose))
+    +sec("② 请求",d.request&&`<p class="mono">${fmt(d.request)}</p>`)
+    +sec("③ 请求参数",Array.isArray(d.params)?tbl(["字段","类型","含义","校验"],d.params.map(p=>[`<code>${esc(p[0])}</code>`,esc(p[1]||"-"),esc(p[2]||""),esc(p[3]||"-")])):(d.params&&fmt(d.params)))
+    +sec("④ Controller",d.controller&&fmt(d.controller))
+    +sec("⑤ Service",d.service&&fmt(d.service))
+    +sec("⑥ 数据访问",d.dataAccess&&fmt(d.dataAccess))
+    +sec("⑦ 数据库",d.tables&&fmt(d.tables))
+    +sec("⑧ 使用技术",d.techs&&d.techs.map(t=>`<span class="tag">${esc(t)}</span>`).join(""))
+    +sec("⑨ 调用链",d.chain&&chainHtml(d.chain))
+    +sec("⑩ 数据流",d.dataFlow&&fmt(d.dataFlow));
+}
+function rMatrix(){
+  const mx=DATA.matrix||{};
+  if(!mx.rows||!mx.rows.length)return empty("本轮未生成接口×技术矩阵");
+  return `<h1>🧮 接口×技术矩阵</h1>
+  <p class="sub">✓ = 该接口调用链中真实出现该技术【已确认】；- = 未出现；✓* = 见脚注。</p>
+  ${tbl(mx.columns.map(c=>esc(c)),mx.rows.map(r=>r.map((c,i)=>i<2?esc(c):fmt(c))))}
+  ${mx.footnote?`<p class="muted">${fmt(mx.footnote)}</p>`:""}`;
+}
+function rTechs(){
+  const ts=DATA.techs||[];
+  if(!ts.length)return empty("本轮未生成技术档案");
+  return `<h1>⚙️ 技术档案（为什么存在）</h1>
+  ${ts.map(t=>`<div class="card"><h2 style="margin:0 0 6px;border:none;padding:0">${esc(t.name)}</h2>
+    <p>${fmt(t.summary||"")}</p>
+    ${t.usage?tbl(["文件","位置","用途"],t.usage.map(u=>[`<code>${esc(u[0])}</code>`,esc(u[1]||""),fmt(u[2]||"")])):""}
+    ${sec3("怎么使用",t.how)}${sec3("存什么 / 做什么",t.what)}${sec3("为什么存在（解决什么问题）",t.why)}
+    ${sec3("如果没有它会怎样",t.without)}${sec3("与其他组件的关系",t.relations)}
+    ${t.xuezha?`<div class="card xz" style="margin-top:10px"><b>🎓 学渣版：</b><br>${fmt(t.xuezha)}</div>`:""}
+  </div>`).join("")}`;
+}
+const sec3=(t,v)=>v?`<h3>${t}</h3><div>${fmt(v)}</div>`:"";
+function rFlows(){
+  const fs=DATA.flows||[];
+  if(!fs.length)return empty("本轮未生成数据流");
+  return `<h1>🔀 数据流</h1>
+  ${fs.map(f=>`<div class="card"><h2 style="margin:0 0 8px;border:none;padding:0">${esc(f.name)}</h2>
+    ${f.api?`<p class="mono muted">${fmt(f.api)}</p>`:""}
+    ${f.steps?`<div class="flow" style="margin-top:12px">${f.steps.map((s,i)=>`<div class="fs" data-n="${i+1}"><b>${fmt(s[0])}</b><br>${fmt(s[1])}</div>`).join("")}</div>`:""}
+    ${f.shapes?`<h3>数据形态变化</h3>${tbl(["阶段","数据长什么样","放在哪"],f.shapes.map(s=>[fmt(s[0]),fmt(s[1]),fmt(s[2])]))}`:""}
+    ${f.points?f.points.map(p=>`<div class="card" style="background:var(--panel2)"><b>${esc(p.title)}</b><br>${fmt(p.text)}</div>`).join(""):""}
+  </div>`).join("")}`;
+}
+function rInterview(){
+  const qs=DATA.interview||[];
+  if(!qs.length)return `<h1>⚖️ 面试题</h1>${empty("本轮未生成面试题。在对话中说「面试审判」可基于本项目真实代码出题；生成后可回填到此处。")}`;
+  return `<h1>⚖️ 面试审判</h1><p class="sub">先自己回答，再点击卡片看参考答案。</p>
+  ${qs.map((q,i)=>`<div class="qcard" data-act="qtoggle"><b>Q${i+1}：${fmt(q.q)}</b> <span class="muted">（考察点：${esc(q.point||"-")}｜代码依据：${esc(q.evidence||"-")}）</span>
+    <div class="ans"><b>参考答案要点：</b><ul class="plain">${(q.answer||[]).map(a=>`<li>▪ ${fmt(a)}</li>`).join("")}</ul>${q.followup?`<p><b>追问：</b>${fmt(q.followup)}</p>`:""}</div>
+  </div>`).join("")}`;
+}
+function rTerms(){
+  const ts=DATA.terms||[];
+  if(!ts.length)return empty("本轮未生成术语表");
+  return `<h1>🎓 学渣术语对照表</h1>
+  <div class="card xz"><p>先记住大白话，再对着术语表把"人话"翻译成"企业话"——面试时要说右边这列。</p></div>
+  ${tbl(["大白话","正式术语"],ts.map(t=>[fmt(t[0]),fmt(t[1])]))}`;
+}
+const empty=t=>`<div class="empty">${esc(t)}</div>`;
+
+const VIEWS=[
+  ["overview","📋","项目概览",rOverview],
+  ["architecture","🏗️","架构总览",rArch],
+  ["modules","📦","模块与接口",rModules],
+  ["matrix","🧮","接口×技术矩阵",rMatrix],
+  ["techs","⚙️","技术档案",rTechs],
+  ["flows","🔀","数据流",rFlows],
+  ["interview","⚖️","面试题",rInterview],
+  ["terms","🎓","学渣术语表",rTerms],
+];
+function go(id){
+  const v=VIEWS.find(v=>v[0]===id)||VIEWS[0];
+  $("#main").innerHTML=v[3]();
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("on",n.dataset.v===v[0]));
+  bindSearch();
+  window.scrollTo(0,0);
+}
+function bindSearch(){const s=$("#msearch");if(s)s.oninput=e=>{mq=e.target.value;const p=e.target.selectionStart;$("#main").innerHTML=rModules();const s2=$("#msearch");if(s2){s2.focus();try{s2.setSelectionRange(p,p)}catch(_){}}};}
+document.addEventListener("click",e=>{
+  const n=e.target.closest(".nav-item");if(n)return go(n.dataset.v);
+  const t=e.target.closest('[data-act="toggle"]');
+  if(t){const d=$("#d-"+t.dataset.t);if(d)d.classList.toggle("open");return;}
+  const q=e.target.closest('[data-act="qtoggle"]');if(q)q.classList.toggle("open");
+});
+$("#brand").textContent=(DATA.meta&&DATA.meta.project?DATA.meta.project:"")+" · 架构分析看板";
+document.title=(DATA.meta&&DATA.meta.project?DATA.meta.project+" · ":"")+"架构分析看板";
+$("#sidefoot").innerHTML=`由 project-architecture-analyzer 生成<br>${esc(DATA.meta&&DATA.meta.generatedAt||"")}<br>所有结论以代码证据为准`;
+$("#nav").innerHTML=VIEWS.map(v=>`<div class="nav-item" data-v="${v[0]}">${v[1]} ${v[2]}</div>`).join("");
+go("overview");
+</script>
+</body>
+</html>

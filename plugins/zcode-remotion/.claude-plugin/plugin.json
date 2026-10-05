@@ -1,0 +1,29 @@
+{
+  "name": "remotion",
+  "version": "0.2.5",
+  "description": "Create, preview and render videos with Remotion in ZCode. The reliability layer: bootstraps the official Remotion Agent Skills via the official installer, pre-flights the environment, routes to the right official skill, gates renders on visual QA. 用官方安装器引导 Remotion 官方技能，环境预检、静帧门禁、渲染校验一体化。",
+  "author": {
+    "name": "AIwork4me",
+    "url": "https://github.com/AIwork4me"
+  },
+  "homepage": "https://github.com/AIwork4me/zcode-remotion",
+  "repository": "https://github.com/AIwork4me/zcode-remotion",
+  "license": "MIT",
+  "keywords": [
+    "remotion",
+    "video-generation",
+    "programmatic-video",
+    "animation",
+    "render",
+    "mp4",
+    "react"
+  ],
+  "skills": "skills",
+  "commands": [
+    "commands"
+  ],
+  "description_i18n": {
+    "en": "Create, preview and render videos with Remotion in ZCode. The reliability layer: bootstraps the official Remotion Agent Skills via the official installer, pre-flights the environment, routes to the right official skill, gates renders on visual QA. 用官方安装器引导 Remotion 官方技能，环境预检、静帧门禁、渲染校验一体化。",
+    "zh-CN": "Remotion 视频可靠性层:官方技能+环境预检+视觉 QA+已验证渲染"
+  }
+}

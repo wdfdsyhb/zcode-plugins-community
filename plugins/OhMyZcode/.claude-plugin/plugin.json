@@ -1,0 +1,32 @@
+{
+  "name": "omz",
+  "version": "1.8.1",
+  "description": "Oh My ZCode — OmO 编排能力的 ZCode 移植：core（9 子代理 / 5 命令 / 4 skill）+ 可选 graph/orchestration/dashboard profile，默认全关",
+  "description_i18n": {
+    "en": "Oh My ZCode — OmO 编排能力的 ZCode 移植：core（9 子代理 / 5 命令 / 4 skill）+ 可选 graph/orchestration/dashboard profile，默认全关",
+    "zh-CN": "多 agent 并行编排:访谈式规划、独立评审与双证据验收,core 零侵入"
+  },
+  "author": {
+    "name": "djt889",
+    "url": "https://github.com/djt889"
+  },
+  "homepage": "https://github.com/djt889/OhMyZcode",
+  "license": "MIT",
+  "commands": "commands",
+  "skills": "skills",
+  "mcpServers": {
+    "omz-coordinator": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${ZCODE_PLUGIN_ROOT}/mcp/coordinator/server.mjs"
+      ],
+      "cwd": "${ZCODE_PROJECT_DIR}",
+      "enabled": false,
+      "timeoutMs": 30000,
+      "env": {
+        "OMZ_COORDINATOR_DB": "${ZCODE_PROJECT_DIR}/.omz/runtime/coordinator.sqlite"
+      }
+    }
+  }
+}

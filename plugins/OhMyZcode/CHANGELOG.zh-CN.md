@@ -1,0 +1,523 @@
+[English](./CHANGELOG.md) | **简体中文**
+
+# OMZ 实现变更日志
+
+**两套版本号**：`package.json` / `.zcode-plugin/plugin.json` 里的版本号追踪**实现**进度；`DESIGN.md` 顶部的 v1.x 是**设计文档**版本。两者的 minor 位对齐到同一份规格——一个是"写下来"，一个是"跑起来"。当前：实现 **1.8.1** ↔ DESIGN **v1.5**（1.6.0 至 1.7.2 是文档、打包与缺陷修复版本，均未改动设计规格；1.8.0 改了 `.omz/` 的状态布局，1.8.1 把该布局贯穿到全部协议文本，见下两条）。
+
+**跳号是有意的**：0.7.0 / 0.8.0 预留给 `graph` profile（DESIGN §9 M1-G，需外部安装 `@colbymchenry/codegraph` 并在目标项目 `codegraph init`）与真实环境实测回写（§10.2 当前的五项：**V3** hook `additionalContext` 注入行为、**V4** resume 适配器、**V8′** 并行 spawn 的权限弹窗时序、**V10** CodeGraph 装机、**V11** Electron dashboard 真机渲染与 CSP 实际拦截），两类都依赖真机安装环境或真实 ZCode 会话，本轮未交付；1.0.0 未单独发布，orchestration 层落地后直接进入 1.x 线。清单本身随版本收缩：**V8** 的枚举部分与 **V9** 并发压测在 1.4.0 结清（V8 只剩弹窗子项，记为 V8′），**V12** 的 9 个 agent spawn ping 在 1.5.0 装机验收结清（六项 → 五项）。
+
+每个条目记录三件事：**范围**（交付了什么）、**验证**（怎么证明它工作，用可复现的数字）、**已知缺口**（当时还没有的）。数字均取自 2026-09-01 在 Node v22.14.0 / Windows 上的实际运行输出。
+
+---
+
+## 1.8.1 — stem 前缀贯穿全协议 + 多会话并发的两种做法写进 /ulw（2026-09-03）
+
+**缺陷（1.8.0 自身引入的不一致）**
+
+1.8.0 声明「`.omz/plans/` 文件名带 stem 前缀」，但**只改了 `commands/ulw.md` 一处**。真正**写**这些文件的角色（`agents/omz-planner.md`）、**读**它们的角色（`agents/omz-atlas.md`）、以及 `commands/hyperplan.md`、`skills/ulw-plan/SKILL.md` 与它的 3 份 references、`skills/ulw-execute` 的 description 全都还在用裸 `<slug>`。同一条路径协议里出现两种说法：planner 按自己那份写 `.omz/plans/<slug>.md`，atlas 按自己那份找同名文件——**stem 前缀在实际写盘路径上等于没生效**，两个会话对相似目标推出同名 slug 时照样互相覆盖。
+
+`.omz/drafts/<slug>.md` 与 `.omz/research/<slug>/` 这两个同样按 slug 命名的共享目录，1.8.0 压根没碰。
+
+**范围**
+
+- **stem 前缀贯穿 12 个协议文件**：`agents/omz-planner.md`（草稿+定稿）、`agents/omz-atlas.md`（读计划）、`commands/hyperplan.md`（草稿+定稿）、`commands/ulw.md`、`skills/ulw-execute/SKILL.md`（description）、`skills/ulw-plan/SKILL.md` + `references/{full-workflow,intent-clear,intent-unclear}.md`、`skills/ulw-research/SKILL.md` + `references/{cause-disappearance,verification-economics,observation-manifest,claim-graph,intent-diff}.md`。研究目录 15 处路径一并改为 `.omz/research/<stem>-<slug>/`。
+- **明确 stem 的传递链**：子代理结构性拿不到 sessionId（B30），所以 **stem 必须由主 agent 写进派发 CONTEXT**。planner 与 ulw-plan 都新增了显式禁令——不得自创、不得编造、不得省略前缀；CONTEXT 里没给就把「缺 stem」当阻塞项交回主 agent，**不许先写一个裸 slug 的文件**。`ulw-research` 的 `{{SLUG}}` 语义澄清为「已含 stem 前缀的**完整目录名**」，worker 原样使用、不拆解、不重拼。
+- **`commands/ulw.md` 新增「多会话并发」一节**，按两种场景分别给做法：**不同项目根** → `.omz/` 各自独立，零冲突，直接跑；**同一代码库并行推不同任务** → `.omz/` 状态自 1.8.0 起已隔离，但 **git 本身会撞锁**，因此必须一个会话一个 worktree（给出可直接执行的 `git worktree add` 命令）。同时要求：首次运行发现同根已有其它会话的未关闭槽位、而用户意图是并行而非续跑时，**先建议开 worktree**。
+
+**验证**
+
+- `node --test tests/` 与 `npm test` 均 **656 tests / 656 pass / 0 fail**（1.8.0 是 650，+6）。
+- **新增「全仓库 slug 路径都带 stem 前缀」6 用例**：递归扫 `agents/` `commands/` `skills/` 全部 `.md`，用正则抽出每一处 `.omz/(plans|drafts|research)/<tail>` 引用（纯目录引用不计），断言每一处都带 `<stem>-` / `<OMZ_GOAL_STEM>-` / `{{SLUG}}` 三种标记之一。**另有一条「扫描确实找到 ≥25 处、三个目录都覆盖到」的自检**——防止正则写坏后空跑通过，那种假绿比不测更危险。其余 4 例分别钉住 planner 的禁令措辞、ulw-plan 四文件无裸路径、worker-prompt 的 `{{SLUG}}` 语义、以及 ulw.md 多会话节的四个要点（含 `index.lock` 与 `git worktree add`）。
+- **git 撞锁是实测的，不是推断**：同一 worktree 三并发 `git add`（各 400 文件），worker1 得到 `fatal: Unable to create '.git/index.lock': File exists.`（exit 128），另两个 exit 0 —— 1/3 撞锁。
+- **ledger 并发追加实测安全**：三进程各追加 200 行（每行约 300 字节），结果 600 行完整、零解析失败、按 `stem` 精确反解回 `{"sess_A":200,"sess_B":200,"sess_C":200}`。所以 1.8.0 给 ledger 加 `stem` 已经够用，不需要再拆文件。
+- `node tools/doctor.mjs` 无 FAIL；`node tools/validate-frontmatter.mjs .` 通过；临时目录零残留。
+
+**已知缺口**
+
+- 一致性测试只覆盖 `agents/` `commands/` `skills/` 三个目录的 `.md`。`DESIGN.md` / `CHANGELOG.md` 里的历史叙述仍保留裸 `<slug>` 写法（它们描述的是当时的事实，不该被追改），代价是这两份文档与当前协议在该细节上不一致——读者需以 `agents/commands/skills` 为准。
+- 多会话并发的 worktree 做法是**写进协议的建议**，不是引擎强制。主 agent 是否照做取决于它是否读到并遵守该节；没有任何机制能阻止用户在同一 worktree 里硬开两个会话（届时 `.omz/` 不会丢数据，但 git 提交会随机失败）。
+- `.omz/runtime/<teamId>/` 与 `.mode-injected-<sessionId>` 本来就按 id 隔离，本轮未改动，也未新增针对它们的并发用例。
+
+---
+
+**缺陷（B32，自 v1.0 起存在）**
+
+`.omz/boulder.json` 是**单值事实源**：`active_goal` / `works` / `session_ids` 各只有一个槽。两个会话在同一项目根各跑一次 `/ulw`，第二个会话在第二步写 boulder 时会把第一个的指针**整体覆盖**。实测（两会话按协议顺序落盘）：
+
+```
+A 注册目标 → boulder.active_goal = .omz/goal/sess_AAA.json
+B 注册目标 → boulder.active_goal = .omz/goal/sess_BBB.json   ← A 的指针被覆盖
+             boulder.works       = ["B-work"]                 ← A 的 work 丢了
+             boulder.session_ids = ["sess_BBB"]                ← A 的 sessionId 丢了
+
+goal 文件：['sess_AAA.json', 'sess_BBB.json']   ← 这两个反而都活着
+```
+
+次生影响更隐蔽：A 会话此后每次按第一步「先查 boulder」做续跑判定，读到的都是 **B 的目标**——B18 那条检查反过来误导 A，问它「有个未关闭的目标要续跑吗」，而那根本不是它的。
+
+**为什么加锁解决不了**
+
+`writeJsonSafe` 用 tmp + rename，本来就不会写出半截文件，所以这里没有「写交错」可防。加锁只是让 B 排队等 A 写完，**排完照样覆盖**——病根是「单槽位两个主人」，不是写的时机。锁是给「读-改-写丢更新」用的原语，用在这里是错配。
+
+**范围**
+
+- **新增 `adapters/zcode/boulder.mjs`（256 行）**：事实源改为 `.omz/boulder/<stem>.json`，**每会话一个槽位文件**。每个会话只写自己那一个，从不碰别人的；发现机制是 `readdir` 那个目录——**目录本身就是索引**，没有共享可变索引也就没有丢更新，**全程不需要锁**。导出 `createBoulder` / `readSlot` / `writeSlot` / `listSlots` / `openSlots` / `deriveView` / `writeView` / `migrateLegacyView` / `resolveContinuation` / `safeStem` / `slotPath` 等。
+- **`.omz/boulder.json` 降级为派生视图**：带 `"source": "derived"` 标记，只喂 `tools/render-status.mjs` 与 dashboard，**永不参与续跑决策**。正因为它不参与决策，它输给竞态才无害——这是「不需要锁」的另一半理由。保留 `active_goal` / `active_plan` / `active_team` / `status` 四个顶层字段，旧看板零改动即可读；另加 `open_stems` / `open_count`。
+- **续跑判定改为三分支**（B18 的真实要求是「可发现」，不是「单值」）：0 个未关闭 → 全新开始；1 个 → 问「续跑还是放弃」（1.7.x 的行为）；**≥2 个 → 列出候选让用户选**，逐条给 `stem` / `active_goal` / `updated_at` / `status`，按最近活动倒序。第三分支顺带修掉一个**单会话下就存在**的隐患：旧实现里三天前的陈旧 boulder 也会静默变成「那个」指针，用户根本不知道自己在续什么。
+- **旧布局一次性迁移**：只有单文件、没有 `boulder/` 目录时，`migrateLegacyView()` 迁成单槽位，OmO v2 五字段 + OMZ 三扩展字段逐个保留。**幂等可重入**（槽位目录已有内容即跳过，绝不覆盖用户后续更新）；旧文件损坏时**不猜着迁**（`reason: 'legacy-unreadable'`）——迁移是升级路径上唯一会碰用户既有数据的动作，宁可让人看到「读不出来」。
+- **schema v3**：`works` / `active_plan` / `session_ids` / `status` / `worktree_path`（OmO v2 原名一字不改）+ `active_goal` / `active_team` / `finished_at`（1.x 扩展）+ **`stem` / `updated_at`**（本版新增：前者让槽位自证归属，有人重命名文件后关系不失联；后者供三分支按最近活动排序）。
+- **两处次生共享面一并收口**：`.omz/plans/` 的文件名改为 `<stem>-<slug>.md`（slug 由目标推导，两个会话对相似目标推出同名 slug 是现实可能，撞名就是互相覆盖）；`.omz/ulw-execute/ledger.jsonl` 的每行**加 `stem` 字段**（追加写不会损坏，但没有 stem 就无法反解归属，两个会话的事件交织后分不清哪条属于谁）。
+- **`tools/render-status.mjs`**：优先读槽位目录，**逐个未关闭槽位渲染一行**（带 `stem=`），按最近活动倒序，与续跑候选顺序一致；损坏槽位单独标 `[corrupt]`；槽位目录不存在时回退读旧单文件（1.7.x 项目零改动可用）。
+- **`PATH_FIELD_NAMES` 补登 `active_goal`**：它是路径字段，此前不在白名单里，落盘时不会被归一（B3 在这条路径上失效）。
+
+**验证**
+
+- `node --test tests/` **650 tests / 650 pass / 0 fail**（1.7.2 是 577 → 本轮 +73），`npm test` 同样 650 pass / 0 fail。
+- **新增 `tests/boulder.test.mjs`（65 用例）**，写在实现之前（failing-first：首跑 `ERR_MODULE_NOT_FOUND`）。关键组：并发隔离 7 例（两会话各写自己的槽位后彼此指针都不丢 / 十会话交错写入后十个槽位全部完整 / **写 A 不改动 B 的文件，mtime 与内容双证**）；三分支 7 例；迁移 8 例（含幂等、损坏不猜、done 也迁）；派生视图 8 例。
+- **`tests/integration.test.mjs` +6 端到端用例**：两会话同根落盘后 A 的槽位完整、看板同时列出两条 boulder 行且最近活动在前；旧单文件项目迁移后看板照常渲染；槽位与派生视图经 `scanJsonHygiene` 扫描 BOM/反斜杠/损坏全空；**删掉派生视图后续跑仍准确**（证明它真的不参与决策）；含槽位的项目根 `doctor` 无 FAIL。
+- **协议文本一致性 6 例**：断言 `commands/ulw.md` 与 `skills/ulw-execute/SKILL.md` 真的写了槽位路径、三分支、`不得自行挑一个`、schema v3 的 `stem`/`updated_at`、ledger 的 `stem`——实现改了而协议没改，主 agent 仍会按旧描述写单文件，那正是本轮要消灭的行为。
+- `node tools/doctor.mjs` 无 FAIL；`node tools/validate-frontmatter.mjs .` 通过；临时目录零残留；仓库内无 `.omz/`。
+
+**已知缺口**
+
+- **同根并发仍不是推荐用法**。槽位化消除了 boulder 的互相覆盖，但 `.omz/ulw-execute/ledger.jsonl` 仍是共享追加文件（加了 `stem` 只是让事后能反解归属，不是隔离），同一仓库两个会话并发跑 git 也会撞 `index.lock`。**推荐仍是一个会话一个 worktree**（协议本来就要求「PR/分支工作在任务专属 worktree」）——槽位化是为了让**误用不丢数据**，不是为了鼓励同根并发。
+- 迁移路径未在真实 1.7.x 项目上跑过（测试里的旧文件是构造的）。字段级断言覆盖了 OmO v2 五字段与三个扩展字段，但真实项目可能有本文档未记录的额外字段——它们会被 `{...legacy}` 原样带过去，不会丢，只是没有断言兜住。
+- `dashboard/server.mjs` 的 `parseFileView` 仍按行解析 `render-status` 的文本输出，新增的 `stem=` 段落它当作 team 行之外的 note 处理（不报错、不显示）。dashboard 侧的槽位原生支持留待下一版。
+
+---
+
+**缺陷本身（B31，自 v1.5.0 起就在）**
+
+真实会话里输入 `/ulw` 发送失败。引擎日志：
+
+```
+Custom command /ulw shell expansion failed.
+Command: ——本提示词自此为本会话工作宪法，全程不得降级执行。
+2. **首次运行检测
+Exit: 1
+```
+
+引擎的行内展开正则是 `` /!`([^`]*)`/gu ``——`!` 后跟一对反引号包裹的内容。`commands/ulw.md` 第一步原文写成 `` `ULTRAWORK MODE ENABLED!` ``，那个 `!` **在反引号里面、紧贴收尾反引号**。于是它与文件里**下一对**反引号（在两段之后）配成一组，引擎把一段中文正文当 shell 命令丢给了 `cmd.exe`。退出 1 让 `NPi()` 抛错，整条命令展开失败，消息根本到不了模型。
+
+日志里复现三次（2026-09-02T16:00、17:46、2026-09-03T01:19），即用户的每一次尝试。
+
+**为什么什么都没抓住**
+
+- **577 条测试，没有任何一条用引擎自己的正则看过命令正文。** 所有关于命令的断言都是 frontmatter、章节结构或跨文件一致性。按散文去审命令文件找不出这类缺陷：命令文件不是文档，它是**展开器的输入**，任何紧贴反引号的 `!` 都是可执行语法。
+- **§18 的冒烟链跑错了面。** 它在 CLI/插件发现那个面上跑 `/ulw`，那个面只加载与列出命令；展开只发生在**会话发送**面，而那个面从未真正发过一次。
+- 本次我的第一次诊断也是错的：我猜的是 `unsupported shell expansion`（无 `executionPort` 时引擎抛的那句）。真实报文是 `shell expansion failed`——块**确实执行了**。两句话差一个词，含义相反。
+
+**范围**
+
+- `commands/ulw.md` 里那句横幅去掉反引号，句意不变。有意的 ```` ```! ```` 块未触碰且验证可用。
+- 新增断言用**两条**引擎正则扫每个 `commands/*.md`：行内命中零容忍（正文里没有任何合法用途——要执行就用围栏块），围栏块按文件逐个登记，多一个少一个都判红。
+- DESIGN 双语新增 **B31**，§13 章头扩到 B1–B31，§6 第一步的横幅措辞与修复对齐，避免文档回头又推荐那个坏写法。
+
+**验证**
+
+`npm test` **578 tests / 102 suites，0 失败**（此前 577，+1）。双向变异验证：把事故原句写回去 → **红**；另一种行内形态（`` !`git status` ``）→ **红**；删掉一个已登记的围栏块 → **红**；对照组——同样语法写进 `DESIGN.md` 这个非命令文件 → **绿**，证明断言的作用域是 `commands/` 而不是到处拒绝该模式。
+
+展开链本身也在引擎外复刻跑过，按 `collectShellExpansionMatches` + `NPi()` 的方式逐个执行命中项：**修复后**的树 1 处命中、exit 0；**已发布的 1.7.1** 树 2 处命中、第二处 exit 1——复现了用户可见的失败，也确认修复对症。
+
+`doctor` 无 FAIL，`validate` 通过，`hook:self-test` 30/30。
+
+**已知缺口**
+
+- 静态断言覆盖 `commands/`。skills 与 agent 文件不走这套展开，因此未扫；若将来某个 ZCode 版本开始展开它们，这条断言必须同步扩面。
+- §18 的冒烟链仍不含一次真实的会话发送。正是这个缺口让本缺陷活过了三个版本，而补上它需要真实会话，不是测试。
+
+---
+
+## 1.7.1 — 撤回命令的 `name` 字段：它从未被读取，却制造了五条 warning（2026-09-03）
+
+**错在哪**
+
+1.7.0 给五个命令的 frontmatter 都加了 `name`，理由写的是「引擎的 `readMarkdownFrontmatter` 会读它，显式声明可把命令名与文件名解耦」。**这两半都错了**，而且这个改动实际让装机状态变差了。
+
+`readMarkdownFrontmatter` 属于**插件组件枚举**那条路径。自定义命令走的是另一个加载器，它有自己的白名单（引擎常量 `OAo`）：
+
+```
+allowed-tools · argument-hint · description · disable-noninteractive · model · skills
+```
+
+`name` 不在里面。命令名来自 `DAo()`——从文件相对命令根目录的路径推导（`ulw.md` → `ulw`），**压根不看 frontmatter**。所以这个字段解不了任何耦，而白名单外的每个键都换来一条 warning：
+
+```
+[warning] custom_command_unknown_frontmatter: Unknown custom command frontmatter key: name   ×5
+```
+
+讽刺的是 1.7.0 的标题正是「装机零诊断」。它在**我查过的那个面**（`zcode plugins list --verbose`）确实干净，在**我没查的那个面**（`zcode commands list --verbose`）脏了。真正的错误是「只验证了一个诊断面就推广成零诊断」；写错字段只是它的症状。
+
+**范围**
+
+- 五个命令的 `name` 键全部移除。命令名不变（`/ulw`、`/team`、`/hyperplan`、`/omz-status`、`/omz-doctor`），因为它们一直是从文件名推导的。
+- 测试断言换成正确的不变量：**命令 frontmatter 只允许引擎白名单内的键**，且 `description` 必须存在。这比被撤回那条严格得多——它能拦住将来任何一个乱入的键，不只是 `name`。docstring 里也记下了这个坑：子代理 frontmatter（`agents/*.md`，走 `parseAgentFrontmatter`）**确实**要求 `name`；两条路径的允许键完全不同。
+- **顺手修掉一个在验证本版时撞见的 flaky 测试：十一条计时断言量的是墙钟。** 有一次全量跑回来 576/1，随后十次重跑都复现不出来。那一次总耗时 36772ms 对常态 21500ms——慢 70%，指向机器争抢而非代码缺陷。用 24 个占满核的 worker 抢 16 核刻意复现：5MB 降级路径从空闲的 `wall=708ms cpu=718ms` 变成负载下的 `wall=4976–5673ms cpu=953–1062ms`。**墙钟膨胀 4–8 倍，CPU 时间几乎不动**，而这些断言存在的目的是抓算法退化（CPU 密集），不是调度延迟。十一条全部改量 `process.cpuUsage()`，上界保持原值。验证方式是在制造出那次红的同一个 24-worker 负载下把整套重跑三次：每次 0 失败，其中一次墙钟耗时 140 秒。
+
+**验证**
+
+`npm test` **577 tests / 102 suites，0 失败**（数量不变：替换一条断言，不是新增）。变异测试带了一个刻意的对照组：把 `name` 加回去 → **红**；加一个别的非白名单键（`title`）→ **红**；删掉 `description` → **红**；加**合法**白名单键 `model` → **绿**。最后这条很关键——没有它，「拒绝一切键」的错断言看起来会跟正确断言一模一样。
+
+引擎层，针对当前这棵树：`zcode commands list --verbose` 报**零诊断**（此前 5 条 warning），5 个命令照旧全在；`zcode plugins list --verbose` 对 `omz` 仍是零 warning。
+
+**关于市场审核，这是自然会问的问题**
+
+它从未影响任何市场门，而且我是查了不是猜的。两个面向插件的校验端点都对装好的 1.7.0 实际调用过：`plugins/validate` → **0 条诊断**，`plugins/describe` → **0 条诊断**（同时正确枚举出 9 agents / 5 commands / 4 skills / 1 hook / 1 MCP server）。命令 frontmatter 的 warning 属于**命令发现**那条诊断流，插件校验路径不消费它。`claude-plugins-official` 的策略同样不受影响——它的判据是 hook 作用域、遥测、凭据访问、下载软件、描述诚实度，frontmatter 键不在其中。该策略对 OMZ 唯一的阻断项仍是那个未设项目闸的 `UserPromptSubmit` hook，本版未触碰。
+
+---
+
+## 1.7.0 — 可从自建市场安装，装机零诊断（2026-09-02）
+
+**范围**
+
+- **自建市场索引 `.claude-plugin/marketplace.json`。** ZCode 就按这个确切路径发现市场（`.claude-plugin/marketplace.json` → `marketplace.json`，引擎常量 `JRo`），所以 `/plugin marketplace add djt889/OhMyZcode` 之后 `/plugin install omz@omz-marketplace`，走的是**和官方市场同一条 `installMarketplacePlugin` 代码路径**——更新、启用、禁用一并如此。官方 `zcode-plugins-official` 市场不是选项：它的源是 Z.ai 的 CDN，每个条目都是 `source: "filesystem"` 指向随客户端分发的目录，没有投稿入口。
+  条目用 `source: "github"` 而不是 `"git"`：`resolveRepositoryPluginSource` 先试 GitHub tarball API（`requireSingleRoot` + `stripRoot`，**本机不需要装 `git`**），只有 401/403/404 或含 submodule/LFS 时才回退 `git clone`。`ref` 钉在 `v<version>` tag 上，所以装到的是发布时那棵树，而不是 `main` 当前的样子。`sha` 有意不写，且这不是疏漏：本索引与它所钉的负载在同一个仓库里，写自身所在 commit 的 sha 是自指的、提交前无法得知——引擎的 pin 是 `sha ?? ref`，tag 已经承担了这个角色。
+- **装机零诊断，靠跑引擎验证而不是读文档。** `zcode plugins list --verbose` 此前对 `omz` 打两条 warning，现在一条都没有。两条同一个形状——清单声明了引擎本来就自己处理的东西：
+  1. `"agents": "agents"` → `plugin_unsupported_component: Plugin component is diagnostic-only in this ZCode runtime: agents`。引擎的 `ZMo()` 对 `["agents","channels","lspServers","outputStyles","settings"]` 里出现的每个键都推一条 warning。子代理从来不是靠这条声明加载的：`loadPluginAgentProfiles` 直接扫 `<root>/agents/*.md`。删掉这个键对 9 个子代理毫无影响，warning 消失。
+  2. `"hooks": "hooks/hooks.json"` → `plugin_hook_invalid: Duplicate plugin hooks file ignored`。`listPluginHookSources` **先自动发现这个确切路径**，再读清单键；realpath 相同时第二条被当重复项丢弃。真正生效的一直是自动发现那条。
+  两处删除都有测试钉住，回不来。
+- **市场展示元数据。** `displayName`、`displayName_i18n`、`description_i18n`、`category`、`tags`、`homepage`、`author.url`、`examplePrompts`、`examplePrompts_i18n`——引擎的 `Cee()` 实际读进插件卡片的那些字段。卡片文案开门见山写明 OMZ 会注册一个 `UserPromptSubmit` hook 且其注入默认关闭，因为只看卡片的用户不该被一个 hook 惊到。
+- **5 个命令显式声明 `name`。** *（1.7.1 已撤回——这条是错的，见该条目。）*
+- **`ulw-execute` 的 skill description：204 → 103 字符**，严格触发从句保留。skill description 是长期占着发现上下文的；这条原来带着 `/ulw` 的步骤序号与 Atlas 会话提法，两者都不影响「该不该激活」。
+
+**验证**
+
+`npm test` **577 tests / 102 suites，0 失败**（此前 573：新增四条跨文件契约断言）。**做了变异测试，因为四条绿断言本身不证明任何事**——七个变异，每个立刻还原，每个都恰好让套件变红一次：清单加回 `agents`；加回 `hooks` 声明；市场条目版本与 `plugin.json` 不一致；`source` 改 `"git"`；`ref` 改 `"main"`；删掉某命令的 `name`；命令 `name` 与文件名不一致。基线与还原后均 `fail=0`。*（最后两个变异属于已撤回的 `name` 断言，1.7.1 已替换。）*
+
+引擎层验证，针对当前这棵树实跑：`zcode plugins list --verbose` 对 `omz` **零 warning 零 error**，同时仍报 `skills: 4, commands: 1, hooks: 1, mcp: plugin:omz:omz-coordinator`；`zcode commands list` 仍列出全部 5 个命令；`zcode skills list` 仍以命名空间名与裸别名两种形式列出全部 4 个 skill。所以删掉那两个清单键没有损失任何能力。`node tools/doctor.mjs` 无 FAIL，`node tools/validate-frontmatter.mjs .` 通过，`hook:self-test` 30/30。
+
+**已知缺口**
+
+- `claude-plugins-official` 市场（286 条目、`git-subdir` 源、接受 PR）在 `.github/policy/` 里带一套自动化安全评审。**OMZ 现状会被它判不通过**：策略对任何没有*项目相关性*闸的 `UserPromptSubmit` hook 判 `has_broad_scope_hooks=true`，而 `passes=false` 单凭这一条即成立。OMZ 那个 matcher 是关键词闸不是项目闸——而且在 `UserPromptSubmit` 上引擎根本不按 matcher 过滤，进程每条消息都启动。该策略的其余各项都已干净：hook 内零网络调用、零遥测、零凭据访问、不下载软件，描述也披露了 hook。想投那个市场，就得把 hook 作为独立插件分发。
+- 上游 Sustainable Use License 1.0 与本仓库 MIT 之间的边界仍是项目所有者的法律判断；`upstream/omo-sources.lock.json` 只做取证记录。
+- §10.2 里依赖真实环境的五项（V3/V4/V8′/V10/V11）本轮未触碰。
+
+---
+
+## 1.6.1 — README 里放上经过验证的四层架构图（2026-09-02）
+
+**范围**
+
+- **四层架构图，中英各一张，内嵌进两份顶层 README。** 两张都由 `docs/` 下的 [archify](https://github.com/tt-a1i/archify) 类型化规格生成，每种语言四个文件：规格（唯一手改的那个）、自包含的交互式 HTML 查看器、以及图面本体的明暗两版 PNG 截图供 GitHub 内联渲染。README 用 `<picture>` 配 `prefers-color-scheme`，所以用 GitHub 暗色主题的读者拿到的是暗色截图。
+  两种语言是**拓扑相同的两份独立规格**，不是同一个文件换字符串：节点尺寸与 viewBox 按语言分别调过，因为在渲染器的度量模型里 CJK 字形宽度是两倍；查看器自身的 UI 语言随 `meta.locale` 走。7 个组件带 `sources` 引用指向本仓库真实文件（coordinator 的 MCP 入口与 schema、dashboard 的全 GET 接口面、`probeCodegraph`、评审门 agent、八步生命周期命令、状态渲染器）；`deliver` 会拿记录的 revision 去仓库核实这些路径，而不是信规格里写的。
+- **这张图想说什么。** 拓扑就是 DESIGN §3.1 加 §3.3 合成一帧：执行层是唯一必然存在的（`core`），另外三层各有自己默认关闭的开关与自己的回退。四条导览视图分别走默认 `core` 路径、DAG 调度、语义检索、三条回退链。
+- **`docs/README.md` + `docs/README.zh-CN.md`** 记录如何重新生成、为什么 HTML 才是真正的产物而 PNG 只是 GitHub 能内联的那份、以及**入仓这几个字节**的验证状态。
+
+**验证**
+
+两种语言，均在各自规格 `meta.repository` 记录的 revision 上：`validate` 与 `deliver` 报 `showcase` profile 下 **9/9 artifact 检查**通过、**0 error 0 warning**，仓库取证对 7 处源码引用**核实通过**。`visual-check` 报 **`status: pass`**——1440×900、1600×1000、1920×1080、2048×1320 四档均无纵横向溢出，最紧一档的最小投影节点字号为 **7.6px**（英文）与 **7.8px**（中文），下限 6px。渲染出的明暗两版截图已逐张目视复核。本轮未改动但重跑：`npm test` **573 tests / 102 suites，0 失败**；`node tools/doctor.mjs` **无 FAIL**；`node tools/validate-frontmatter.mjs .` 通过。
+
+**已知缺口**
+
+- `showcase` 通过是关于**构图与容纳性**的机械判据——没有边穿过无关节点、没有标签被遮挡、桌面视口不溢出。它不说明画出来的事实对不对；那仍由 DESIGN §3.1 与 §3.3 负责。
+- PNG 是截图，不会自动跟着规格走。改了规格却没重跑 `deliver` 与重新截图，README 上仍是上一版图，而测试套件里没有任何一条会因此变红。重新生成的命令在 `docs/README.zh-CN.md`。
+- §10.2 里依赖真实环境的五项（V3/V4/V8′/V10/V11）本轮未触碰。
+
+---
+
+## 1.6.0 — 中英双语文档；修 hook 注入预算防线错位（2026-09-02）
+
+**范围**
+
+- **文档双语化。** `README.md`、`CHANGELOG.md`、`DESIGN.md` 与四个模块 README（`mcp/coordinator/`、`dashboard/`、`hooks/`、`upstream/`）全部转为英文主文件——GitHub 默认展示英文、仓库 topics 也是英文——并各配一份 `*.zh-CN.md` 中文对照。中文正文是**原样搬运，不回译**：两次语言往返恰好会磨掉这个项目最依赖的那些承重区分（"代码路径已证实" vs "行为已实测" vs "待装机实测"）。两版首行都有语言切换器，跨文件链接指向对应语言版本。`NOTICE` 采用**单文件双语**——法律性文件拆成两份会引来版本漂移。
+  术语由 8 类不翻译清单（角色名、命令、skill 名、工具与 frontmatter 字段、MCP 工具名、路径、引擎符号、模板变量，以及 `B<n>`/`I<n>`/`V<n>`/`§` 编号）加 60 条固定译法约束。交叉引用做了程序化比对：469 处 `§` 引用（去重 44 个）、`B1`–`B30`、`I1`–`I10`、`V1`–`V12`——中英计数完全一致，零悬空。
+- **修一个真实缺陷：hook 注入预算对错了墙。** 旧的 `MAX_CONTEXT_BYTES = 48 * 1024`（49152）**高于**引擎缺省的 `maxOutputBytes` = **32768**（引擎源码五处取证），而且它量的是 `additionalContext` **字符串**的字节数，引擎量的是 **stdout 上完整的 JSON 负载**（实测差 267 字节，中文越多差得越大）。两重错位叠加。
+  注入体落在 32768–49152 之间时，后果比"截断成半截 JSON"更糟：`OutputCollector.append()` 在 `inlineBytes >= maxInlineBytes` 之后丢弃余下 chunk（只置一个 hook 路径从不读的 `truncated` 标记），随后 `parseHookStdout()` 对半截报文执行 `try{JSON.parse(r)}catch{return}` 返回 `undefined`。**整段注入静默消失**——没有 kill、没有非零退出码、没有报错，只有"hook 好像没生效"。此前记录的 `o.kill()` 那条路径属于 `runGitCommand()`，不在 hook 执行链上；hook 走的是 executionPort 的 `outputLimit`。
+- **修法。** 新增 `ENGINE_DEFAULT_MAX_OUTPUT_BYTES = 32768` 并把引擎取证写进注释；判定改为以 `payloadBytes(text) = Buffer.byteLength(JSON.stringify({ additionalContext }), 'utf8')` 为准；预算设为 `MAX_PAYLOAD_BYTES = 24576`（32768 − 8192，留 25% 余量，因为用户或工作区配置可能把 `maxOutputBytes` 调得**更小**而我们拿不到那个值）；降级从两级扩为三级（`full` → `headings` → `minimal`）并加 `fitToPayload()` 硬裁兜底，使**不存在"降级了但仍超限"的路径**；头窗大小用**对实测负载做二分**求得，而不是线性回减——转义密集的输入下线性回减会一次把头窗砍到 0，白扔掉本来放得下的空间。`MAX_CONTEXT_BYTES` 保留为派生参考量（`MAX_PAYLOAD_BYTES - 24`），**不再参与任何判定**——JSON 转义下单个字符可放大到 6 字节，任何字符串侧阈值都可能再次失准。
+
+**四项收尾**
+
+- `tests/cli.test.mjs`：那句"本仓库当前状态下上游许可证未核验"已经过期。许可证已核验；`doctor --supply-chain` 的 `exit 1` 唯一来源是未装 codegraph 机器上的 `supply:codegraph`。注释改为写明这些用例实际断言的四条与环境无关的不变量，装了 codegraph 也不会变红。
+- `checkRequestTarget()` 有实现却**零断言**——是 I5 清单里唯一这样的项（全仓搜只命中 `server.mjs` 自身，把函数体改成 `return true` 没有任何用例变红）。补了两级共 9 例：纯函数级 5 例，加上用 `net.connect` 手写请求行的真实 socket 级 4 例——因为 `node:http` 客户端只发 origin-form，根本构造不出 absolute-form。
+- 上游许可证判据提取为共享函数 `tools/lib/license-gate.mjs`。此前 `doctor.mjs` 要求四个字段，而 `sync-omo-skills.mjs` 只要求 `status` 非空且不以 `unverified` 开头——`status: "pending"` 在那侧静默通过。**现在判断同源，严重度按调用方职责分化**：`doctor --supply-chain` 是发布门判 FAIL，`sync --check` 是同步前提示判 WARN。已知边界写在模块头：把 `spdx` 写成 `"MIT-typo"` 同时补齐其余三项仍会评为 `ok`，因为四项齐备只证明有可复核的取证痕迹，不证明值本身正确。
+- I5 防护计数：代码侧保留自己的七条切分（`server.mjs` 里端口与 token 确实是两段独立逻辑），但显式注明与 DESIGN 六道切分的差异在哪，以及原来的第七道 preload 已随组件一并撤下。
+
+**验证**
+
+`npm test` **572 tests / 102 suites，0 失败**（本轮之前是 557/101：`checkRequestTarget` +9，注入预算 +15 落在新增的"注入负载预算与降级" suite）；`node hooks/keyword-detect.mjs --self-test` **30/30**（+3 覆盖 `full` / `headings` / `minimal`）；`node tools/doctor.mjs` **无 FAIL**；`node tools/validate-frontmatter.mjs .` 通过。
+
+新增断言钉的是不变量而不是当前数字：预算 + 余量 ≤ 引擎缺省；三个 mode 的负载都在预算内；三级降级各有自己的负载上界；`ulw.md` 回归哨兵（负载在预算内**且余量 > 1.5x**，所以它再膨胀会先撞测试而不是撞引擎）；以及 5MB 输入的降级挂钟哨兵（< 1500ms——二分每步要对前缀做一次 `JSON.stringify`，而被超时杀掉是零字节输出，比降级失败更糟）。
+
+两次变异验证确认新测试有牙：把预算改回 49152 → **3 条红**（含 `预算(49152) + 余量(8192) 必须 <= 引擎缺省(32768)`）；删掉二级降级 → **3 条红**（含 `预算 24 下返回的负载 82865（level=headings）越界`）。
+
+`ulw.md` 本轮实测：文件 11175 字节，剥 frontmatter 后正文 **11018**（`stripFrontmatter` 还会吃掉一个前导换行，所以此前记的 11019 差 1），`additionalContext` 11105，**JSON 负载 11372**——对 24576 预算是 2.16x 余量，对引擎缺省是 2.88x。
+
+**已知缺口**
+
+与 1.5.0 相同：五项待真实环境验证（V3 / V4 / V8′ / V10 / V11），各有回退路径，没有一项在 `core` 主路径上。本轮有意保留一项：`keyword_hook` 关闭时 hook 仍会每条消息启一次 node 进程（约 126–132ms）——要消除它得在项目或用户配置层禁用插件 hook，而不是改插件自己的 `hooks.json`。
+
+---
+
+## 1.5.0 — 装机验收：真实会话跑通 doctor 与 `/ulw` 全生命周期（2026-09-01）
+
+1.4.0 之前的每条结论都建立在"代码 + 测试 + 引擎反查"的推断上，真实环境一次没跑。这一版把 OMZ 装进 ZCode、重启会话、在真实会话里跑完 `/omz-doctor`、`/omz-status` 与一条完整的 `/ulw` 生命周期，并把实测结果回写设计文档。没有新功能——交付物是**证据**，以及被证据结清或推翻的条目。
+
+**范围**
+
+- **V12 结清**：`/omz-doctor` 在真实会话内逐个 spawn 9 个 agent，**9/9 全部返回 `OMZ-PONG`**，无一 not found；裸名（`omz-planner` 等）与 `omz:` 命名空间前缀双入口均可 spawn。这一项是此前六项待实测里**唯一卡住 core 主路径**的，结清后 DESIGN §10.2 由六行减为五行（V12 移入 §10.1 已实测表）。
+- **只读白名单取得行为级确证（B1）**：五个受限角色（critic/oracle/reviewer/librarian/looker）的实测工具面**均无 Edit**，三个全工具角色（deep/junior/atlas）**有 Edit**，逐项与 frontmatter 吻合（planner 恰为 `Bash, Read, Write`，librarian 恰为 `Bash, Read, WebFetch`）。此前只有静态校验 + 引擎解析链推断。同时复验：9 个角色**全部无 `Agent`**（V5）、**全部无 `Grep`/`Glob`**（B20）、**连全工具角色都没有 `WebSearch`**（§17 裁决 2）。
+- **B16 结清**：OMZ 四个 skill 在子代理侧**全部可见且带 `omz:` 前缀**——委派 prompt 不必内联 skill 摘要，原回退方案作废。
+- **四条引擎/运行时新事实**：① 子代理工具面**多出一个 frontmatter 未声明的 `RespondToCoordinator`**（引擎注入，不受白名单约束）——"工具面 = 白名单 ∪ 引擎注入面"，第三层不可控；② **可见 skill 数因角色而异**（junior/atlas **40**、deep/reviewer **34**、其余五个 **33**），分档机制未查清，当前不影响 OMZ 但也不是引擎承诺；③ **worker 侧看得见 MCP 工具组**，调用权只能靠协议纪律约束；④ **B27 的两路渲染净化能力差已量化**：同一个含换行 + 竖线的恶意 title 下，`/omz-status` 内联块渲染出**多一行伪造任务**（**41 行**，`T-999` 独立成行冒充真任务），而 `render-status.mjs` 的 `cell()` 把它压成单元格内一行（**40 行**恒定，竖线换 `¦`）——"以 `render-status.mjs` 为准"是实测的能力差，不是免责声明。
+- **`/ulw` 端到端冒烟通过（M1 验证标准）**：在系统临时目录造真实 Node ESM 靶子项目跑完整生命周期——planner 出计划 → **critic 报 4 个 blocker 打回**（`.omz/evidence/` 不存在而 `tee` 不建父目录致转录静默落空／波内两任务并行写同一测试文件互相覆盖／判据与自身任务粒度不自洽／`# fail 0` 判据在 TTY 默认 spec reporter 下整体落空）→ rev2 → **两轮 junior 执行，failing-first 真的红了** → **reviewer 第一轮判 `needs-fix`** → 修完复审判 **`confirmed`**。全程在临时目录，插件仓库零污染。
+- **DESIGN.md v1.4 → v1.5**，新增 **§18「装机后冒烟验收链路」**（可复现记录：靶子构造、两轮评审的逐条发现、内存重放取证法、双证据判据升级为"命令串本身逐字可执行"），并把上述结论回写 §8/§9/§10/§13/§14/§17。
+- **移除 dashboard preload（发布前收尾）**：删除 `dashboard/preload.mjs`，连同 `main.mjs` 的 `windowOptions()` 里的 `preload` 字段与配套的 `OMZ_DASHBOARD_URL`/`OMZ_DASHBOARD_TOKEN` 环境变量写入。三条理由：① 与 `sandbox: true` **互相排斥**——Electron 官方文档明确 "Sandboxed preload scripts can't use ESM imports"，sandboxed preload 以普通脚本（非 ESM 上下文）加载，而原文件是 `.mjs`；它靠 `typeof require` 守卫躲开抛错，代价是 **sandbox 下 `contextBridge` 是否可达没有任何文档承诺**，"这道防护是否生效"无从验证；② **零引用的死代码**——`renderer/app.js` 与 `index.html` 对 `omzDashboard`/`getBootInfo` 一处都没有引用；③ **删掉不减少保护面**——renderer 的页面与数据全部来自 loopback HTTP 服务（`fetch('/api/*')`），token 走地址栏 query（`urlOf('/')` 拼 `?token=`，页面从 `location.search` 读），主进程手上没有 renderer 拿不到的东西。**因此 §13.5 I5 的安全清单从七道防护改为六道**（1.1.0 那条"preload 最小面"是第七道）：这是**一条无法验证的承诺被撤下**，**不是一道防护失效**——攻击面前后相同，`contextIsolation`/`nodeIntegration:false`/`sandbox`/`webSecurity` 四项 BrowserWindow 硬化全部保留。将来若真需要主进程数据，只能用 `preload.cjs`（sandbox 下按 CJS 加载）并把暴露面重新登记进 I5 清单；理由与落点见 `dashboard/README.md`「为什么 Electron 壳不需要 preload」。
+- **`engines.node` 由 `>=22.5.0` 提到 `>=22.13.0`**（源码级取证）：Node 22.5–22.12 的 `node:sqlite` 在 `--experimental-sqlite` flag 之后（未开 flag 即不注册该内置模块），直接 import 抛 `ERR_UNKNOWN_BUILTIN_MODULE`，**coordinator 与 dashboard 启动即崩栈**，用户会得到"只有 core 能用"的半残装机；官方 `doc/api/sqlite.md` 的 history 表写明 "v22.13.0 — SQLite is no longer behind `--experimental-sqlite`"。同步改动：`adapters/zcode/capability.mjs` 的 `MIN_MINOR` 5 → 13、`package.json` 的 `engines.node`、`README.md` 与 `mcp/coordinator/README.md` 的下限说明、`tools/doctor.mjs` 的 `cap:node`/`supply:engines` 文案与修复建议（`fix` 里写明 22.5–22.12 需 flag 的原因）。`tests/capability.test.mjs` 的下限用例改为**从 `package.json` 的 `engines.node` 读取版本号写进用例名与失败消息**（`MIN_MAJOR`/`MIN_MINOR` 是 capability.mjs 的私有常量、未 export，engines 是测试能拿到的唯一权威声明），此后改门槛不会再留下写死旧版本号的文案。**判定逻辑未变**：doctor 与测试都走 `capability.mjs` 的常量，本条只是把文案与常量对齐。
+- **本条目发布后追加的三处收尾**（本轮补记，故上方"本版不加测试"已不成立）：
+  1. **`checkRequestTarget` 的 absolute-form 白名单补测试 9 例 → 当时总数 557 tests / 101 suites**（本条目最终总数见下方注入预算那条与「验证」块的 572/102）。这道门此前是 I5 清单里**唯一有实现零断言**的一项（全仓搜只命中 `server.mjs` 自身，把函数体改成 `return true` 也不会有任何用例变红）。补的是两级断言：纯函数级 5 例（origin-form 恒放行、absolute-form 命中本机白名单放行、外部 host 与端口不符拒绝、authority-form 与 asterisk-form 拒绝、非 http scheme 一律拒绝）+ 真实 socket 级 4 例（用 `net.connect` 手写请求行，因为 `node:http` 客户端只发 origin-form、构造不出 absolute-form；覆盖外部 host→400、本机 host→200、origin-form→200、ftp scheme→400），并断言 400 发生在读静态文件之前（响应体不含 `app.js` 内容）。
+  2. **许可证判据提取为 `tools/lib/license-gate.mjs` 共享函数**。此前 `tools/doctor.mjs` 与 `tools/sync-omo-skills.mjs` 各写一份判据，松紧差两个量级：doctor 看四项（status/spdx/verified_at/verified_via），sync 只要求 `status` 存在且不以 `unverified` 开头——于是 `status: "pending"`/`"TODO"`/甚至 `"x"` 都能从 sync 静默过去，且完全不看 spdx 与取证痕迹。现在两侧共用 `evaluateLicenseEntry()`，**判断同源、严重度按调用方职责分化**（doctor 的 `supply:upstream-license` 是发布门：`ok` 之外三档一律 FAIL；sync 的 `loadLock()` 是同步前提示：`incomplete`/`unverified` 只报 WARN 且退出码仍 0，`missing`（记录整条不存在）保留它原有的 ERROR/exit 1，因为 lock 结构缺失与"核验没做完"不是一回事）。为精确保留这条退出码契约，函数除 `level` 另返回 `statusPresent`。"谁要取证痕迹"的划分也归入判据本身（`PROOF_EXEMPT_KEYS`，方向 fail-closed：默认要 proof，只有显式豁免的 key 免——`codegraph` 是外部 MCP 依赖而非移植来源，其供应链取证由 `supply:codegraph` 与 NOTICE 承担）。**已知边界照旧写明**：四项齐备只证明"有可复核的取证痕迹"，不证明值本身正确，值的正确性只能联网比对上游 LICENSE，而 doctor 与 sync 都是离线检查。
+  3. **I5 防护计数口径统一**。`dashboard/server.mjs` 与 `tests/dashboard.test.mjs` 保留按代码结构的**七条**切分（端口与 token 在实现里是两段独立逻辑），并显式注明与 DESIGN §13.5 I5 **六道**切分的差异属"同一组防护的不同切分、不是漂移"，以及原第七道 preload 已随组件删除是"承诺被撤下"而非"防护失效"。
+- **文档双语化（本轮）**：`DESIGN.md` 转为英文主文件、新建 `DESIGN.zh-CN.md` 作中文对照（中文正文原样保留，不回译），两版首行加语言切换器、跨文件链接指向对应语言版本。同时修掉三处过期数字：`hooks/README.md` 的 `ulw.md` 字节数复测为 **11175**（剥 frontmatter 后正文 **11018**、`additionalContext` **11105**、JSON 负载 **11372**，旧值 7200/7044/7130/7355 是 `ulw.md` 拆八步加第零步之前的）；`hooks/README.md` 的"注入长度上限"一节不再用现在时描述**已在 v1.4 删除**的顶层 `maxOutputBytes`，并改为准确表述——真实上限来自用户/内部配置、**缺省 32768**，因此 `MAX_CONTEXT_BYTES = 48KB`（49152）在缺省配置下**不是有效防线**（正文落在 32768–49152 之间会通过自检后被引擎**整段静默丢弃**——不是本条目原文所写的"截断成半截 JSON"，取证与修法见下一条），当时不构成实际问题只因 11105 远低于 32768。**本轮已修，故不再是需要标注的残余风险**；`DESIGN.md` 描述当前状态处的 `548 tests / 99 suites` 改为当时的 **557/101**（本轮再改为 **572/102**；**版本历史 v1.4 条目里的 548/99 是当时的真实值，不改**）。
+- **hook 注入预算防线错位（真实缺陷，已修）**：旧 `MAX_CONTEXT_BYTES = 48KB`（49152）**高于**引擎缺省 `maxOutputBytes` **32768**，且判定对象是 `additionalContext` **字符串**的字节数，而引擎量的是 **stdout 的完整 JSON 负载**（实测 `ulw.md` 差 267 字节，中文越多差越大）——两重错位。落在 32768–49152 之间的注入体会通过自检后被引擎**静默丢弃**：`OutputCollector.append()` 在 `inlineBytes >= maxInlineBytes` 后丢弃余下 chunk（只置 `truncated` 标记，hook 路径从不读它），随后 `parseHookStdout()` 对半截 JSON 执行 `try{JSON.parse(r)}catch{return}` → `undefined`。没有 kill、没有非零退出码、没有报错，唯一症状是"hook 好像没生效"。**修法**：新增 `ENGINE_DEFAULT_MAX_OUTPUT_BYTES = 32768`（注释附五处引擎取证）；判定改为 `payloadBytes(text) = Buffer.byteLength(JSON.stringify({additionalContext}), 'utf8')`；预算 `MAX_PAYLOAD_BYTES = 24576`（32768 − 8192，即 25% 余量——用户/工作区配置可能把 `maxOutputBytes` 调得更小，hook 进程拿不到那个值）；降级从两级扩为**三级**（`full` → `headings` → `minimal`）并以 `fitToPayload()` 硬裁兜底；头窗大小改用**二分实测负载**求，不用线性回减（转义密集输入下线性回减会一次把头窗砍到 0）。`MAX_CONTEXT_BYTES` 保留但**降级为派生参考量**（`MAX_PAYLOAD_BYTES - 24` = 24552），**不参与任何判定**。**测试**：`tests/hooks.test.mjs` +15 例（68 → **83**，新增 suite「注入负载预算与降级」），self-test +3 例覆盖 full/headings/minimal（27/27 → **30/30**），总数 557/101 → **572/102**。含不变量断言（预算 + 余量 ≤ 引擎缺省；三个 mode 的负载都 < 预算）、三级降级各自的负载上界断言、`ulw.md` 回归哨兵（负载 < 预算且余量 > 1.5x，再膨胀先撞测试而不是撞引擎）、5MB 输入的降级耗时哨兵（< 1500ms）。**变异验证**：预算改回 49152 → 3 条红（含 `预算(49152) + 余量(8192) 必须 <= 引擎缺省(32768)`）；删掉二级降级 → 3 条红（含 `预算 24 下返回的负载 82865（level=headings）越界`）。**顺带修正**：`ulw.md` 剥 frontmatter 后正文是 **11018** 而非 11019（`stripFrontmatter` 剥完分隔符后还有个 `replace(/^\s+/,'')` 吃掉一个前导换行）。
+
+
+**验证**
+
+`npm test` **572 tests / 102 suites 全绿**（1.4.0 是 548/99，本条目发布后补的 `checkRequestTarget` 用例 +9、本轮注入预算用例 +15）；`node tools/doctor.mjs` **无 FAIL**（唯一 WARN 是本机未装 codegraph，`graph` profile 默认关闭属预期）；`node tools/validate-frontmatter.mjs .` 通过；`node hooks/keyword-detect.mjs --self-test` **30/30**。真实会话侧：`/omz-doctor` 的 9 次 spawn ping 全部返回暗语并带回自报工具面与自报可见 skill 清单；`/ulw` 终态靶子项目 `npm test` **8/8/0**、四条 SC 全 done、boulder `status: done`、`.omz/` 卫生扫描零 BOM 零反斜杠零损坏。
+
+**已知缺口**
+
+剩 **5 项**真实环境验收未做（1.4.0 是六项，减掉的正是 V12）：**V3**（hook `additionalContext` 的实际注入行为——本次两个命令都走斜杠路径，不触发 hook）、**V4**（resume 适配器——冒烟全程任务级新 spawn，未触达 resume 路径）、**V8′**（并行 spawn 的权限弹窗时序——本次 spawn 均为顺序发起，没制造并行场景）、**V10**（CodeGraph 装机）、**V11**（Electron dashboard 真机渲染与 CSP 实际拦截）。五项全在触发增强层、可选适配层或可选 profile，回退形态都已是当前的常态发行配置，**没有一项会让 core 不可用**。另一条诚实边界：core 主路径只跑过**一个小特性、一条路径**——B18 的中断续跑、`/team` 的 claim 过门、LIGHT/HEAVY 分级、EXPAND 尾巴、5-lane 评审这些分支本次都没走到。
+
+---
+
+## 1.4.0 — 设计文档回写与收尾对齐（2026-09-01）
+
+1.3.0 修完了代码，这一版做三件事：把**实现期学到的东西写回设计文档**、清掉规格与实现的残余分歧、以及**用变异测试验证测试本身是否真的会红**。没有新功能。
+
+**范围**
+
+- **DESIGN.md v1.3 → v1.4**（1117 → 1482 行）。新增 §17「实现期架构裁决」12 条，每条按「设计期表述 → 事实 → 裁决 → 影响面」记录；新增 B22–B30 九条 bug 预案（全部来自实际命中的缺陷，不是推演）与 I7–I10 四条集成风险；§10.3 补第二、三轮引擎符号级反查的十条代码级证据；§10.2 待实测项重排（V8 枚举与 V9 并发压测已结清移入 §10.1，剩 V3/V4/V8′/V10/V11/V12 六项）；§9 里程碑表加「v1.4 实际状态」列；§8.2 重写 hook 触发层的事实。
+- **反假测试（本轮最有价值的部分）**。独立验收审计做了变异测试——把整仓复制到临时目录、随机破坏被测实现、看对应测试是否变红。结果发现三条**不可失败的测试**：I10 的 dashboard 鉴权分层（把 `/api/snapshot` 加进 `PUBLIC_PATHS`、或把静态壳移回 token 门之后使面板彻底不可用，46/46 全过）、B27 的看板字段注入净化（让 `cell()` 直接返回原值，139 个用例全过）、B28 的波次数值排序（改回字典序无人发现）。修法：`dashboard/server.mjs` 让请求流水线**直接用** `PUBLIC_PATHS.has(pathname)` 判定（消除第二份独立判断，改常量即改行为），测试加同源断言 + token 非空服务上的真实浏览器序列；新建 `tests/render-status.test.mjs` 直测 `cell()` 与 `compareWave()` 并做端到端伪造攻击断言。抽查又发现三条同类假测试（`MAX_SSE_STREAMS`、`parseEventCursor`、流水线的 loopback 门）一并补齐。四次变异逐个复验会红。
+- **引擎第三轮反查推翻两个前提**。① `hooks.json` 的 `matcher` 在 `UserPromptSubmit` 上**不参与筛选**：`hookRunner.run(t, r={})` 用第二参数做匹配，而 `runUserPromptSubmitHooks` 只传 `{signal}`，匹配函数在 matchValues 为空时无条件返回 true——所以"不命中连 node 进程都不启（省开销）"是错的，启用 `keyword_hook` 后每条用户消息都付约 126–132ms（裸 `node -e 0` 基线 85–91ms）。② `permissionMode` 枚举已直接取出（`acceptEdits`/`auto`/`bypassPermissions`/`default`/`dontAsk`/`plan`），**没有任何值能移除单个工具**——所以「用 `permissionMode` 把 Bash 收成结构约束」这条收紧路径不可行，双层模型（Edit/Write 结构 + Bash 纪律）是**终态**而非过渡态。
+- **新增 B30【高】：主 agent 拿不到 sessionId**。`${ZCODE_SESSION_ID}` 只在 hook / MCP / 命令的 shell 执行块上下文展开，Bash 工具的 env 里没有它，系统提示词 `<env>` 块也只有 cwd/git/platform/shell/osVersion——而协议要求把目标写到 `.omz/goal/<sessionId>.json`。模型会自己编一个，本轮自洽、看板照渲、doctor 检不出，**又一个退出码 0 的假成功**（B22 家族）。修法：`commands/ulw.md` 新增「第零步：会话标识」用内联执行块取真实值（并挡住"引擎未展开时字面量 `${...}` 残留"这一分支），取不到则用 `<ISO 时间戳>-<git HEAD 短哈希>` 确定性回退，**明令禁止编造**，并把 `boulder.json` 的 `active_goal` 钉为跨会话找回的唯一权威指针（`session_ids` 只作审计线索）。
+- **MCP 工具真名**。插件 MCP 工具的实际名字是 `mcp__plugin_omz_omz-coordinator__omz_team_create` 形态，而 `commands/team.md` 与 DESIGN §7.2 全用裸名——主 agent 按字面调用会 tool-not-found（有回退，但表现为"orchestration 开了却总在降级档"，极难诊断）。修法：命令新增第零步，要求按后缀匹配自己的工具清单现取真名（不硬编码长名，插件名或 server key 变了也不会错），找不到即判定 profile 未启用并走 core 回退。
+- **`hooks.json` 清掉死字段**。顶层 `enabled` 与 `maxOutputBytes` 经取证引擎**从不读取**（`parsePluginHookEvents` 只取 `rawHooks.hooks`，有插件 hook 时引擎强制 `enabled: true`）；真正生效的是 hooks 数组**元素级**的 `enabled`。删掉两个死字段并把取舍写进 `_comment`（已验证引擎忽略未知顶层键）。有意**不写**元素级 `enabled: false`——那会让语义闸 `keyword_hook` 永远不被触及，用户想启用得改插件文件而非项目配置。
+- **收尾对齐**：`omz-looker` 的 tools `[Read]` → `[Read, Bash]`、maxTurns 10 → 15（纯 `[Read]` 拿不到待检图片路径，该角色此前实际不可用）；附录 A 的"全工具"写法由 `tools: []  # 全工具` 改为**明确要求省略该行**（`tools: []` 是空白名单，与"省略=继承全工具"语义相反，与 B23 同源）；`coordinator.sqlite` 定为**单库多 team**（v1.3 目录树的分库画法被推翻，隔离改由 per-team 文件区 + 库内 `team_id` 外键承担）；附录 A 九个骨架与 `agents/*.md` 实际文件逐字段对齐（diff 归零）；doctor 汇总行改为 `9/9 静态校验OK（spawn ping 未执行）`（旧措辞会让人误读为 V12 已完成）；三个模块 README 的 `${pluginDir}`、过期字节数、开关表述一并修正。
+- **§14 置信度重新标定**：分母从"设计能否实施"换成"代码能否在真实环境按预期跑"，整体 98%（设计交付）→ **95%（代码交付）**。只读子项 70%（裁决 3 的终态结论）、集成选型层 90%（CodeGraph 未装机）、新增展示层 85%；并发子项因 V9 压测通过而上调。
+
+**验证**
+
+`npm test` **548 tests / 99 suites** 全绿（1.3.0 是 515/90，本轮反假测试 +33）；`node tools/doctor.mjs` 无 FAIL（唯一 WARN 是本机未装 codegraph）；`node tools/validate-frontmatter.mjs .` 通过；`node hooks/keyword-detect.mjs --self-test` 27/27。**四次变异验证**：`/api/snapshot` 进 `PUBLIC_PATHS` → 10 条红；静态壳移到 token 门后 → 3 条红（含"面板会无样式无脚本"的明文断言）；`cell()` 返回原值 → 10 条红（含"列数被注入撑开 7 !== 4"）；`compareWave` 改字典序 → 4 条红。**V9 并发压测**（本轮补做）：8 个独立 node 进程抢同一 graph 的 200 个任务 → 730ms 内 200 次 claim、unique=200、**重复 claim 0**、`SQLITE_BUSY` 重试 0 次、`verifyGraphInvariants` 0 violations；`max_parallel=8` 的 40 任务图，超限的 52 次全部返回 `reason:'max-parallel'`。DESIGN.md 交叉引用自查：340 处 `§` 引用去重 41 个全部命中、B1–B30 连续无缺号、I1–I10 连续、V 编号 13 个引用无定义 0。
+
+**已知缺口**
+
+六项真实环境验收仍未做，全部需要真机或真实 ZCode 会话：V3（hook 的 `additionalContext` 注入行为）、V4（resume 适配器）、V8′（并行 spawn 时的权限弹窗行为）、V10（CodeGraph 装机）、V11（Electron dashboard 真机渲染与 CSP 实际拦截）、V12（会话内 9 个 agent 的 spawn ping）。每项都有明确回退路径，没有一项会让 `core` 不可用。另一项已知残余：未启用 `keyword_hook` 时 hook 仍会空跑（约 126–132ms/条消息），彻底消除需在项目/用户配置层禁用插件 hook。
+
+---
+
+## 1.3.0 — 对抗式全量审计与修复；实现对齐 DESIGN v1.3（2026-09-01）
+
+两位独立审计员对全仓库做了对抗式审计——一位查**协议保真度**（agents/commands/skills 的正文是否与 ZCode 的真实工具面自洽、与 OmO 原始协议是否等价），一位查**代码安全与并发**（MCP 服务端、dashboard、hook、adapters）。报告的缺陷已全部修复，并为每一类补了回归测试。本条目按缺陷类型分类，每条都写清"此前的实际后果"，因为多数缺陷的危险性不在于它会报错，而在于它**不会**报错。
+
+### 安全类
+
+- **`now` 参数从 13 个公开 MCP 工具的 `inputSchema` 移除。** 此前调度器时钟对调用方开放，任意 worker 可以 `omz_reclaim_expired({ now: <未来时间> })` 把别人正在跑、lease 未过期的任务判成过期抢走（原 owner 被清空、任务回 `ready` 后被另一 agent 认领），同样能绕过 `retry_at` 退避与 `attempts` 重试预算。现在 MCP 层一律传服务端 `nowSec()`；`now` 只保留在 core 函数签名上作测试注入，且仅当 `OMZ_TEST_TIME=1` 时才接受外部值，每次接受都在 stderr 打一行 WARNING。
+- **`teamId` 与 `projectRoot` 的路径穿越。** `adapters/zcode/transport.mjs` 增加 `safeTeamId()`（非 `[A-Za-z0-9_-]` 一律替换为 `_`）与 `assertInsideOmz()` 断言（解析后的目标必须在 `<projectRoot>/.omz` 之下）；`hooks/keyword-detect.mjs` 的 `resolveProjectRoot()` 对非绝对路径一律不采信、退回 `process.cwd()` 并记 stderr。此前 `teamId='../../../evil'` 能把状态文件写到项目外，hook 侧只安全化了 `sessionId` 而漏了 `projectRoot`。
+- **hook 的 ReDoS。** Markdown 链接屏蔽原用正则 `/\[[^\]\r\n]*\]\([^)\r\n]*\)/`，在 `[[[[…](](](…` 这类退化输入上灾难性回溯：128KB 输入实测 **18.4 秒**，远超 `hooks.json` 的 `timeoutMs: 3000`——引擎超时会直接杀进程，"任何情况都输出 `{}`"的 fail-open 契约当场变成 fail-broken。改为 `maskMarkdownLinks()` 单向线性扫描后同类输入 **2ms**，最坏 O(n)。另加两道自保：扫描窗口 `MAX_SCAN = 32KB`（头 24KB + 尾 8KB 两段独立屏蔽，避免头窗未闭合的三反引号跨越拼接点）与自我预算 `SCAN_BUDGET_MS = 1500`（超预算立即放弃分析返回 `budget-exceeded`；宁可漏检一次，用户还能显式打 `/ulw`，也不能被杀掉输出零字节）。注入体另有 `MAX_CONTEXT_BYTES = 48KB` 上限，超限降级为"头部原文 + 章节标题清单"，防止 `maxOutputBytes: 65536` 硬截断切出半截 JSON。（*v1.5 修正：引擎取证推翻末句两点——引擎缺省 `maxOutputBytes` 是 **32768** 而非 65536，超限也不是硬截断而是**整段注入被静默丢弃**；因此这道 48KB 上限当时高于引擎真墙、不是有效防线。此处记录的设计意图原样保留，修法见 1.5.0 条目。*）
+- **dashboard 鉴权分层。** 静态壳（`/`、`/index.html`、`/app.js`、`/app.css`）免 token，数据端点（`/api/snapshot`、`/api/events`）必须 token。此前静态资源也在 token 门之后，而浏览器只把 `?token=` 带在地址栏那一个请求上——`<link>`/`<script>` 子资源请求不带任何凭据 → 401 → 页面无样式无脚本 → **面板在默认路径下根本不可用**。分层依据是"响应里有没有数据"：静态壳是编译期固定字节，不含任务、路径或 token。免 token 集合导出为 `PUBLIC_PATHS`。
+- **`/healthz` 不再泄露绝对路径。** 只回 `{ ok, source }`；`degraded[]` 的 reason 含 coordinator db 绝对路径，已移到需 token 的 `/api/snapshot`。另加 `HEALTHZ_TTL_MS = 1000` 结果缓存，避免免鉴权端点变成全量快照的 CPU 放大器。
+- **SSE 连接数上限与共享轮询器。** `MAX_SSE_STREAMS = 8`，超限 `503 + Retry-After: 5`（此前 `streams` 是无界 Set，60 条连接会被全部接受）；所有连接共用**一个** `setInterval`（1500ms）采集并广播同一份快照，CPU 成本与连接数解耦（此前 per-connection 一对定时器各自跑全量采集）。最后一个订阅者断开即停定时器，定时器一律 `unref()`。
+- **eventId 局部化。** `Last-Event-ID` / `?since=` 只作**本连接**的计数起点，不再写回服务器全局计数器——此前传 `Number.MAX_SAFE_INTEGER` 会让 `+1` 失去精度，把**所有**客户端的帧 id 钉死在同一个值。入参经 `parseEventCursor()` 校验（非纯数字 / 非安全整数 / `<=0` / `> 2^31-1` 一律忽略并从 0 开始）。
+- **`tools/sync-omo-skills.mjs` 的 shell 元字符白名单。** lock 里的 `url`/`branch`/`path`/`omz_target` 会被拼进打印给人复制执行的 git 命令，此前一个恶意 lock 的 url 就能把 `; rm -rf` 送进用户终端。现在这些字段先过字符白名单，违规进 `errors` 并 `exit 1`，绝不进入打印。
+
+### 数据一致性类
+
+DAG 的核心不变量是「下游 ready ⟺ 所有上游 done」。它一旦被破坏，**数据库自身仍然是自洽的**（`deps_remaining=0` 且 `status=ready`），事后无法从状态反推出错——所以必须在写入侧堵死，并另备检测手段。
+
+- **终态守卫 + 依赖边一次性消费（两层防重，缺一不可）。** `taskComplete`/`taskFail` 在 `idemLookup` 之后立刻检查任务状态：已在终态集合（`done`/`failed`/`dead`）→ 直接返回 `duplicate: true`，**不再触碰下游**。这一层拦的是"不带幂等键"或"带一个全新幂等键"的重复调用——幂等表对这两种情况完全无感，此前重复 complete 会二次递减下游 `deps_remaining`。第二层是 `task_deps.consumed`（migration `002-task-deps-consumed.sql` 新增，默认 0）：递减只处理 `consumed = 0` 的边并在同一事务内置 1，即使第一层被绕过（历史脏数据、手工 SQL）下游也不会重复解锁。002 同时回填历史数据（已 `done` 上游的出边置 `consumed = 1`），既有库回填后即刻自洽。
+- **`taskFail` 的三道守卫。** ① 终态任务不可 fail（否则已 done 的任务被复活成 `ready`、`result_ref` 被清空、可被重新 claim 再次 complete → 下游二次解锁）；② `owner_agent` 不等于调用方即 `NOT_OWNER`，**包括 `owner_agent` 为 null 的情况**——此前"null 就不校验"等于开了一条任意 agent 对他人任务写 `last_error`、改状态的通道；③ 只有 `running` 的任务可以 fail，`blocked` 任务被 fail 会被改成 `ready`，那是直接绕过依赖的通道。
+- **幂等键与 `task_id` 绑定。** 幂等键现在与 `(op, task_id)` 双重绑定；键已用于其他 `op` 或**另一个 task** → `BAD_ARGS`。此前对 `task_id=2` 用 task 1 的键，`idemLookup` 会返回 `{task_id:1, status:'done', unblocked:[2]}` 且标 `duplicate: true`——调用方据此认为 task 2 已完成，拿到的是**另一个任务**的结果。
+- **`max_parallel` 实际生效。** 此前只存储与回显，`max_parallel=2` 的 team 能有 5 个并发 `running`。`taskClaim` 现在在**同一 `BEGIN IMMEDIATE` 事务内**统计该 team 的 running 数，达上限返回 `{ task: null, reason: 'max-parallel', running, max_parallel }`。计数必须在写事务内做——"先读计数再开事务"本身就是竞态，N 个并发 claim 会同时读到未达上限；计数范围是整个 team（跨该 team 的所有图），因为并发预算是团队级资源。调用方按 `reason` 分支：无 reason = 暂时无 ready 任务，`max-parallel` = 稍后重试，`team-shutdown` = 停止轮询。
+- **新增 `verifyGraphInvariants(db, { graph_id })`** 作为 DAG 不变量检测器（core 的导出函数，不是 MCP 工具，只读、可用于 readonly 句柄，供 doctor / 对账脚本调用）。它拿 `tasks.deps_remaining` 与 `task_deps` 里真实的未完成上游数对账，覆盖 4 类违规：`deps-remaining-mismatch`、`dispatched-with-open-upstream`、`blocked-with-no-open-upstream`、`edge-consumed-but-upstream-not-done` / `edge-unconsumed-but-upstream-done`。
+- **`omz_export_mirror` 的标识体系改用数字 task id。** `tasks` 的唯一约束是 `UNIQUE(graph_id, key)`——key 只在**图内**唯一，同一 team 提交两个图复用同名 key 完全合法，此时以 key 为关联键会让镜像串行（第一个图的任务贴上第二个图的 title/depends_on）。镜像行现在给 `id`（数字，全库唯一，关联主键）/ `key`（供人读）/ `graph_id` / `depends_on`（数字 id 数组）/ `depends_on_keys`。这是对 DESIGN §7.3 样例的**刻意偏离**，已在 `mcp/coordinator/README.md` 记录。dashboard 侧 `buildMirrorIndex()` 三档降级：有数字 id 按 id 关联 → 只有字符串 id 且本 team 内 key 无重名按 key 关联 → 存在重名 key 时**只对重名的那些 key** 退化为不关联并写 `degraded[]`。绝不按 key 猜：错误关联比缺字段更有害。
+- **`reclaimExpired` 的 `last_seen` 不倒退**：把原 owner `transport_state` 置 `unknown` 时写的是回收发生的时刻，而非已过去的 `lease_until`。
+
+### 可用性类（最隐蔽的一类：全是退出码 0 的假成功）
+
+- **`isMain` 判定改用 `fileURLToPath`。** 此前用 `new URL(import.meta.url).pathname`，它是 percent-encoded：插件目录含空格或非 ASCII（Windows 极常见，`C:\Program Files\`、`C:\Users\张三\`）时与 `process.argv[1]` 永不相等，`isMain` 恒为 false ——hook 输出 0 字节、`doctor`/`status`/`sync`/`validate` 全部**静默 exit 0 什么都不做**。退出码 0 意味着用户和 CI 都看不出坏了。统一抽出 `tools/lib/is-main.mjs` 的 `isMainModule(import.meta.url)`，5 个 CLI 入口（doctor / render-status / validate-frontmatter / sync-omo-skills / keyword-detect）与 `dashboard/server.mjs`、`dashboard/main.mjs` 全部改用。
+- **`validate-frontmatter.mjs` 支持 dash 数组。** 此前只认 `tools: [Read, Bash]` 行内数组，合法 YAML 的 `tools:\n  - Read` 被静默解析为 `tools` 缺失（= 全工具）——只读角色的白名单静默失效，而 doctor 报 OK。
+- **`KNOWN_TOOLS` 拆为 `SUBAGENT_TOOLS` 与 `ENGINE_ONLY_TOOLS`。** `Agent`/`WebSearch`/`Grep`/`Glob` 在引擎里存在但子代理侧拿不到（DESIGN §10.1 V5、§13 B20 实测），写进 frontmatter 会被静默忽略。现在出现 `ENGINE_ONLY_TOOLS` 成员直接报错并说明原因——静默忽略的能力声明会让"只读角色靠白名单收束"的假设失效。
+- **`deepNormalizePaths` 改为字段白名单驱动。** 归一只对 `PATH_FIELD_NAMES` 登记过的字段生效（数组元素继承父键名判定）。此前全量深度遍历会把非路径字符串一并"归一"，例如 `regex \d+` 被破坏成 `regex /d+`。
+- **`toPosixRelative` 的越界语义。** 跨卷（`C:` vs `E:`）、设备命名空间、结果以 `..` 开头三种情况不再静默返回相对路径（那是一个在任何机器上都不存在的路径），改为按 `onEscape` 抛错或返回显式标记。
+- **`render-status.mjs` 的波次数值排序与 title 清洗。** 波次此前按字典序排成 1→10→2；title 现在剥换行与竖线——此前 title 含换行可以伪造出一整行看起来合法的任务。
+
+### 协议保真度类
+
+- **Atlas 角色重写。** `omz-atlas` 是子代理，**结构性没有 Agent 工具**（DESIGN §10.1 V5 实测），此前正文却要求它"派执行 agent"——一旦被 spawn 必然违规。改为「**波次状态机 + 派单建议生成器 + 汇报器**」：产出可直接粘贴的 8 要素派单建议（TASK / EXPECTED OUTCOME / 基线+failing-first / REQUIRED SKILLS / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT）+ 建议 `subagent_type` + LIGHT/HEAVY 标注，回请主 agent 执行 spawn。同时明确它**收不到后台通知**（通知只到主 agent），收点判据只有 results 文件是否存在且可解析。
+- **`ulw-plan` 补齐结构约束说明。** Prometheus 同样不能 spawn，此前三处文件命令它派 Explore/critic。
+- **`ulw-execute` 补入 10 条 Hard rules 全文。** 此前只在 `commands/ulw.md` 有一份，子代理拿不到会话历史也拿不到命令展开的内容。两份现在要求逐字一致，文件里留了同步提醒注释。
+- **`ulw-research` 补 PDF + DOCX 交付工具链**（chrome headless 打印 + pandoc，含 Windows 上逐条探测 chrome 可执行文件的失败回退，命中路径记进 observation-manifest）。
+- **`review-work` 补 `references/` 引用段。** `verdict-schema.md` 里的 AdversarialVerify JSON 契约此前因为 SKILL.md 没有引用它而事实上不可达。
+- **只读角色的"结构性保证"表述修正为诚实版。** `tools: [Read, Bash]` 里 Bash 能写文件（重定向、`sed -i`、`node -e`），此前正文宣称"你物理上改不了代码"是错误的自我认知。现在的表述是"工具面拦得住 Edit/Write，拦不住 Bash 写文件，所以这一条靠你自己守"，并逐条列出禁用命令；`omz-reviewer` 的 `git worktree add/lock/unlock/remove` 是唯一显式豁免命令集。
+- **工具面纠正。** `omz-librarian` 删除不可用的 `WebSearch`（现为 `[Read, Bash, WebFetch]`，正文明确"你没有搜索引擎工具，无链接时明确回报需要主 agent 提供入口，不许凭记忆编造"）；`omz-looker` 从只有 `Read` 加到 `[Read, Bash]`（此前无法枚举图片路径）。
+- **`boulder.json` 指针在目标注册时立即写入**（`commands/ulw.md` 第二步），不再等到收尾。此前若会话在第一个波次前中断，跨会话续跑没有任何指针可查（B18）。
+- **`commands/ulw.md` 拆为八步**与 DESIGN §6 对齐（激活 / 目标注册 / 技能盘点 / 确定性保障 / 规划门槛 / 执行 / 双证据验证 / 评审门与提交）。同时加入 Stop hook 的诚实表述：它属**未实装项**（`hooks/hooks.json` 目前只注册 `UserPromptSubmit`），进度落盘靠主 agent 每个波次收点后主动写 `boulder.json`，**不得依赖** hook 在异常终止时保存进度。
+
+**验证**
+
+- `npm test` → **515 用例 / 90 suites 全通过，0 失败**（`node --test tests/`，约 13.6s）。按文件：coordinator 100、path 82、hooks 68、protocol 48、dashboard 46、transport 37、capability 33、server-mcp 31、cli 30、fallback 25、integration 15。（1.4.0 的反假测试补齐后为 548 / 99。）
+- `node tools/doctor.mjs` → 无 FAIL；`① agents 9/9 OK | ② model OK | ③ gitignore OK | ④ mtime OK | ⑤ BOM OK`，唯一 WARN 是 codegraph 不可用（`graph` profile 默认关闭，属预期）。
+- `node tools/validate-frontmatter.mjs .` → 通过（agents/commands/skills）。
+- `node hooks/keyword-detect.mjs --self-test` → **27/27 通过**，含"Markdown 链接退化输入 32K 不超预算（线性扫描）"与"İ 前缀 + `team` 索引对齐"两条针对本轮修复的用例。
+- `node tools/sync-omo-skills.mjs --check` → lock 字段完整、5 个 `omz_target` 全部存在；3 条 WARN（commit 未 pin / synced_at 未记录 / OmO 许可证 `unverified`），均为"尚未执行过一次真实同步"的预期状态。
+- `tests/protocol.test.mjs` 内含跨文件契约断言：AdversarialVerify 四字段与四枚举在 `omz-reviewer.md` 与 `verdict-schema.md` 逐字一致、复审上限 2 次两处一致、状态枚举三方闭环（coordinator 7 态 + 文件视图 `pending`/`corrupt` = `app.js` 的 `STATES` = `app.css` 的 `.pill[data-state]` 选择器）、`skills/*/references/` 无孤儿文档、`plugin.json` 声明路径全部存在、全仓库无 BOM、全 `.json` 可解析。
+
+**已知缺口**
+
+- DESIGN §10.2 的 **V3 / V4 / V8 三项装机实测未完成**（hook `additionalContext` 实际注入行为、resume 适配器行为、`permissionMode` 枚举与并行 spawn 权限弹窗）。三项各有已写明的回退路径。
+- `graph` profile 需外部安装 `@colbymchenry/codegraph` 并在目标项目 `codegraph init`，本仓库不含其索引；doctor 目前只能报"不可用"。
+- **Stop hook（DESIGN §9 M4）未实装**，异常终止的宪法清单核对仍靠主 agent 自律。
+- `omz-doctor` 的 spawn ping 9/9 必须**在会话内**执行（离线 doctor 只能做文件级核对）；agent 清单是会话启动快照（B19），装完必须重启会话。
+- OmO 上游许可证仍为 `unverified`，`commit` 未 pin——按 `upstream/README.md` 的纪律，核验回填前禁止合并进 `main`。
+- coordinator 的 SQLite 单写者压力（DESIGN §13.5 I4）只有单元级并发测试，无长时压测样本。
+
+---
+
+## 1.2.0 — 测试套件建立（2026-09-01）
+
+**范围**
+
+- 11 个测试文件（`tests/*.test.mjs`）覆盖 path / fallback / capability / transport / coordinator / server-mcp / dashboard / hooks / protocol / cli / integration，全部用 Node 内置 `node:test`，零测试框架依赖。
+- `package.json` 补全 `test` 与 10 个 `test:*` 分文件脚本；`tests/index.js` 作为聚合入口。
+- `protocol.test.mjs` 把文档一致性变成断言（agent 数量与命名、只读角色 tools 不含 Edit/Write、全工具角色不声明 tools、maxTurns 必填、frontmatter 无未知字段、8 要素与 10 条 Hard rules 齐全、8 个 category 全在路由表、两路 status 渲染功能等价、状态枚举三方闭环、references 无孤儿、编码卫生、上游 lock 取证）。
+- `cli.test.mjs` 针对每个 CLI 入口断言 `isMainModule` 在含空格/非 ASCII 路径下仍成立——这条测试是 1.3.0 那个"静默 exit 0"缺陷的守门人。
+
+**验证**：`node --test tests/` 与 `npm test` 等价可用；建立时 354 用例全绿（1.3.0 的审计补齐推到 515，1.4.0 的反假测试补齐推到 548）。
+
+**已知缺口**：无端到端装机测试（需真实 ZCode 会话）；覆盖率未统计。
+
+---
+
+## 1.1.0 — dashboard：loopback HTTP/SSE 只读展示层（2026-09-01）
+
+**范围**
+
+- `dashboard/server.mjs`（793 行）纯 HTTP + SSE 服务，零第三方依赖；`dashboard/main.mjs` Electron 壳（缺 Electron 自动降级为纯 HTTP）；`dashboard/preload.mjs` 只经 `contextBridge` 暴露 `getBootInfo()`（**1.5.0 已删除该文件，见该条目「移除 dashboard preload」**）。
+- `dashboard/renderer/` 三件套（`index.html` / `app.js` / `app.css`）：零内联脚本样式；服务端字符串只经 `textContent`/`createTextNode`，渲染前剥 ANSI 与控制字符，超 2000 字符截断标注。
+- 数据源双轨：优先只读打开 coordinator SQLite 走 `core.status()` → `source: 'coordinator'`；db 缺失/损坏/查询失败则回退 `tools/render-status.mjs` 的 `.omz/` 文件视图 → `source: 'files'`，原因写 `degraded[]`，**绝不 500**。
+- 只读契约：所有端点都是 GET，其它方法一律 405；没有任何写入/提交/重试/命令执行端点——dashboard 不能扩大主 agent 权限（DESIGN §15.3-4）。
+- 安全模型七道防护（对应 §13.5 I5）：只绑 loopback（来源判定在 token 校验**之前**，非 loopback 直接 403 + `socket.destroy()`）、随机端口（`port = 0`）、每次启动随机 token（`randomBytes(24)` + `timingSafeEqual`）、CORS 白名单（无 `Origin` 放行，其它 403；请求行的 absolute-form host 也校验）、SSE 只发 `snapshot`/`heartbeat` 结构化事件、CSP 禁 inline script、preload 最小面（**最后一道随 preload 删除于 1.5.0 撤下，I5 现为六道，见该条目**）。
+- `transport_state`（agents 表）与 `coordinator_state`（tasks.status）永远分两列，不互推不合并（I3）；文件视图无传输维度时 `transport_state` 恒为 `null`。
+
+**验证**：URL（含 token）只打到 stderr，stdout 保持干净；SIGINT 优雅关闭。`node dashboard/server.mjs --project <dir> --port 0` 可独立启动。
+
+**已知缺口**：当时静态资源也在 token 门之后（浏览器子资源不带 token → 面板默认不可用）、`/healthz` 回 `degraded[]` 含绝对路径、SSE 无连接上限且 per-connection 各跑一份全量采集、eventId 写回全局计数器——四项在 1.3.0 修复。
+
+---
+
+## 0.9.0 — mcp/coordinator：SQLite 支撑的 DAG 调度 sidecar（2026-09-01）
+
+**范围**
+
+- `mcp/coordinator/server.mjs`（stdio JSON-RPC）+ `core.mjs`（968 行纯逻辑）+ `db.mjs`（迁移执行器与连接管理）+ `schema.sql` + `migrations/001-init.sql`。零第三方依赖，只用 Node 内置 `node:sqlite`（因此 `engines.node >= 22.5.0`；启动会打 ExperimentalWarning，正常）（**1.5.0 已提到 `>=22.13.0`——22.5–22.12 上该模块在 `--experimental-sqlite` flag 之后，见该条目**）。
+- **13 个 MCP 工具**：`omz_team_create` / `omz_dag_submit` / `omz_task_claim` / `omz_task_heartbeat` / `omz_task_complete` / `omz_task_fail` / `omz_mail_send` / `omz_mail_receive` / `omz_mail_ack` / `omz_status` / `omz_team_shutdown` / `omz_reclaim_expired` / `omz_export_mirror`。
+- 事务边界纪律（DESIGN §7.2 / §13.5 I4）：claim 用 `BEGIN IMMEDIATE` + 单条 `UPDATE ... RETURNING`（`RETURNING` 不是锁，缺 IMMEDIATE 两个 writer 会读到同一 ready 行）；**外部 agent 执行期间绝不持有写事务**，claim 返回即 COMMIT；`core.mjs` 只 import `node:crypto` 与 `./db.mjs`，无 fs/spawn/网络，因此 `SQLITE_BUSY` 时整个事务含回调可安全重放。
+- `PRAGMA journal_mode=WAL; busy_timeout=5000; foreign_keys=ON` + 有界指数退避（基数 25ms、最多 5 次、带 jitter），超限抛 `BUSY_TIMEOUT`；时间戳统一 unix 秒整数，与 `unixepoch()` 同刻度。
+- at-least-once 语义 + 幂等键（`complete`/`fail` 必带，`send` 用 `dedupe_key`，`ack` 天然按 message 幂等），重复调用返回首次结果并标 `duplicate: true`。
+- 环与未知 key 在写库前拒绝；mailbox 的 `seq` 在事务内 `MAX+1` 无空洞；`status()`/`exportMirror()` 的 `counts` 字段集合恒定 7 态（含 `unknown`）不随库中实际状态漂移。
+- 迁移纪律：`migrations/*.sql` 按文件名字典序重放，已发布文件**永不修改**，结构变更只追加；因 SQLite 的 `ALTER TABLE ADD COLUMN` 没有 `IF NOT EXISTS`，执行器支持文件首部指令 `-- @skip-if-column <table>.<column>`。
+- `.zcode-plugin/plugin.json` 加回 `mcpServers.omz-coordinator`（`enabled: false`，`${ZCODE_PLUGIN_ROOT}` 变量，`OMZ_COORDINATOR_DB` 指向 `${ZCODE_PROJECT_DIR}/.omz/runtime/coordinator.sqlite`）——路径此时才真实存在。
+
+**验证**：手工 smoke（`initialize` / `tools/list` / `omz_team_create` 三行喂 stdin）stdout 三行合法 JSON，`tools/list` 返回 13 个工具；stdout 只有 JSON-RPC，日志全走 stderr；工具级失败返回 `isError: true` 的 tool result 而非 JSON-RPC error，未知方法 `-32601`，解析失败 `-32700`。
+
+**已知缺口**：当时 `now` 在 13 个工具的 inputSchema 里对外开放、`max_parallel` 只存不用、幂等键未与 task 绑定、`taskFail` 在 `owner_agent` 为 null 时不校验身份、无终态守卫与边的一次性消费、无 `verifyGraphInvariants`、`exportMirror` 按 key 关联——全部在 1.3.0 修复（`consumed` 列由 `migrations/002-task-deps-consumed.sql` 引入）。
+
+---
+
+## 0.6.0 — 上游来源锁定与选择性同步纪律（2026-09-01）
+
+**范围**
+
+- `upstream/omo-sources.lock.json`：上游仓库/分支/pin 的 commit SHA/同步时间/已移植路径 ↔ OMZ 目标文件映射/`ignored_paths`/许可证记录。**只记录来源与移植状态，不存放上游代码**（DESIGN §16.2）。
+- `tools/sync-omo-skills.mjs`：`--check`（lock 字段完整性 + `omz_target` 存在性，ERROR 时 exit 1）/ `--plan`（打印待人工执行的 git 命令清单）/ `--pin <40 位小写 hex SHA>`（回写 `commit` + `synced_at`，输出无 BOM、LF 结尾）。**只打印命令、绝不执行 git**——上游同步必须人工过目。
+- `upstream/README.md` 记录分支纪律（`main` / `upstream-sync` / `porting/<date>`，**禁止 `git merge upstream/dev`**）、5 步同步流程、5 条永不移植的宿主 API 路径（`omo-opencode` / `omo-codex` / `team-core` / `tmux-core` / `model-core`）及其判据、许可证与 NOTICE 要求。
+- `commit` 字段永不写猜测值：未 pin 一律 `null` + `commit_status` 说明——以"当前 latest"代替固定 SHA 会毁掉来源可复现性。
+
+**验证**：`node tools/sync-omo-skills.mjs --check` → lock 字段完整、5 个 `omz_target` 全部存在。
+
+**已知缺口**：OmO 许可证 `unverified`（未 clone、未读到 LICENSE）、`commit`/`synced_at` 均为 `null`；按纪律核验回填前禁止合并进 `main`。当时 lock 字段未过 shell 元字符白名单（1.3.0 修复）。
+
+---
+
+## 0.5.0 — skills references 补全（2026-09-01）
+
+**范围**
+
+- `skills/ulw-research/references/` 5 个认识论文档：`claim-graph.md`（claim 图与过门）、`intent-diff.md`（意图差分）、`observation-manifest.md`（观测清单）、`verification-economics.md`（验证经济学）、`cause-disappearance.md`（原因消失判据），外加 `worker-prompt.md` 作为强制派发模板。
+- `skills/review-work/references/` 2 个契约文档：`lane-prompts.md`（5 个 lane 的完整派发 prompt，含通用 MUST NOT DO 与全部占位符 `{{BATCH_ID}}` `{{GOAL}}` `{{DIFF}}` `{{DIFF_STAT}}` `{{FILE_CONTENTS}}` `{{DONECLAIM}}` `{{TEST_TRANSCRIPT}}` `{{SCOPE}}` `{{WORKTREE}}`）、`verdict-schema.md`（单 lane 报告 JSON schema、`exhaustive_check` 维度集合、汇总规则、AdversarialVerify JSON 的四字段四枚举、复审上限 2 次与 delta scope）。
+- `skills/ulw-plan/references/` 3 个流程文档：`intent-clear.md` / `intent-unclear.md` / `full-workflow.md`。
+- 每个 references 文档都必须被对应 SKILL.md 显式引用——lane 是叶代理，prompt 之外的上下文它一概看不到，未被引用的契约等于不存在。
+
+**验证**：`protocol.test.mjs` 断言 SKILL.md 声明的 references 全部真实存在且非空，且 references 目录下无未被引用的孤儿文档（双向检查）。
+
+**已知缺口**：`review-work/SKILL.md` 当时尚无 `## references/` 引用段，`verdict-schema.md` 的 AdversarialVerify 契约事实上不可达（1.3.0 修复）。
+
+---
+
+## 0.4.0 — hooks M2 关键词检测（2026-09-01）
+
+**范围**
+
+- `hooks/keyword-detect.mjs`（581 行）：`UserPromptSubmit` 时扫描 `ulw`/`ultrawork`/`team`/`hyperplan`（大小写不敏感），命中则把 `commands/<mode>.md` 正文（已剥 frontmatter）经 `additionalContext` 注入本轮上下文——等价于用户手打斜杠命令（DESIGN §8.2，复刻 OmO 的 IntentGate）。
+- `hooks/hooks.json`：`enabled: false`、`timeoutMs: 3000`、`maxOutputBytes: 65536`、matcher 大小写变体正则；`.zcode-plugin/plugin.json` 加回 `hooks: "hooks/hooks.json"`（路径此时才真实存在）。（*v1.5 修正：引擎缺省 `maxOutputBytes` 实为 **32768**，且这两个顶层字段因引擎从不读取已在 v1.4 删除，见 1.5.0 条目。*）
+- **默认双开关关闭**：`hooks.json` 的 `enabled`（运行层，ZCode 客户端管，一开就是全局）+ 项目 `.zcode/config.json` 的 `omz.keyword_hook`（语义层，按项目粒度）。两道是有意为之——`keyword_hook` 才是真正可靠的那道闸（zcode-guide 指出任何插件贡献 hook 都会自动启用 hook runner，且插件 `hooks.json` 顶层 `enabled` 是否被读取未经证实），`enabled` 视为声明性意图。脚本在语义层关闭时立即返回空对象，不读命令文件、不写任何状态。
+- 三道双重注入防护（B5 + §15.1 误触发红线）：prompt trim 后以 `/` 开头一律不注入；会话级去重标记（`<项目根>/.omz/.mode-injected-<sessionId>`，sessionId 已文件名安全化）；关键词落在行内反引号、三反引号块、引号字符串、Markdown 链接或含 `/`/`.` 的路径 token 内均不命中，且匹配要求两侧不是 ASCII 字母/数字/下划线/连字符（`teamwork`、`myteam`、`multiulw` 不命中）。
+- fail-open 契约：脚本任何异常都输出 `{}` 且退出码 0，不阻断主流程（B15）。失败回退纯 slash command（§10.2 的 V3 回退方案就是"永久 M1"）。
+- `--self-test` 自检模式。
+
+**验证**：`node hooks/keyword-detect.mjs --self-test` 全绿（当前 27/27）。
+
+**已知缺口**：V3 装机实测未做（`session_id`/`cwd` 的真实字段名尚未在本机 guide 中列明，脚本已容忍 `sessionId`/`userPrompt` 等别名）。当时 Markdown 链接屏蔽正则存在灾难性回溯（128KB → 18.4s，必被 3s 超时杀掉）、`projectRoot` 未净化、`isMain` 用 percent-encoded pathname、无注入长度上限——全部在 1.3.0 修复。
+
+---
+
+## 0.3.0 — tools/doctor.mjs 离线自检（2026-09-01）
+
+**范围**
+
+- `tools/doctor.mjs`（590 行）七类检查：清单完整性（`plugin.json` 声明路径是否存在）、frontmatter 校验（复用 `validate-frontmatter.mjs`）、agent 数量与 model 核对、`.gitignore` 含 `.omz/`（B14，**只报告不代改**，输出可执行修复命令）、mtime vs 会话启动（B19）、JSON/BOM 编码卫生（B4）、能力探测（Node 版本 / `node:sqlite` / git / codegraph / coordinator / dashboard / profile 降级报告）。
+- `--supply-chain` 子模式做依赖取证。
+- 结论行给单行汇总 `① agents | ② model | ③ gitignore | ④ mtime | ⑤ BOM`，并对每个 WARN/FAIL 给出可执行修复指令（不是笼统报错）。
+- `package.json` 加回 `doctor` / `doctor:supply-chain` 脚本（`tools/doctor.mjs` 此时才存在）。
+
+**验证**：`node tools/doctor.mjs` 在本仓库输出"结论：无 FAIL"，唯一 WARN 是 codegraph 不可用（`graph` profile 默认关闭，预期）。
+
+**已知缺口**：spawn ping 9/9 只能在会话内做（`/omz-doctor` 命令版负责），离线版只做文件级核对；当时 `validate-frontmatter.mjs` 不认 dash 数组，导致只读角色白名单失效时 doctor 仍报 OK（1.3.0 修复）。
+
+---
+
+## 0.2.0 — adapters/zcode 宿主适配层（2026-09-01）
+
+**范围**
+
+- `path.mjs`（305 行，B3/B4 路径与编码卫生）：`stripBom` / `readJsonSafe` / `writeJsonSafe`（无 BOM、LF）、`isWindowsAbsolutePath` / `hasBackslashPath` / `isEscapingPath`、`toPosixRelative`、`classifyPath`、`normalizePathValue` / `normalizePathFields` / `deepNormalizePaths`（`PATH_FIELD_NAMES` 白名单驱动）、`scanJsonHygiene`。
+- `capability.mjs`（256 行，能力探测）：`probeNode` / `probeSqlite` / `probeCommand` / `probeGit` / `probeCodegraph` / `probeCoordinator` / `probeDashboard` / `probeAll`。Windows 上按 `PATHEXT` 逐后缀查找可执行文件。
+- `fallback.mjs`（146 行，profile 解析与降级链）：`loadConfig`（`.zcode/config.json` → `.omz/config.json` 分层）、`resolveProfiles`（能力探测结果对照声明的 profile）、`fallbackFor`、`formatDegradeReport`。四条降级链对应 DESIGN §3.3：`graph` → Explore + Bash grep/rg、`orchestration` → core 波次并行 + `.omz/runtime/` 文件状态、`dashboard` → ZCode GUI 任务面板 + `/omz-status`、M2 hook → slash commands。
+- `transport.mjs`（199 行，worker 状态机与 resume 适配器）：`createRegistry` / `bindAgent` / `markResumeWait` / `markReturned` / `checkTimeouts` / `rebuildPromptContext` / `saveRegistry` / `loadRegistry`。resume 不可用时按 DESIGN §7.4 走"任务级新 spawn + 上下文重建"，不依赖 ZCode 未公开的稳定 resume API（V4 回退）。
+- `index.mjs` 作为统一出口。
+
+**验证**：各模块纯函数，无 fs/网络副作用（除显式的 `saveRegistry`/`loadRegistry`/`scanJsonHygiene`）；`doctor` 与 `dashboard` 均复用同一套 probe 与 fallback 逻辑，不存在第二份判定。
+
+**已知缺口**：当时 `deepNormalizePaths` 全量深度遍历（会把 `regex \d+` 破坏成 `regex /d+`）、`toPosixRelative` 跨卷/越界静默返回相对路径、`transport` 侧 `teamId` 无安全化与 `.omz` 边界断言——全部在 1.3.0 修复。
+
+---
+
+## 0.1.0 — core profile 骨架（2026-09-01）
+
+**范围**
+
+- `agents/` 9 个子代理定义（omz-planner / critic / deep / junior / atlas / oracle / reviewer / librarian / looker），内置 `Explore` 复用不重复定义（DESIGN 附录 A）。
+- `commands/` 5 个斜杠命令（ulw / team / hyperplan / omz-status / omz-doctor，DESIGN 附录 B）。
+- `skills/` 4 个核心协议（ulw-plan / ulw-execute / ulw-research / review-work，DESIGN 附录 C），description 均写严格触发语义（普通问答不得激活）。
+- `tools/validate-frontmatter.mjs`（B1/B10 防线）、`tools/render-status.mjs`（`/omz-status` 执行体，40 行上限 + BOM 容错）。
+
+**清单收敛（本版的关键决定）**
+
+- `.zcode-plugin/plugin.json` 曾声明 `hooks: "hooks/hooks.json"` 与 `mcpServers.omz-coordinator → mcp/coordinator/server.mjs`，但两个路径均不存在——清单指向空文件会让 ZCode 插件加载报错或静默失败。0.1.0 收敛为仅声明已落地的 `agents`/`commands`/`skills`；hooks 在 0.4.0 加回，coordinator 在 0.9.0 加回。
+- `package.json` 曾声明 5 个 `test:*` 脚本与 `doctor` 脚本，指向不存在的 `tests/` 与 `tools/doctor.mjs`。0.1.0 收敛为 `validate` + `status`，随对应里程碑逐步加回。
+
+**验证**：`npm run validate` 通过（9 agents + 5 commands + 4 skills 全部 frontmatter 合规）；`node tools/render-status.mjs` 在空 `.omz/` 下输出"无状态"提示而非报错。
+
+**已知缺口**：无 adapters / hooks / coordinator / dashboard / tests / upstream 锁定；doctor 只有会话内命令版本，无离线可执行体；Atlas 正文当时仍假设自己能 spawn（1.3.0 重写）。
+
+

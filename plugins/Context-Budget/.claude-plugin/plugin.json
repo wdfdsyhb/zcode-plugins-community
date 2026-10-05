@@ -1,0 +1,15 @@
+{
+  "name": "context-budget",
+  "version": "0.1.0",
+  "description": "Minimize the number of API requests and input-token cost on any task — building, fixing, reviewing, or answering questions about code — by executing the whole job in two mega-batched requests with hard caps on what any single call may return.",
+  "author": {
+    "name": "SoftArax",
+    "url": "https://github.com/SoftArax"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "Minimize the number of API requests and input-token cost on any task — building, fixing, reviewing, or answering questions about code — by executing the whole job in two mega-batched requests with hard caps on what any single call may return.",
+    "zh-CN": "上下文预算压缩:一个回合打包多动作,最小化输入 token 成本"
+  }
+}

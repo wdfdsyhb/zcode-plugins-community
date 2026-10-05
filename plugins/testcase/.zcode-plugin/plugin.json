@@ -1,0 +1,31 @@
+{
+  "name": "testcase",
+  "description": "Agent skills for requirements review, test cases, verified implementation, prompt normalization, and Notion/Slack capture.",
+  "version": "1.17.0",
+  "author": {
+    "name": "xtieume",
+    "url": "https://github.com/xtieume"
+  },
+  "homepage": "https://github.com/xtieume/testcase",
+  "repository": "https://github.com/xtieume/testcase",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "testing",
+    "test-cases",
+    "qa",
+    "quality-assurance",
+    "docs-review",
+    "documentation",
+    "notion",
+    "markdown",
+    "export",
+    "playwright",
+    "browser-automation"
+  ],
+  "skills": "./.agents/skills",
+  "description_i18n": {
+    "en": "Agent skills for requirements review, test cases, verified implementation, prompt normalization, and Notion/Slack capture.",
+    "zh-CN": "从需求到交付:审计 spec→生成真实测试→构建直到全部通过"
+  }
+}

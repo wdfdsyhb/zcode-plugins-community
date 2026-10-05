@@ -1,0 +1,437 @@
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+
+
+ROOT = Path(__file__).resolve().parent.parent
+SPEC = importlib.util.spec_from_file_location("tony_release_gate", ROOT / "scripts" / "release_gate.py")
+release_gate = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(release_gate)
+
+
+@unittest.skipUnless(shutil.which("git"), "git is required for release gate tests")
+class ReleaseGateTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.write(".zcode-plugin/plugin.json", json.dumps({"version": "3.1.0"}))
+        self.write(".gitignore", ".env*\n*.log\n")
+        self.write("agents/github.md", "base contract\n")
+        self.write("release-audits/README.md", "governance base\n")
+        self.write("removed.txt", "remove me\n")
+        self.git("init", "-q")
+        self.git("config", "user.email", "tests@example.invalid")
+        self.git("config", "user.name", "Release Gate Tests")
+        self.git("add", ".")
+        self.git("commit", "-qm", "base fixture")
+        self.git("tag", "v2.0.0")
+        self.write("agents/github.md", "v3 contract\n")
+        self.write("new.txt", "staged release file\n")
+        (self.root / "removed.txt").unlink()
+        self.git("add", "-A")
+
+    def write(self, relative, content):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def git(self, *arguments):
+        # 净化 GIT_* 环境：在 pre-push hook 等泄漏 GIT_DIR/GIT_INDEX_FILE 的
+        # 环境里，子进程 git 会绕过 -C 指向真实仓库，污染维护者分支。
+        environment = {
+            key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+        }
+        result = subprocess.run(
+            [shutil.which("git"), "-C", str(self.root)] + list(arguments),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            env=environment,
+        )
+        if result.returncode != 0:
+            self.fail("git {} failed: {}".format(" ".join(arguments), result.stderr))
+        return result.stdout.strip()
+
+    def fields(self):
+        fingerprint = release_gate.package_fingerprint(self.root)
+        return {
+            "report-id": "github-20260907-001",
+            "role": "github",
+            "reviewer": "github",
+            "mode": "RELEASE_GATE",
+            "version": "3.1.0",
+            "package_fingerprint": fingerprint,
+            "base_ref": "v2.0.0",
+            "target_ref": "WORKTREE:" + fingerprint,
+            "changed_files": '["agents/github.md", "new.txt"]',
+            "removed_files": '["removed.txt"]',
+            "changed_agents": '["github"]',
+            "breaking_impact": "breaking",
+            "reviewed_at": "2026-09-07T12:00:00Z",
+            "verdict": "PASS",
+        }
+
+    def sections(self):
+        return {
+            "Scope": "- changed_files: `agents/github.md`, `new.txt`\n- removed_files: `removed.txt`\n- changed_agents: `github`",
+            "Evidence": "| evidence-id | check | result | evidence |\n|---|---|---|---|\n| EV-001 | validation | PASS | validate completed successfully |\n| EV-002 | tests | PASS | complete unittest suite passed |\n| EV-003 | fingerprint | PASS | fingerprint matches reviewed payload |",
+            "Findings": "none",
+            "Agent Links": "- https://github.com/tony-apan/zcode_skills/blob/v3.1.0/agents/github.md",
+            "Improvements": "| improvement-id | user-value | evidence-ref |\n|---|---|---|\n| IMP-001 | Users receive only payloads independently reconciled with Git. | EV-003 |",
+            "Blockers": "none",
+            "Unverified": "none",
+            "Migration": "breaking-impact: breaking\nordinary-users: Ordinary installs remain compatible with the existing state schema.\nmaintainers: Maintainers must use the structured v3 release audit before every push.\nupgrade: Follow the README update flow and run ./scripts/setup-hooks.sh before pushing.",
+            "Hand-off": "| owner | action | status |\n|---|---|---|\n| main AI | run release gate and prepare reviewed audit | READY |",
+        }
+
+    def write_audit(self, field_overrides=None, section_overrides=None, heading_order=None):
+        fields = self.fields()
+        fields.update(field_overrides or {})
+        sections = self.sections()
+        sections.update(section_overrides or {})
+        order = heading_order or list(release_gate.REQUIRED_HEADINGS)
+        frontmatter = "\n".join("{}: {}".format(key, value) for key, value in fields.items())
+        body = "\n\n".join("## {}\n\n{}".format(name, sections[name]) for name in order)
+        self.write("release-audits/v3.1.0.md", "---\n{}\n---\n\n# Release Gate v3.1.0\n\n{}\n".format(frontmatter, body))
+        return fields["package_fingerprint"]
+
+    def test_runtime_recovery_candidates_are_excluded(self):
+        names = (
+            "coder.md.tony-agents-pack.incoming",
+            "coder.md.tony-agents-pack.incoming.20260922T000000.000001Z",
+            "coder.md.tony-agents-pack.restore",
+            "coder.md.tony-agents-pack.restore.20260922T000000.000001Z",
+            "coder.md.tony-agents-pack.rollback.20260921T000000.000001Z",
+            "coder.md.tony-agents-pack.concurrent.abc123",
+            ".coder.md.abcdef1234567890.tmp",
+        )
+        for name in names:
+            self.write(name, "runtime recovery candidate\n")
+            self.assertTrue(release_gate.excluded(Path(name)))
+            self.assertNotIn(name, [path.as_posix() for path in release_gate.payload_paths(self.root)])
+
+    def test_runtime_candidate_gitignore_matches_unique_names(self):
+        ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        for pattern in (
+            "*.tony-agents-pack.incoming*",
+            "*.tony-agents-pack.restore*",
+            "*.tony-agents-pack.concurrent.*",
+            "*.tony-agents-pack.rollback.*",
+            ".*.tmp",
+        ):
+            self.assertIn(pattern, ignore)
+
+    def test_valid_worktree_report_passes_and_audit_report_is_excluded(self):
+        fingerprint = self.write_audit()
+        changed, removed = release_gate.release_diff(self.root, "v2.0.0", "WORKTREE:" + fingerprint, None)
+        self.assertEqual(changed, ["agents/github.md", "new.txt"])
+        self.assertEqual(removed, ["removed.txt"])
+        self.assertNotIn("release-audits/v3.1.0.md", release_gate.payload_paths(self.root))
+        self.assertIn("PASS", release_gate.check_gate(self.root, "3.1.0", None))
+
+    def test_audit_readme_changes_fingerprint_and_enters_diff(self):
+        before = release_gate.package_fingerprint(self.root)
+        self.write("release-audits/README.md", "governance changed\n")
+        self.assertEqual(before, release_gate.package_fingerprint(self.root))
+        self.git("add", "release-audits/README.md")
+        after = release_gate.package_fingerprint(self.root)
+        self.assertNotEqual(before, after)
+        changed, _ = release_gate.release_diff(self.root, "v2.0.0", "WORKTREE:" + after, None)
+        self.assertIn("release-audits/README.md", changed)
+        self.write("release-audits/v3.1.0.md", "audit one\n")
+        audit_fingerprint = release_gate.package_fingerprint(self.root)
+        self.write("release-audits/v3.1.0.md", "audit two\n")
+        self.assertEqual(audit_fingerprint, release_gate.package_fingerprint(self.root))
+
+    def test_audit_report_regex_accepts_only_exact_versioned_reports(self):
+        for path in ("release-audits/v3.1.0.md", "release-audits/v10.20.30.md"):
+            self.assertTrue(release_gate.AUDIT_REPORT_RE.fullmatch(path), path)
+        for path in (
+            "release-audits/vendor.md",
+            "release-audits/v.md",
+            "release-audits/notes.md",
+            "release-audits/v3.1.md",
+            "release-audits/v3.1.0.md.bak",
+            "release-audits/v3.1.0.MD",
+            "scripts/release-audits/v3.1.0.md",
+        ):
+            self.assertIsNone(release_gate.AUDIT_REPORT_RE.fullmatch(path), path)
+
+    def test_non_versioned_release_audit_files_stay_in_payload_and_diff(self):
+        before = release_gate.package_fingerprint(self.root)
+        for name in ("vendor.md", "v.md", "notes.md"):
+            self.write("release-audits/" + name, "supporting material for " + name + "\n")
+        self.git("add", "release-audits/vendor.md", "release-audits/v.md", "release-audits/notes.md")
+        self.write("release-audits/v3.1.0.md", "versioned audit stays excluded\n")
+        self.git("add", "release-audits/v3.1.0.md")
+        fingerprint = release_gate.package_fingerprint(self.root)
+        self.assertNotEqual(before, fingerprint)
+        payload = [path.as_posix() for path in release_gate.payload_paths(self.root)]
+        changed, removed = release_gate.release_diff(self.root, "v2.0.0", "WORKTREE:" + fingerprint, None)
+        for name in ("vendor.md", "v.md", "notes.md"):
+            relative = "release-audits/" + name
+            self.assertIn(relative, payload)
+            self.assertIn(relative, changed)
+            self.assertNotIn(relative, removed)
+        self.assertNotIn("release-audits/v3.1.0.md", payload)
+        self.assertNotIn("release-audits/v3.1.0.md", changed)
+
+    def test_tracked_ignored_env_and_log_are_payload_but_untracked_ignored_are_not(self):
+        self.write(".env.tracked", "base\n")
+        self.write("tracked.log", "base\n")
+        self.git("add", "-f", ".env.tracked", "tracked.log")
+        self.git("commit", "-qm", "tracked ignored files")
+        self.git("tag", "-f", "v2.0.0")
+        before = release_gate.package_fingerprint(self.root)
+        self.write(".env.tracked", "changed\n")
+        self.write("tracked.log", "changed\n")
+        self.git("add", "-f", ".env.tracked", "tracked.log")
+        tracked = release_gate.package_fingerprint(self.root)
+        self.assertNotEqual(before, tracked)
+        self.write(".env.untracked", "ignored\n")
+        self.write("debug.log", "ignored\n")
+        self.assertEqual(tracked, release_gate.package_fingerprint(self.root))
+        changed, _ = release_gate.release_diff(self.root, "v2.0.0", "WORKTREE:" + tracked, None)
+        self.assertIn(".env.tracked", changed)
+        self.assertIn("tracked.log", changed)
+        self.assertNotIn(".env.untracked", changed)
+        self.assertNotIn("debug.log", changed)
+
+    def test_check_rejects_nonignored_untracked_release_file(self):
+        self.write("unstaged.txt", "must be staged\n")
+        self.write_audit({"package_fingerprint": release_gate.package_fingerprint(self.root)})
+        with self.assertRaisesRegex(release_gate.GateError, "stage release files before audit: unstaged.txt"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_old_audit_fingerprint_cannot_pass(self):
+        self.write_audit({"package_fingerprint": "0" * 64})
+        with self.assertRaisesRegex(release_gate.GateError, "package_fingerprint"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_staged_blob_change_changes_fingerprint(self):
+        before = release_gate.package_fingerprint(self.root)
+        self.write("agents/github.md", "new staged contract\n")
+        self.git("add", "agents/github.md")
+        self.assertNotEqual(before, release_gate.package_fingerprint(self.root))
+
+    def test_worktree_crlf_checkout_does_not_change_index_fingerprint(self):
+        before = release_gate.package_fingerprint(self.root)
+        path = self.root / "agents" / "github.md"
+        path.write_bytes(b"v3 contract\r\n")
+        self.assertEqual(before, release_gate.package_fingerprint(self.root))
+        self.git("checkout", "--", "agents/github.md")
+
+    def test_unstaged_content_change_rejected(self):
+        before = release_gate.package_fingerprint(self.root)
+        path = self.root / "agents" / "github.md"
+        with path.open("ab") as handle:
+            handle.write(b"UNSTAGED\n")
+        diff = subprocess.run(
+            [shutil.which("git"), "-C", str(self.root), "diff", "--quiet", "--", "agents/github.md"],
+            check=False,
+        )
+        self.assertNotEqual(diff.returncode, 0)
+        self.assertEqual(before, release_gate.package_fingerprint(self.root))
+        self.write_audit({"package_fingerprint": before})
+        with self.assertRaisesRegex(release_gate.GateError, "stage all release changes before audit: agents/github.md"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_executable_bit_changes_fingerprint_from_git_index(self):
+        path = self.write("script.sh", "#!/bin/sh\nexit 0\n")
+        self.git("add", "script.sh")
+        self.git("update-index", "--chmod=-x", "script.sh")
+        before = release_gate.package_fingerprint(self.root)
+        self.git("update-index", "--chmod=+x", "script.sh")
+        after = release_gate.package_fingerprint(self.root)
+        self.assertNotEqual(before, after)
+        self.assertEqual(release_gate.index_entry_map(self.root)["script.sh"][0], "100755")
+
+    def test_tracked_git_mode_ignores_windows_style_filesystem_mode(self):
+        path = self.write("script.sh", "#!/bin/sh\nexit 0\n")
+        self.git("add", "script.sh")
+        self.git("update-index", "--chmod=+x", "script.sh")
+        expected = release_gate.package_fingerprint(self.root)
+        path.chmod(0o644)
+        self.assertEqual(release_gate.index_entry_map(self.root)["script.sh"][0], "100755")
+        self.assertEqual(expected, release_gate.package_fingerprint(self.root))
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks are unsupported")
+    def test_symlink_target_and_executable_marker_are_hashed_without_following(self):
+        outside = Path(self.temporary.name).parent / (Path(self.temporary.name).name + "-outside")
+        outside.write_text("one\n", encoding="utf-8")
+        self.addCleanup(lambda: outside.unlink() if outside.exists() else None)
+        link = self.root / "link"
+        link.symlink_to(outside)
+        self.git("add", "link")
+        first = release_gate.package_fingerprint(self.root)
+        outside.write_text("two\n", encoding="utf-8")
+        self.assertEqual(first, release_gate.package_fingerprint(self.root))
+        link.unlink()
+        link.symlink_to("other-target")
+        self.git("add", "link")
+        self.assertNotEqual(first, release_gate.package_fingerprint(self.root))
+
+    def test_fallback_non_git_directory_uses_same_exclusions(self):
+        other = Path(self.temporary.name) / "fallback"
+        other.mkdir()
+        (other / "release-audits").mkdir()
+        (other / "release-audits" / "README.md").write_text("rules\n", encoding="utf-8")
+        (other / "release-audits" / "v3.1.0.md").write_text("audit\n", encoding="utf-8")
+        paths = [path.as_posix() for path in release_gate.payload_paths(other)]
+        self.assertIn("release-audits/README.md", paths)
+        self.assertNotIn("release-audits/v3.1.0.md", paths)
+
+    def test_diff_declaration_missing_extra_removed_and_agent_mismatch_fail(self):
+        cases = (
+            ({"changed_files": '["agents/github.md"]'}, r"changed_files.*missing=.*new.txt"),
+            ({"changed_files": '["agents/github.md", "new.txt", "fake"]'}, r"changed_files.*extra=.*fake"),
+            ({"removed_files": "none"}, r"removed_files.*missing=.*removed.txt"),
+            ({"changed_agents": "none"}, r"changed_agents.*missing=.*github"),
+        )
+        for fields, error in cases:
+            with self.subTest(fields=fields):
+                self.write_audit(fields)
+                with self.assertRaisesRegex(release_gate.GateError, error):
+                    release_gate.check_gate(self.root, None, None)
+
+    def test_scope_requires_every_code_formatted_item(self):
+        self.write_audit(section_overrides={"Scope": "- changed_files: `agents/github.md`\n- removed_files: `removed.txt`\n- changed_agents: `github`"})
+        with self.assertRaisesRegex(release_gate.GateError, "new.txt"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_heading_missing_reordered_and_extra_level_two_fail(self):
+        required = list(release_gate.REQUIRED_HEADINGS)
+        for order in (required[:-1], [required[1], required[0]] + required[2:], required + ["Appendix"]):
+            with self.subTest(order=order):
+                sections = {"Appendix": "extra"}
+                self.write_audit(section_overrides=sections, heading_order=order)
+                with self.assertRaisesRegex(release_gate.GateError, "headings must exactly match"):
+                    release_gate.check_gate(self.root, None, None)
+
+    def test_findings_table_rejects_multiline_p1_open_and_accepted_risk(self):
+        for status_value in ("OPEN", "ACCEPTED_RISK"):
+            table = "| finding-id | severity | status | summary |\n|---|---|---|---|\n| RG-201 | P1 | {} | release blocker on a separate table row |".format(status_value)
+            self.write_audit(section_overrides={"Findings": table})
+            with self.assertRaisesRegex(release_gate.GateError, "P0/P1"):
+                release_gate.check_gate(self.root, None, None)
+        self.write_audit(section_overrides={"Findings": "- none"})
+        with self.assertRaisesRegex(release_gate.GateError, "Markdown table"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_findings_table_schema_and_status_are_strict(self):
+        cases = (
+            ("| id | severity | status | summary |\n|---|---|---|---|\n| RG-1 | P1 | FIXED | fixed |", "header"),
+            ("| finding-id | severity | status | summary |\n|---|---|---|---|\n| RG-201 | P4 | FIXED | fixed issue |", "severity"),
+            ("| finding-id | severity | status | summary |\n|---|---|---|---|\n| RG-201 | P2 | BLOCKED | blocked issue |", "status"),
+        )
+        for findings, error in cases:
+            self.write_audit(section_overrides={"Findings": findings})
+            with self.assertRaisesRegex(release_gate.GateError, error):
+                release_gate.check_gate(self.root, None, None)
+
+    def test_open_p2_must_be_referenced_in_improvements_or_hand_off(self):
+        findings = "| finding-id | severity | status | summary |\n|---|---|---|---|\n| RG-202 | P2 | OPEN | follow-up remains |"
+        self.write_audit(section_overrides={"Findings": findings})
+        with self.assertRaisesRegex(release_gate.GateError, "RG-202"):
+            release_gate.check_gate(self.root, None, None)
+        improvements = "| improvement-id | user-value | evidence-ref |\n|---|---|---|\n| RG-202 | Follow-up is visible to maintainers and users. | EV-003 |"
+        self.write_audit(section_overrides={"Findings": findings, "Improvements": improvements})
+        self.assertIn("PASS", release_gate.check_gate(self.root, None, None))
+
+    def test_evidence_table_requires_three_pass_rows_and_nonempty_evidence(self):
+        cases = (
+            ("| evidence-id | check | result | evidence |\n|---|---|---|---|\n| EV-1 | validation | PASS | valid |", "tests"),
+            ("| evidence-id | check | result | evidence |\n|---|---|---|---|\n| EV-1 | validation | PASS |  |", "cell"),
+        )
+        for evidence, error in cases:
+            self.write_audit(section_overrides={"Evidence": evidence})
+            with self.assertRaisesRegex(release_gate.GateError, error):
+                release_gate.check_gate(self.root, None, None)
+
+    def test_improvements_require_rows_and_existing_evidence_ref(self):
+        cases = (
+            ("| improvement-id | user-value | evidence-ref |\n|---|---|---|", "data row"),
+            ("| improvement-id | user-value | evidence-ref |\n|---|---|---|\n| IMP-1 | useful release behavior | EV-999 |", "does not exist"),
+            ("| improvement-id | user-value | evidence-ref |\n|---|---|---|\n| IMP-1 | TODO | EV-001 |", "placeholder"),
+        )
+        for improvements, error in cases:
+            self.write_audit(section_overrides={"Improvements": improvements})
+            with self.assertRaisesRegex(release_gate.GateError, error):
+                release_gate.check_gate(self.root, None, None)
+
+    def test_migration_requires_fixed_order_long_values_and_breaking_upgrade(self):
+        short = "breaking-impact: breaking\nordinary-users: short\nmaintainers: Maintainers use the new audit contract for release pushes.\nupgrade: Follow README update instructions before the next repository push."
+        self.write_audit(section_overrides={"Migration": short})
+        with self.assertRaisesRegex(release_gate.GateError, "ordinary-users"):
+            release_gate.check_gate(self.root, None, None)
+        no_command = "breaking-impact: breaking\nordinary-users: Ordinary installs remain compatible with the current state schema.\nmaintainers: Maintainers use the new audit contract for every repository push.\nupgrade: Maintainers should adopt the new process before their next release."
+        self.write_audit(section_overrides={"Migration": no_command})
+        with self.assertRaisesRegex(release_gate.GateError, "README/update"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_hand_off_table_rejects_empty_invalid_and_blocked(self):
+        cases = (
+            ("| owner | action | status |\n|---|---|---|\n|  | publish release | READY |", "cell"),
+            ("| owner | action | status |\n|---|---|---|\n| main AI | publish release | WAITING |", "status"),
+            ("| owner | action | status |\n|---|---|---|\n| main AI | publish release | BLOCKED |", "must not contain BLOCKED"),
+        )
+        for handoff, error in cases:
+            self.write_audit(section_overrides={"Hand-off": handoff})
+            with self.assertRaisesRegex(release_gate.GateError, error):
+                release_gate.check_gate(self.root, None, None)
+
+    def test_blockers_and_unverified_require_standalone_none(self):
+        for heading in ("Blockers", "Unverified"):
+            self.write_audit(section_overrides={heading: "- none"})
+            with self.assertRaisesRegex(release_gate.GateError, heading):
+                release_gate.check_gate(self.root, None, None)
+
+    def test_reviewer_is_required_and_must_be_github(self):
+        self.write_audit({"reviewer": "human"})
+        with self.assertRaisesRegex(release_gate.GateError, "reviewer must be 'github'"):
+            release_gate.check_gate(self.root, None, None)
+        fields = self.fields()
+        fields.pop("reviewer")
+        self.write_audit(fields)
+        audit = self.root / "release-audits" / "v3.1.0.md"
+        audit.write_text(audit.read_text(encoding="utf-8").replace("reviewer: github\n", ""), encoding="utf-8")
+        with self.assertRaisesRegex(release_gate.GateError, "reviewer"):
+            release_gate.check_gate(self.root, None, None)
+
+    def test_commit_mode_and_missing_git_fail_closed(self):
+        self.git("commit", "-qm", "target")
+        target = self.git("rev-parse", "HEAD")
+        self.write_audit({"target_ref": target})
+        self.assertIn("PASS", release_gate.check_gate(self.root, None, target))
+        with mock.patch.object(release_gate.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(release_gate.GateError, "git is required"):
+                release_gate.check_gate(self.root, None, target)
+
+    def test_worktree_audit_passes_after_commit_in_clean_ci_index(self):
+        fingerprint = self.write_audit()
+        self.git("add", "release-audits/v3.1.0.md")
+        self.git("commit", "-qm", "release candidate")
+        self.assertEqual(fingerprint, release_gate.package_fingerprint(self.root))
+        self.assertFalse(release_gate.staged_payload_paths(self.root))
+        self.assertFalse(release_gate.unstaged_payload_paths(self.root))
+        self.assertIn("PASS", release_gate.check_gate(self.root, None, self.git("rev-parse", "HEAD")))
+
+    def test_template_contains_structured_schema(self):
+        output = release_gate.template(self.root)
+        for marker in ("reviewer: github", "| evidence-id | check | result | evidence |", "| finding-id | severity | status | summary |", "| improvement-id | user-value | evidence-ref |", "breaking-impact:", "| owner | action | status |"):
+            self.assertIn(marker, output)
+
+
+if __name__ == "__main__":
+    unittest.main()

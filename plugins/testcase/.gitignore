@@ -1,0 +1,7 @@
+.code-review-graph/
+.DS_Store
+
+# playwright-cdp skill: local deps + downloaded docs
+.agents/skills/playwright-cdp/scripts/node_modules/
+.agents/skills/playwright-cdp/scripts/package-lock.json
+__pycache__/

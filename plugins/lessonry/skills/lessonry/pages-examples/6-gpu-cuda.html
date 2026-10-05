@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU 硬件与 CUDA 编程模型：AI Infra 第一课 · 交互讲解</title>
+<style>
+:root{
+  --bg:#f7f7f7; --ink:#262626; --muted:#6d6d6d; --line:#dfdfdf;
+  --gpu:#4477AA; --cpu:#D96F32; --mem:#228833; --tc:#B57BDC; --sched:#AA3377; --err:#CC3333; --warn:#B89B23;
+  --mono:'SFMono-Regular',Menlo,Consolas,'Liberation Mono',monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; color:var(--ink); background:var(--bg);
+  background-image:
+    linear-gradient(rgba(0,0,0,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.055) 1px, transparent 1px);
+  background-size:24px 24px;
+  font-family:Inter,'Helvetica Neue',Arial,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  line-height:1.65; font-size:15.5px;
+}
+.wrap{max-width:1140px;margin:0 auto;padding:0 18px 90px}
+header.top{padding:42px 0 8px}
+header.top h1{font-size:30px;font-weight:750;letter-spacing:-.02em;margin:0 0 10px;line-height:1.3}
+header.top .sub{color:var(--muted);font-size:14.5px;max-width:900px}
+header.top .series{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.series a{font-family:var(--mono);font-size:12.5px;text-decoration:none;color:var(--ink);
+  border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px}
+.series a.cur{background:#262626;color:#fff;border-color:#262626}
+nav.toc{position:sticky;top:0;z-index:50;background:rgba(247,247,247,.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);margin:18px -18px 26px;padding:10px 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+nav.toc a{font-family:var(--mono);font-size:12.5px;text-decoration:none;color:var(--ink);
+  border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 11px;transition:transform .15s, box-shadow .15s}
+nav.toc a:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.08)}
+nav.toc .spacer{flex:1}
+nav.toc select{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:5px 6px;background:#fff}
+section.card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.055);
+  padding:26px 28px;margin:26px 0;scroll-margin-top:64px}
+h2.sec{display:flex;align-items:center;gap:10px;font-size:21px;margin:0 0 14px;letter-spacing:-.01em}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;
+  background:var(--ink);color:#fff;font-size:14px;font-weight:700;font-family:var(--mono)}
+.badge.star{background:var(--gpu)}
+h3.sub{font-size:16.5px;margin:22px 0 8px}
+p{margin:8px 0}
+.note{border-left:4px solid var(--cpu);background:#fdf6f1;padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14.5px}
+.note.warn{border-color:var(--err);background:#fbf1f1}
+.note.io{border-color:var(--gpu);background:#f1f5f9}
+.note.tip{border-color:var(--mem);background:#f1f8f2}
+.formula{background:#f3f6f8;border-left:4px solid var(--gpu);border-radius:0 8px 8px 0;padding:10px 16px;margin:12px 0;
+  font-size:17px;overflow-x:auto}
+.controls{display:flex;gap:10px;margin:14px 0 8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 16px;font-size:14px;cursor:pointer;
+  transition:transform .12s, box-shadow .12s;font-family:inherit}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.caption{background:#f7f7f9;border:1px dashed #cfcfcf;border-radius:9px;padding:9px 13px;font-size:14px;margin:8px 0;min-height:42px}
+.caption .n{font-family:var(--mono);color:var(--gpu);font-weight:700;margin-right:10px}
+.diagram{width:100%;height:auto;display:block}
+.scroller{overflow-x:auto;position:relative}
+.scroller .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:2px 0 4px;display:none}
+@media(max-width:700px){.scroller .hint{display:block}}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 2px;font-size:13px;color:var(--muted)}
+.legend .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+.trio .tcard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fcfcfd}
+.trio .tcard h4{margin:2px 0 8px;font-size:15px}
+.trio .tcard p{font-size:13.5px;color:#444;margin:0}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;border-radius:6px;padding:2px 8px;color:#fff;margin-bottom:8px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+.cards .scard{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fcfcfd}
+.cards .scard b{display:block;font-size:14.5px;margin-bottom:6px;font-family:var(--mono)}
+.cards .scard span{font-size:13px;color:#555}
+@media(max-width:860px){.trio{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.cards{grid-template-columns:1fr}}
+.recap{border-left:4px solid var(--mem);background:#f1f8f2;padding:10px 14px;border-radius:0 8px 8px 0;margin:18px 0 4px;font-size:14px}
+.recap .rl{display:block;margin-top:4px;color:#3a5c3a}
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.roadmap .st{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fbfbfd;font-size:12.5px;line-height:1.5}
+.roadmap .st b{display:block;font-size:13.5px;margin:2px 0}
+.roadmap .st span{color:#fff;font-family:var(--mono);font-size:10.5px;border-radius:5px;padding:1px 7px;display:inline-block}
+@media(max-width:860px){.roadmap{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.roadmap{grid-template-columns:1fr}}
+.tipbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+.tipbar span{font-size:12.5px;border:1px dashed var(--line);border-radius:99px;padding:4px 12px;background:#fff;color:#555}
+.pg-row{display:flex;align-items:center;gap:10px;margin:10px 0}
+.pg-lab{font-size:13.5px;min-width:150px}
+.pg-val{font-family:var(--mono);font-size:13px;min-width:60px;text-align:right}
+input[type=range]{flex:1;accent-color:var(--gpu)}
+.lab{display:grid;grid-template-columns:1fr 340px;gap:16px;border:1px solid var(--line);border-radius:10px;padding:14px;background:#fcfcfd}
+.lab.wide{grid-template-columns:1fr}
+.lab.wide .diagram{max-width:700px;margin:0 auto}
+@media(max-width:860px){.lab{grid-template-columns:1fr}}
+.lab .stat{font-family:var(--mono);font-size:12.5px;background:#1e1e28;color:#e6e6f0;border-radius:10px;padding:12px 14px;line-height:1.7}
+.lab .stat b{color:#f0b86e}
+pre.code{background:#1e1e28;color:#e6e6f0;border-radius:10px;padding:16px 18px;font-family:var(--mono);
+  font-size:13px;line-height:1.6;overflow-x:auto;white-space:pre}
+pre.code .cm{color:#8a8aa3}
+pre.code .kw{color:#c792ea}
+pre.code .st{color:#a8d08d}
+pre.code .fn{color:#82c4ff}
+pre.code .num{color:#f0b86e}
+pre.code .ln{display:block;width:100%;border-radius:4px;padding:0 6px;margin:0 -6px}
+pre.code .ln.on{background:rgba(170,51,119,.45)}
+.pyr .layer{cursor:pointer}
+.pyr .layer rect{transition:all .2s}
+.pyr .layer:hover rect{filter:brightness(1.1)}
+.roofline{display:grid;grid-template-columns:1fr 300px;gap:16px;border:1px solid var(--line);border-radius:10px;padding:14px;background:#fcfcfd}
+@media(max-width:860px){.roofline{grid-template-columns:1fr}}
+.quiz{border:1px solid var(--line);border-radius:10px;background:#fbfbfc;padding:16px 18px;margin:18px 0 4px}
+.quiz h4{margin:0 0 10px;font-size:15.5px}
+.q{margin:12px 0 18px}
+.qt{font-size:14.5px;margin-bottom:8px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 13px;font-size:14px;
+  cursor:pointer;font-family:inherit;transition:background .15s}
+.opt:hover{background:#f2f2f5}
+.opt.right{background:#e7f5ea;border-color:#228833;font-weight:600}
+.opt.wrong{background:#fbeaea;border-color:#cc3333}
+.exp{margin-top:9px;font-size:13.5px;background:#f4f7f4;border-radius:8px;padding:9px 12px;border-left:4px solid var(--mem)}
+.qscore{font-family:var(--mono);font-size:13px;color:var(--muted)}
+footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:#fff}
+:focus-visible{outline:2px solid var(--gpu);outline-offset:2px}
+@media(pointer:coarse){.btn,.opt{padding:11px 16px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>GPU 硬件与 CUDA 编程模型<br><span style="font-size:20px;font-weight:600;color:var(--muted)">AI Infra 第一课：大模型为什么"吃"GPU · 交互讲解</span></h1>
+  <p class="sub">领域定位：本页属于<b>并行计算 / 异构计算</b>，是 AI Infra 的硬件地基。CUDA 是 NVIDIA GPU 的编程平台——训练和推理框架（PyTorch、vLLM…）最底层都落在它上。读完本页你会明白：模型为什么吃显存、AI 芯片宣传的 TFLOPS 和 TB/s 到底哪个重要、以及"计算"和"搬运"哪个更贵。</p>
+  <div class="series">
+    <a href="1-transformer-vit.html">① Transformer + ViT</a>
+    <a href="2-agent-loop.html">② Agent 与 Loop</a>
+    <a href="3-k8s-basics.html">③ K8S 基础</a>
+    <a href="4-clip-multimodal.html">④ CLIP 与多模态</a>
+    <a href="5-sgd-optimizer.html">⑤ SGD 随机梯度下降</a>
+    <a class="cur" href="6-gpu-cuda.html">⑥ GPU 与 CUDA</a>
+    <a href="7-kv-cache-quant.html">⑦ KV Cache 与量化</a>
+  </div>
+</header>
+
+<nav class="toc" id="toc">
+  <a href="#sec0">速览</a><a href="#sec1">1 · 并行直觉</a><a href="#sec2">2 · 第一个 kernel ★</a>
+  <a href="#sec3">3 · SM 与调度</a><a href="#sec4">4 · 内存金字塔</a><a href="#sec5">5 · Tensor Core</a>
+  <a href="#sec6">6 · roofline ★</a><a href="#sec7">7 · 全景+测验</a>
+  <span class="spacer"></span>
+  <label style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">动画速度
+    <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+  </label>
+</nav>
+
+<!-- ================= 0 速览 ================= -->
+<section class="card" id="sec0">
+  <h2 class="sec"><span class="badge">0</span>一分钟速览</h2>
+  <div class="note"><b>一句话：</b>大模型的本质是<b>海量矩阵乘法</b>——千百万个"乘一下加一下"的简单运算，且彼此独立、可以同时做。这正是 GPU 的主场：几千个小核心一起上。<b>CUDA</b> 就是 NVIDIA 给这套硬件配的编程平台（类 C++ 语言 + 库 + 驱动），PyTorch 的一行代码最终都由 CUDA kernel 在 GPU 上执行。</div>
+  <div class="trio">
+    <div class="tcard"><span class="tag" style="background:var(--gpu)">GPU 是什么</span><h4>几千个小核心的并行机器</h4><p>CPU 核心少而强（4~64 个"教授"），GPU 核心多而简单（上万"小学生"）。矩阵乘法这种海量重复任务，GPU 快百倍。</p></div>
+    <div class="tcard"><span class="tag" style="background:var(--cpu)">CUDA 是什么</span><h4>GPU 的编程平台</h4><p>用"类 C++ + 特殊标记"写函数（kernel），声明"开多少线程"，GPU 负责把线程铺到几万个核心上。2006 年发布，AI 时代的事实标准。</p></div>
+    <div class="tcard"><span class="tag" style="background:var(--mem)">学完能懂</span><h4>AI Infra 的"物理定律"</h4><p>模型为什么吃显存、芯片宣传的 TFLOPS（算力）和 TB/s（搬运速度）哪个更关键、以及为什么很多优化本质是"少搬数据"。</p></div>
+  </div>
+  <h3 class="sub" style="margin-top:18px">🗺️ 本页学习路线</h3>
+  <div class="roadmap">
+    <div class="st"><span style="background:var(--cpu)">第 1 章</span><b>并行直觉</b>CPU vs GPU 对比</div>
+    <div class="st"><span style="background:var(--gpu)">第 2–3 章 ★核心</span><b>线程与调度</b>第一个 kernel → SM/warp</div>
+    <div class="st"><span style="background:var(--mem)">第 4–5 章</span><b>内存与算力</b>内存金字塔 → Tensor Core</div>
+    <div class="st"><span style="background:var(--tc)">第 6–7 章</span><b>性能法则</b>roofline → 一次 kernel 全流程</div>
+  </div>
+  <div class="tipbar">
+    <span>▶ 每章先「播放」看整体</span><span>⏭ 再「单步」精读字幕</span><span>🖐 第 4、6 章可点击/拖动</span><span>📝 每章末尾做小测</span><span>⏱ 全程约 35 分钟</span>
+  </div>
+  <p style="font-size:13.5px;color:var(--muted)">先修要求：无。硬件数字（H100 的 132 个 SM——第 3 章讲的"车间"、3.35TB/s 等）为<b>公开规格的近似值</b>，用于建立数量级直觉。</p>
+</section>
+
+<!-- ================= 1 并行直觉 ================= -->
+<section class="card" id="sec1">
+  <h2 class="sec"><span class="badge">1</span>直觉：1 位教授 vs 1000 位小学生</h2>
+  <div class="note"><b>学完这章你能：</b>说清 GPU 快的不是"单核快"，而是"人多"。任务：<b>100 个互不依赖的乘法</b>（数组 a 的每个元素 × 数组 b 对应元素）——这是所有深度学习计算的缩影。</div>
+  <div class="controls">
+    <button class="btn primary" id="play1">▶ 播放</button>
+    <button class="btn" id="step1">⏭ 单步</button>
+    <button class="btn" id="reset1">↺ 重置</button>
+  </div>
+  <div class="caption" id="cap1"></div>
+  <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+  <svg class="diagram" id="svg1" viewBox="0 0 1040 500"></svg></div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--cpu)"></i>CPU（核心少、单核强）</span>
+    <span><i class="dot" style="background:var(--gpu)"></i>GPU（核心多、各自简单）</span>
+    <span><i class="dot" style="background:var(--mem)"></i>已完成的任务</span>
+  </div>
+  <div class="recap"><b>📌 一句话总结：</b>GPU 快在"人多"：海量<b>互不依赖</b>的简单任务同时铺开。有先后依赖的任务它占不到便宜。
+    <span class="rl"><b>✅ 自查：</b>矩阵乘法为什么天生适合 GPU？（答：每个输出元素都能独立计算）</span></div>
+  <div class="quiz" id="quiz1"></div>
+</section>
+
+<!-- ================= 2 CUDA 编程模型 ================= -->
+<section class="card" id="sec2">
+  <h2 class="sec"><span class="badge star">2★</span>第一个 CUDA kernel：让 1024 个线程做加法</h2>
+  <div class="note"><b>讲解要点：</b>CUDA 程序的分工：CPU（host）上的"主人"代码 + GPU（device）上的"工人"函数 = <b>kernel</b>（用 <b>__global__</b> 标记）。每个线程只负责<b>一个</b>下标的计算；它靠内置变量算出自己管哪个下标。<b>线程层次：thread（线程）→ block（线程块）→ grid（全部）</b>。</div>
+  <div class="controls">
+    <button class="btn primary" id="play2">▶ 播放</button>
+    <button class="btn" id="step2">⏭ 单步</button>
+    <button class="btn" id="reset2">↺ 重置</button>
+  </div>
+  <div class="caption" id="cap2"></div>
+  <div class="lab wide">
+    <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+    <svg class="diagram" id="svg2" viewBox="0 0 640 470"></svg></div>
+    <pre class="code" id="code2"><span class="ln" id="cl0"><span class="kw">__global__</span> <span class="kw">void</span> <span class="fn">vec_add</span>(<span class="kw">float</span>* A, <span class="kw">float</span>* B, <span class="kw">float</span>* C, <span class="kw">int</span> n) {</span><span class="ln" id="cl1">    <span class="kw">int</span> i = blockIdx.x * blockDim.x + threadIdx.x;</span><span class="ln" id="cl2">    <span class="kw">if</span> (i &lt; n) {</span><span class="ln" id="cl3">        C[i] = A[i] + B[i];   <span class="cm">// 每个线程只加一个</span></span><span class="ln" id="cl4">    }</span><span class="ln" id="cl5">}</span><span class="ln" id="cl6"></span><span class="ln" id="cl7"><span class="cm">// 启动：4 个 block × 每块 256 线程 = 1024 个线程</span></span><span class="ln" id="cl8">vec_add<span class="st">&lt;&lt;&lt;4, 256&gt;&gt;&gt;</span>(d_A, d_B, d_C, 1000);</span></pre>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--gpu)"></i>grid（全部线程）</span>
+    <span><i class="dot" style="background:var(--sched)"></i>block（线程块，一队）</span>
+    <span><i class="dot" style="background:var(--ball,#D96F32)"></i>当前线程（threadIdx）</span>
+  </div>
+  <div class="note tip"><b>念一遍这个下标公式：</b>全局编号 i = <b>blockIdx</b>（我是第几队）× <b>blockDim</b>（每队多少人）+ <b>threadIdx</b>（队里第几位）——就像"3 班 × 每班 40 人 + 12 号"= 全校绝对位置。整个 CUDA 编程的核心就是它。</div>
+  <div class="recap"><b>📌 一句话总结：</b>kernel = 写给"每个线程"的规则；启动配置 <<<blocks, threads>>> 决定雇多少人；下标公式让每个线程找到自己的那份数据。
+    <span class="rl"><b>✅ 自查：</b>启动 <<<8,128>>> 时，block 3 的 thread 17 负责哪个下标？（答：3×128+17=401）</span></div>
+  <div class="quiz" id="quiz2"></div>
+</section>
+
+<!-- ================= 3 SM 与调度 ================= -->
+<section class="card" id="sec3">
+  <h2 class="sec"><span class="badge">3</span>SM 与调度：warp、延迟隐藏与分支发散</h2>
+  <div class="note"><b>讲解要点：</b>GPU 芯片的实际干活单元叫 <b>SM（流式多处理器）</b>，一块 H100 有 132 个。线程以 <b>32 个为一组（warp，"线程束"）"锁步"执行：一条指令、32 份数据同时算</b>；SM 里常有多个 warp，一个在等显存时就切另一个——用"人多"把<b>等待时间藏起来</b>（延迟隐藏）。</div>
+  <div class="controls">
+    <button class="btn primary" id="play3">▶ 播放</button>
+    <button class="btn" id="step3">⏭ 单步</button>
+    <button class="btn" id="reset3">↺ 重置</button>
+  </div>
+  <div class="caption" id="cap3"></div>
+  <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+  <svg class="diagram" id="svg3" viewBox="0 0 1040 520"></svg></div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--gpu)"></i>SM（流式多处理器）</span>
+    <span><i class="dot" style="background:var(--sched)"></i>warp = 32 线程（锁步）</span>
+    <span><i class="dot" style="background:var(--warn)"></i>等显存的 warp</span>
+    <span><i class="dot" style="background:var(--mem)"></i>正在计算的 warp</span>
+  </div>
+  <div class="note warn"><b>⚠ 分支发散（branch divergence）：</b>同一个 warp 里的线程走 if / else 两个岔路时，GPU 只能让两条路<b>先后串行</b>各跑一遍——32 线程的并行优势瞬间打折。写 kernel 的第一戒律：让相邻线程走相同的路。</div>
+  <div class="recap"><b>📌 一句话总结：</b>线程按 32 个打包成 warp 锁步执行；SM 靠"多个 warp 轮流上岗"把显存等待藏起来；分支发散是并行杀手。
+    <span class="rl"><b>✅ 自查：</b>为什么 warp 是 32 个而不是 1 个？（答：一批指令发一次，32 个一起执行才摊薄成本）</span></div>
+  <div class="quiz" id="quiz3"></div>
+</section>
+
+<!-- ================= 4 内存金字塔 ================= -->
+<section class="card" id="sec4">
+  <h2 class="sec"><span class="badge">4</span>内存金字塔：计算不贵，搬运才贵</h2>
+  <div class="note"><b>学完这章你能：</b>理解 AI 芯片宣传里"TFLOPS"之外的另一半真相——<b>带宽</b>。<b>🖐 点击金字塔的每一层</b>，看容量、速度和类比。核心结论：越靠近计算单元的存储越小但越快（快十倍以上）；<b>性能优化的本质是"把数据搬到离计算更近的地方，少跑图书馆"</b>。</div>
+  <div class="lab">
+    <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图 · 点击金字塔层</div>
+    <svg class="diagram" id="svg4" viewBox="0 0 660 430" style="cursor:pointer"></svg></div>
+    <div class="stat" id="stat4"></div>
+  </div>
+  <div class="note io"><b>记一个数量级：</b>寄存器/共享内存比 HBM 显存<b>快十倍到上百倍</b>，但小上千倍。深度学习的很多"神技"（下一章 Tensor Core、后面的 FlashAttention）本质都是同一句话：<b>别反复跑图书馆</b>。</div>
+  <div class="recap"><b>📌 一句话总结：</b>内存金字塔：越快越小、越慢越大；性能 = 少搬数据 + 搬得离计算近。
+    <span class="rl"><b>✅ 自查：</b>HBM 容量大但慢，那"快"的代价是什么？（答：容量小，装不下整个模型）</span></div>
+  <div class="quiz" id="quiz4"></div>
+</section>
+
+<!-- ================= 5 Tensor Core ================= -->
+<section class="card" id="sec5">
+  <h2 class="sec"><span class="badge">5</span>Tensor Core：专吃矩阵块的"粗加工车间"</h2>
+  <div class="note"><b>讲解要点：</b>普通 CUDA core 一次算 1 个乘加；<b>Tensor Core</b> 是专门为矩阵造的单元——一次指令吃完一整个 <b>4×4 矩阵块</b>的乘加。同时钟下 FP16 吞吐约为普通核心的十几倍。大模型里的矩阵乘法几乎全由它完成。</div>
+  <div class="controls">
+    <button class="btn primary" id="play5">▶ 播放</button>
+    <button class="btn" id="step5">⏭ 单步</button>
+    <button class="btn" id="reset5">↺ 重置</button>
+  </div>
+  <div class="caption" id="cap5"></div>
+  <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+  <svg class="diagram" id="svg5" viewBox="0 0 1040 420"></svg></div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--cpu)"></i>CUDA core：一次 1 个乘加</span>
+    <span><i class="dot" style="background:var(--tc)"></i>Tensor Core：一次一个 4×4×4 块</span>
+    <span><i class="dot" style="background:var(--mem)"></i>FP16 计算 / FP32 累加（混合精度）</span>
+  </div>
+  <div class="note tip"><b>混合精度一句话：</b>用 FP16/BF16（16 位浮点数，"半精度"）做乘加（快、省显存），关键累加用 FP32（32 位，精度更高）防止精度损失——训练大模型的标准姿势，也是量化（下一页）的先声。</div>
+  <div class="recap"><b>📌 一句话总结：</b>Tensor Core = 矩阵专用粗加工车间：一口吃 4×4×4 的块，把大模型最爱的 GEMM 喂得飞快。
+    <span class="rl"><b>✅ 自查：</b>为什么矩阵乘法特别适合 Tensor Core？（答：可整块并行、乘加模式固定）</span></div>
+  <div class="quiz" id="quiz5"></div>
+</section>
+
+<!-- ================= 6 roofline ================= -->
+<section class="card" id="sec6">
+  <h2 class="sec"><span class="badge star">6★</span>roofline：你的程序是"算不动"还是"搬不动"？</h2>
+  <div class="note"><b>学完这章你能：</b>看懂 AI 性能分析最常用的图。<b>算术强度</b> = 每搬运 1 字节数据能做多少次浮点运算；可达性能 = min（峰值算力，带宽 × 算术强度），即两者取小。拖动滑块改变它：<b>左侧=搬运瓶颈（memory-bound，提速要加带宽）</b>，<b>右侧=计算瓶颈（compute-bound，提速要加算力）</b>。这一页是理解 FlashAttention（后续课程）和推理瓶颈（下一页）的钥匙。</div>
+  <div class="roofline">
+    <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+    <svg class="diagram" id="svg6" viewBox="0 0 660 440"></svg></div>
+    <div>
+      <div style="font-size:13.5px">算术强度（FLOP/Byte）</div>
+      <div class="pg-row" style="margin:6px 0 0"><input type="range" id="ai" min="0.05" max="100" step="0.01" value="0.2" style="flex:1;min-width:0"><span class="pg-val" id="aiv">0.20</span></div>
+      <div class="tipbar" style="margin-top:4px">
+        <button class="btn" id="rv">向量加法 0.06</button>
+        <button class="btn" id="ra">decode 0.2</button>
+        <button class="btn" id="rg">GEMM 30</button>
+      </div>
+      <div class="stat" id="stat6" style="margin-top:10px"></div>
+      <p style="font-size:12.5px;color:var(--muted)">图中为示意参数（教学简化）：峰值算力 100、带宽 10 → 脊点 = 100÷10 = 10。真实 H100：峰值 ≈ 1000 TFLOPS（FP16 Tensor Core）、带宽 ≈ 3.35 TB/s → 真实脊点 ≈ 300 FLOP/Byte——真实硬件的脊点比图中更靠右，绝大多数负载落在左侧搬运瓶颈区。</p>
+    </div>
+  </div>
+  <div class="note io"><b>先记住一个反直觉结论：</b>大模型<b>逐字生成（decode）阶段几乎总是搬运瓶颈</b>——每生成一个字都要把全部权重从 HBM 搬一遍，计算反而闲着。这就是"推理优化≈省搬运"的根源；下一页的 KV Cache（少重算）与量化（少搬运）都由此而来。</div>
+  <div class="recap"><b>📌 一句话总结：</b>roofline：算术强度低 → 搬运瓶颈（加带宽才有用）；高 → 计算瓶颈（加算力才有用）。先看位置，再谈优化。
+    <span class="rl"><b>✅ 自查：</b>decode 阶段在 roofline 哪一侧？想提速该加算力还是加带宽？</span></div>
+  <div class="quiz" id="quiz6"></div>
+</section>
+
+<!-- ================= 7 全景+测验 ================= -->
+<section class="card" id="sec7">
+  <h2 class="sec"><span class="badge">7</span>全景：一次 kernel 的一生 + 术语地图 + 综合测验</h2>
+  <div class="note"><b>讲解要点：</b>把六章串成一次真实执行：CPU 准备数据 → <b>拷进 GPU 显存（走 PCIe，慢！）</b> → 启动 kernel（铺满 SM）→ 结果拷回。深度学习框架做的就是：把成千上万个这样的 kernel 按正确顺序编排起来。</div>
+  <div class="controls">
+    <button class="btn primary" id="play7">▶ 播放</button>
+    <button class="btn" id="step7">⏭ 单步</button>
+    <button class="btn" id="reset7">↺ 重置</button>
+  </div>
+  <div class="caption" id="cap7"></div>
+  <div class="scroller"><div class="hint">⇆ 横向滑动查看完整图</div>
+  <svg class="diagram" id="svg7" viewBox="0 0 1040 540"></svg></div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--cpu)"></i>CPU / 主机内存</span>
+    <span><i class="dot" style="background:var(--gpu)"></i>GPU / HBM 显存</span>
+    <span><i class="dot" style="background:var(--sched)"></i>PCIe 总线（搬运通道）</span>
+  </div>
+  <h3 class="sub">📜 名词地图：CUDA 生态里的"亲戚们"</h3>
+  <div class="cards" style="grid-template-columns:repeat(5,1fr)">
+    <div class="scard"><b style="color:var(--gpu)">CUDA</b><span>平台+语言：今天学的线程/kernel 模型。</span></div>
+    <div class="scard"><b style="color:var(--gpu)">cuBLAS</b><span>GPU 矩阵乘法（GEMM）库，模型计算的发动机。</span></div>
+    <div class="scard"><b style="color:var(--gpu)">cuDNN</b><span>深度学习常用操作（卷积/注意力）的现成优化实现。</span></div>
+    <div class="scard"><b style="color:var(--gpu)">Triton</b><span>更易上手的 kernel 语言（Python 写法），FlashAttention 用它实现。</span></div>
+    <div class="scard"><b style="color:var(--gpu)">PyTorch</b><span>最上层框架：把你的模型拆成一串 CUDA kernel 调用。</span></div>
+  </div>
+  <div class="recap"><b>📌 一句话总结（全页）：</b>GPU = 海量小核心 + 内存金字塔；CUDA 用线程层次把任务铺上去；性能法则 = roofline——先分清"算不动"还是"搬不动"。
+    <span class="rl"><b>✅ 自查：</b>不查资料说出：warp 多少线程？H100 多少 SM？decode 阶段是哪类瓶颈？</span></div>
+  <div class="quiz" id="quiz7"></div>
+</section>
+
+<footer>
+  <p>交互式学习笔记 · GPU 硬件与 CUDA 编程模型 · 硬件数字为公开规格近似值（H100：132 SM、HBM3 3.35TB/s、FP16 Tensor Core ≈ 1 PFLOPS），用于建立数量级直觉；动画均为教学示意。</p>
+  <p style="margin-top:4px">快捷键：<kbd>空格</kbd> 播放/暂停 · <kbd>→</kbd> 单步 · <kbd>R</kbd> 重置（先点击某章的按钮激活该章）</p>
+</footer>
+
+<script>
+/* ============ 基础工具 ============ */
+const $=id=>document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+let SPEED=1;
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep=ms=>new Promise(r=>setTimeout(r,RM?Math.min(50,ms):ms/SPEED));
+function el(n,a={},p){const e=document.createElementNS(NS,n);for(const k in a){if(k==='text')e.textContent=a[k];else e.setAttribute(k,a[k]);}if(p)p.appendChild(e);return e;}
+function txt(p,x,y,s,{fs=13,fill='#262626',anchor='start',w=400,mono=false}={}){const t=el('text',{x,y,'text-anchor':anchor,'font-size':fs,fill,'font-weight':w,...(mono?{'font-family':'SFMono-Regular,Menlo,Consolas,monospace'}:{})},p);t.textContent=s;return t;}
+function chip(p,x,y,w,h,label,fill,{fs=13,tc='#fff',rx=8,stroke='rgba(0,0,0,.18)'}={}){const g0=el('g',{},p);el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':1},g0);const lines=label.split('\n');lines.forEach((l,i)=>txt(g0,x+w/2,y+h/2-(lines.length-1)*fs*.62+fs*.36+i*fs*1.24,l,{fs,anchor:'middle',fill:tc,w:600}));return g0;}
+function boxRect(p,x,y,w,h,fill,{rx=10,stroke='rgba(0,0,0,.2)',sw=1.2,dash}={}){return el('rect',{x,y,width:w,height:h,rx,fill,stroke,'stroke-width':sw,...(dash?{'stroke-dasharray':dash}:{})},p);}
+function defArrow(svg,id,color){const d=el('defs',{},svg);const m=el('marker',{id,viewBox:'0 0 10 10',refX:8.5,refY:5,markerWidth:6.5,markerHeight:6.5,orient:'auto-start-reverse'},d);el('path',{d:'M0,0 L10,5 L0,10 z',fill:color},m);}
+async function css(node,st,ms=350){node.style.transition='all '+(RM?0:ms/SPEED)+'ms cubic-bezier(.4,0,.2,1)';for(const k in st)node.style[k]=st[k];await sleep(ms);}
+async function draw(p,ms=600){const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L;p.style.opacity=1;p.getBoundingClientRect();p.style.transition='stroke-dashoffset '+(RM?0:ms/SPEED)+'ms ease';p.style.strokeDashoffset=0;await sleep(ms);}
+function packet(path,color='#D96F32',r=4,dur=700){return new Promise(res=>{if(RM){res();return;}const c=el('circle',{r,fill:color,opacity:.95},path.parentNode);const L=path.getTotalLength();const t0=performance.now();(function f(t){let k=(t-t0)/(RM?1:dur/SPEED);if(k>=1){c.remove();res();return;}const pt=path.getPointAtLength(L*Math.min(k,1));c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);requestAnimationFrame(f);})(t0);});}
+async function pulse(node,ms=460){await css(node,{opacity:.3},ms/2);await css(node,{opacity:1},ms/2);}
+
+/* ============ KaTeX（CDN + 离线降级） ============ */
+function renderStaticTex(){document.querySelectorAll('.formula[data-tex]').forEach(n=>{const sp=document.createElement('span');n.textContent='';n.appendChild(sp);if(typeof katex!=='undefined'){try{katex.render(n.getAttribute('data-tex'),sp,{throwOnError:false});return;}catch(e){}}sp.textContent=n.getAttribute('data-plain');});}
+(function(){const l=document.createElement('link');l.rel='stylesheet';l.href='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';document.head.appendChild(l);
+ const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js';s.onload=renderStaticTex;s.onerror=renderStaticTex;document.head.appendChild(s);})();
+
+/* ============ 步骤播放器 ============ */
+const SECTIONS={};let ACTIVE=null;
+function hint(){return '点击 <b>▶ 播放</b> 自动演示，或 <b>⏭ 单步</b> 逐帧观看（<kbd>空格</kbd>播放/暂停 · <kbd>→</kbd>单步 · <kbd>R</kbd>重置）';}
+function doneMsg(){return '<span class="n">✓</span>演示结束，点击 <b>↺ 重置</b> 可重播';}
+function initSection(num,buildFn){
+ const cap=$('cap'+num),svg=$('svg'+num);
+ const sec={num,svg,cap,steps:[],idx:0,playing:false,busy:false,gen:0,gateRes:null,timers:[]};
+ sec.ui={play:$('play'+num),step:$('step'+num),reset:$('reset'+num)};
+ sec.update=()=>{sec.ui.play.textContent=sec.playing?'⏸ 暂停':'▶ 播放';};
+ sec.gate=()=>sec.playing?Promise.resolve():new Promise(r=>sec.gateRes=r);
+ sec.loop=async g=>{sec.busy=true;
+  while(sec.idx<sec.steps.length){if(g!==sec.gen)return;
+   const st=sec.steps[sec.idx];cap.innerHTML='<span class="n">'+(sec.idx+1)+'/'+sec.steps.length+'</span>'+st.label;
+   try{await st.go(g);}catch(e){console.warn('sec'+num,e);}
+   if(g!==sec.gen)return;sec.idx++;
+   if(sec.idx<sec.steps.length){await sec.gate();if(g!==sec.gen)return;}}
+  sec.playing=false;sec.busy=false;cap.innerHTML=doneMsg();sec.update();};
+ sec.play=async()=>{if(sec.busy){sec.playing=!sec.playing;if(sec.playing&&sec.gateRes){const r=sec.gateRes;sec.gateRes=null;r();}sec.update();return;}
+   if(sec.idx>=sec.steps.length)sec.reset();
+   sec.playing=true;sec.update();const g=sec.gen;await sec.loop(g);};
+ sec.step=async()=>{if(sec.busy)return;if(sec.idx>=sec.steps.length)sec.reset();
+   sec.playing=false;sec.update();const g=sec.gen;sec.busy=true;const st=sec.steps[sec.idx];
+   cap.innerHTML='<span class="n">'+(sec.idx+1)+'/'+sec.steps.length+'</span>'+st.label;
+   try{await st.go(g);}catch(e){console.warn('sec'+num,e);}if(g!==sec.gen)return;sec.idx++;sec.busy=false;
+   if(sec.idx>=sec.steps.length)cap.innerHTML=doneMsg();};
+ sec.reset=()=>{sec.gen++;sec.playing=false;sec.busy=false;sec.idx=0;
+   cap.innerHTML=hint();sec.ui.play.textContent='▶ 播放';try{buildFn(sec);}catch(e){console.warn('build'+num,e);}};
+ sec.ui.play.onclick=()=>{ACTIVE=num;sec.play();};sec.ui.step.onclick=()=>{ACTIVE=num;sec.step();};sec.ui.reset.onclick=()=>{ACTIVE=num;sec.reset();};
+ svg.addEventListener('mousedown',()=>{ACTIVE=num;});
+ sec.reset();SECTIONS[num]=sec;return sec;}
+
+/* ============ 测验引擎 ============ */
+function initQuiz(id,questions){
+ const box=$(id);let done=0,score=0;
+ box.innerHTML='<h4>📝 自测</h4>'+questions.map((q,i)=>
+  `<div class="q"><div class="qt"><b>Q${i+1}.</b> ${q.q}</div><div class="opts">${q.opts.map((o,j)=>`<button class="opt" data-j="${j}">${'ABCD'[j]}. ${o}</button>`).join('')}</div><div class="exp" hidden></div></div>`).join('')+`<div class="qscore"></div>`;
+ const scEl=box.querySelector('.qscore');
+ box.querySelectorAll('.q').forEach((qEl,i)=>{const exp=qEl.querySelector('.exp');
+  qEl.querySelectorAll('.opt').forEach(btn=>{btn.onclick=()=>{if(qEl.classList.contains('answered'))return;
+   qEl.classList.add('answered');const j=+btn.dataset.j,ok=j===questions[i].a;
+   btn.classList.add(ok?'right':'wrong');if(!ok)qEl.querySelectorAll('.opt')[questions[i].a].classList.add('right');
+   exp.hidden=false;exp.innerHTML=(ok?'✅ <b>答对了！</b> ':'❌ <b>正确答案是 '+(questions[i].a+1)+'。</b> ')+questions[i].exp;
+   done++;if(ok)score++;scEl.textContent=`已答 ${done}/${questions.length} · 正确 ${score}`;};});});}
+
+/* ============ 速度与键盘 ============ */
+$('speed').onchange=e=>{SPEED=+e.target.value;};
+document.addEventListener('keydown',e=>{
+ const tag=(document.activeElement&&document.activeElement.tagName)||'';
+ if(e.isComposing||/INPUT|TEXTAREA|SELECT/.test(tag))return;
+ if(!ACTIVE||!SECTIONS[ACTIVE])return;
+ if(e.code==='Space'){e.preventDefault();SECTIONS[ACTIVE].play();}
+ else if(e.key==='ArrowRight'){e.preventDefault();SECTIONS[ACTIVE].step();}
+ else if(e.key==='r'||e.key==='R'){SECTIONS[ACTIVE].reset();}});
+
+const C={gpu:'#4477AA',cpu:'#D96F32',mem:'#228833',tc:'#B57BDC',sched:'#AA3377',err:'#CC3333',warn:'#B89B23',attn:'#AA3377',grad:'#2e8b57'};
+
+/* ============ Sec1 CPU vs GPU ============ */
+initSection(1,sec=>{
+ const svg=sec.svg;svg.innerHTML='';defArrow(svg,'ah1','#9a9a9a');
+ boxRect(svg,40,40,440,420,'#fdf6f1',{stroke:'#e8c9a8'});txt(svg,260,68,'CPU：1 位教授（核心少而强）',{fs:14.5,anchor:'middle',w:700,fill:C.cpu});
+ boxRect(svg,560,40,440,420,'#f1f5f9',{stroke:'#b7cede'});txt(svg,780,68,'GPU：1000 位小学生（核心多而简）',{fs:14.5,anchor:'middle',w:700,fill:C.gpu});
+ txt(svg,260,96,'任务：100 个互不依赖的乘法 c[i]=a[i]×b[i]',{fs:12,anchor:'middle',fill:'#8a5a2a'});
+ const prof=chip(svg,90,120,150,50,'教授',C.cpu);prof.style.opacity=0;
+ const queue=[0,1,2,3].map(i=>{const c=chip(svg,290,112+i*52,140,40,'任务 '+(i+1),'#c9c9d5',{fs:11,tc:'#444'});c.style.opacity=0;return c;});
+ txt(svg,260,344,'…还有 96 个在排队',{fs:11.5,anchor:'middle',fill:'#9a9a9a'}).style.opacity=0;
+ const qT=svg.lastChild;
+ const cpuBar=el('rect',{x:80,y:395,width:2,height:22,rx:6,fill:C.err},svg);cpuBar.style.opacity=0;
+ txt(svg,80,440,'耗时：很长',{fs:11.5,fill:C.err,w:700}).style.opacity=0;
+ const cbT=svg.lastChild;
+ // GPU 10x10 网格
+ const cells=[];
+ for(let r=0;r<10;r++)for(let c=0;c<10;c++){const rect=el('rect',{x:600+c*40,y:100+r*28,width:34,height:22,rx:3,fill:'#dfe8f2',stroke:'#b7cede'},svg);cells.push(rect);}
+ txt(svg,780,412,'1000+ 个小核心，人手一份',{fs:11.5,anchor:'middle',fill:'#3a5a7a'}).style.opacity=0;
+ const gT=svg.lastChild;
+ const gpuBar=el('rect',{x:600,y:430,width:2,height:14,rx:5,fill:C.mem},svg);gpuBar.style.opacity=0;
+ sec.steps=[
+  {label:'任务：100 个乘法，且互不依赖——你做完第 5 个不影响第 6 个。（这就是深度学习计算的缩影）',go:async()=>{prof.style.opacity=1;await pulse(prof,350);}},
+  {label:'CPU 执行：核心少而强，但任务是同质的重复劳动——只能一个接一个排队做。',go:async()=>{for(const c of queue){c.style.opacity=1;await sleep(220);}qT.style.opacity=1;cpuBar.style.opacity=1;await css(cpuBar,{width:360},700);cbT.style.opacity=1;}},
+  {label:'GPU：1000+ 个简单核心，每个核心领一个任务，全员同时开工。',go:async()=>{for(const r of cells){r.setAttribute('fill',C.mem);r.setAttribute('stroke','none');}gT.style.opacity=1;await sleep(300);}},
+  {label:'计时对比：同样的 100 个乘法，GPU 的时间条几乎看不见——规模越大差距越大（大模型是十亿级）。',go:async()=>{gpuBar.style.opacity=1;await css(gpuBar,{width:16},200);await pulse(gpuBar,300);}},
+  {label:'边界：GPU 赢在"人多且互不依赖"；若每步都依赖上一步，GPU 也得排队——记住这点，推理页会回收这个伏笔。',go:async()=>{await pulse(prof,250);await pulse(cells[0],300);}},
+ ]});
+
+/* ============ Sec2 第一个 kernel ============ */
+initSection(2,sec=>{
+ const svg=sec.svg;svg.innerHTML='';defArrow(svg,'ah2','#9a9a9a');
+ const grid=boxRect(svg,25,25,590,330,'#eef3f9',{stroke:C.gpu,sw:2});
+ txt(svg,320,48,'grid：<<<4, 256>>> = 4 个 block × 256 线程 = 1024 线程',{fs:12.5,anchor:'middle',w:700,fill:C.gpu});
+ const blocks=[];
+ for(let b=0;b<4;b++){const bx=b%2,by=Math.floor(b/2);
+  const x=45+bx*295,y=62+by*140;
+  const g0=el('g',{},svg);g0.style.opacity=0;
+  boxRect(g0,x,y,275,120,'#fdf3ea',{stroke:C.cpu,sw:1.5});
+  txt(g0,x+137,y+18,'block '+b,{fs:12,anchor:'middle',w:700,fill:C.cpu});
+  const cs=[];
+  for(let t=0;t<48;t++){const tx=x+12+(t%16)*16,ty=y+30+Math.floor(t/16)*24;
+   cs.push(el('rect',{x:tx,y:ty,width:12,height:16,rx:2,fill:'#e8b48d'},g0));}
+  txt(g0,x+137,y+104,'…共 256 线程',{fs:10,anchor:'middle',fill:'#b39476',mono:true});
+  blocks.push({g0,cs});}
+ const hi=el('rect',{x:0,y:0,width:12,height:16,rx:2,fill:C.attn||'#AA3377',stroke:'#fff','stroke-width':2},svg);hi.style.opacity=0;
+ const calc=txt(svg,320,392,'',{fs:14,anchor:'middle',mono:true,fill:'#444',w:700});
+ const calc2=txt(svg,320,426,'',{fs:14,anchor:'middle',mono:true,fill:C.gpu,w:700});
+ const lines=[[0],[1],[3],[1,3],[2,7,8]];
+ function hl(idx){for(let i=0;i<=8;i++){const e=$('cl'+i);if(e)e.classList.toggle('on',idx.includes(i));}}
+ sec.steps=[
+  {label:'CUDA 程序分两种代码：CPU 上跑的"主人"逻辑 + GPU 上跑的"工人"函数 = kernel。第一行的 __global__ 就是"我是工人函数"的标记。',go:async()=>{blocks.forEach(b=>b.g0.style.opacity=1);hl([0]);await sleep(400);}},
+  {label:'工人法则：每个线程只干一件小事——给 C 的一个下标做一次加法。千万个下标 = 千万个线程，各干各的。',go:async()=>{hl([3]);await sleep(300);await pulse(blocks[0].g0,300);}},
+  {label:'它怎么知道自己管哪个下标？靠三个内置变量：blockIdx（第几队）、threadIdx（队里第几位）、blockDim（每队 256 人）。',go:async()=>{hl([1]);await pulse(blocks[2].g0,400);}},
+  {label:'代入算一遍：block 2、thread 37 → i = 2 × 256 + 37 = 549 → 它只负责 C[549] = A[549] + B[549]。',go:async()=>{hl([1,3]);calc.textContent='i = blockIdx(2) × blockDim(256) + threadIdx(37) = 549';calc2.textContent='C[549] = A[549] + B[549]';await sleep(400);}},
+  {label:'启动配置 <<<4, 256>>>：雇 4 队 × 256 人 = 1024 个线程；只要 1000 个 → 多出的 24 个被 if(i<n) 挡住不越界。',go:async()=>{hl([2,7,8]);await sleep(400);}},
+  {label:'把这套结构放大：GPT 一次前向 = 把矩阵乘法拆成百万级下标，每个线程认领一个——你已读懂 CUDA 的核心思想。',go:async()=>{hl([]);for(const b of blocks)await pulse(b.g0,150);}},
+ ]});
+
+/* ============ Sec3 SM 与调度 ============ */
+initSection(3,sec=>{
+ const svg=sec.svg;svg.innerHTML='';defArrow(svg,'ah3','#9a9a9a');
+ boxRect(svg,50,50,940,380,'#eef3f9',{stroke:C.gpu,sw:2});
+ txt(svg,520,78,'1 个 SM（流式多处理器）—— 一块 H100 有 132 个',{fs:14,anchor:'middle',w:700,fill:C.gpu});
+ const warps=[];
+ for(let i=0;i<4;i++){const y=105+i*62;const g0=el('g',{},svg);g0.style.opacity=0;
+  boxRect(g0,80,y,700,48,i===0?'#fbf3e2':(i===1?'#e7f5ea':'#f4f4f8'),{stroke:'#c9c9c9'});
+  for(let t=0;t<32;t++)el('rect',{x:92+t*21,y:y+14,width:14,height:20,rx:2,fill:i===1?'#8ec9a0':(i===3?'#8ec9a0':'#c9c9d5')},g0);
+  txt(g0,800,y+30,'warp '+i,{fs:12,anchor:'middle',mono:true,fill:'#444'});
+  warps.push(g0);}
+ const sched=chip(svg,350,448,340,44,'warp 调度器：谁在等，就切谁上岗','#555',{fs:13});
+ const w0lab=txt(svg,838,135,'⏳ 等显存中…',{fs:11.5,fill:C.warn,w:700});w0lab.style.opacity=0;
+ const w1lab=txt(svg,838,197,'✓ 正在计算',{fs:11.5,fill:C.mem,w:700});w1lab.style.opacity=0;
+ const div1=el('rect',{x:92,y:305,width:328,height:20,rx:2,fill:C.err,opacity:0},svg);
+ const div2=el('rect',{x:428,y:305,width:328,height:20,rx:2,fill:C.warn,opacity:0},svg);
+ const divT=txt(svg,430,368,'↑ 同 warp 内分岔：两条路各跑一遍，并行打折',{fs:12,anchor:'middle',fill:C.err,w:700});divT.style.opacity=0;
+ sec.steps=[
+  {label:'SM = GPU 里真正干活的"车间"。启动的 grid 会被切成小块，铺到所有 SM 上（H100：132 个车间同时开工）。',go:async()=>{await pulse(svg.querySelector('rect'),300);for(const w2 of warps){w2.style.opacity=1;await sleep(140);}sched.style.opacity=1;}},
+  {label:'线程以 <b>32 个 = 1 个 warp</b> 锁步执行：一条指令，32 份数据同时算。warp 是 GPU 的最小调度单位。',go:async()=>{await pulse(warps[1],450);}},
+  {label:'延迟隐藏：warp0 读显存要等很久（⏳）；调度器立刻切到 warp1 继续算——等待被别的 warp 填满，SM 不闲着。',go:async()=>{w0lab.style.opacity=1;w1lab.style.opacity=1;await pulse(warps[0],300);await pulse(warps[1],300);await pulse(sched,350);}},
+  {label:'与 CPU 哲学相反：CPU 核少而强，靠大缓存消灭等待；GPU 核多而简，靠"排队换人"藏起等待。',go:async()=>{await pulse(warps[3],250);await pulse(sched,250);}},
+  {label:'⚠ 分支发散：同一 warp 一半走 if、一半走 else → 两条岔路只能先后各跑一遍（红+黄先后闪烁），32 线程优势打折。',go:async()=>{await css(div1,{opacity:.75},250);await sleep(300);await css(div2,{opacity:.75},250);divT.style.opacity=1;}},
+ ]});
+
+/* ============ Sec4 内存金字塔（点击交互） ============ */
+(function(){
+ const svg=$('svg4');svg.innerHTML='';
+ const layers=[
+  {k:'寄存器 Register',x:240,y:30,w:180,h:64,c:C.tc,stat:'<b>寄存器 Register</b><br>容量：约 256KB / SM<br>速度：最快（几十 TB/s 级）<br>类比：书桌上的草稿纸——每个线程私有，随手就用<br>谁在用：kernel 里的局部变量'},
+  {k:'共享内存 Shared',x:190,y:102,w:280,h:64,c:C.gpu,stat:'<b>共享内存 Shared Memory</b><br>容量：约 228KB / SM<br>速度：很快（十几 TB/s 级）<br>类比：书包——同一个 block 的线程共用<br>谁在用：手工搬运数据到"计算旁边"'},
+  {k:'L2 缓存',x:140,y:174,w:380,h:64,c:C.mem,stat:'<b>L2 缓存</b><br>容量：约 50MB（整芯片）<br>速度：中等<br>类比：书架——全芯片共享的第二层<br>谁在用：自动缓存最近用过的数据'},
+  {k:'HBM 显存',x:90,y:246,w:480,h:76,c:C.cpu,stat:'<b>HBM 显存</b><br>容量：80GB（整个模型住这里）<br>速度：3.35 TB/s（比上面慢几倍到几十倍）<br>类比：图书馆——容量大但要跑一趟<br>谁在用：权重、KV cache（第 ⑦ 页的主角）、激活值'}];
+ const groups=[];
+ layers.forEach((L2,i)=>{const g0=el('g',{class:'layer'},svg);
+  el('rect',{x:L2.x,y:L2.y,width:L2.w,height:L2.h,rx:8,fill:L2.c,opacity:.88,stroke:'rgba(0,0,0,.25)'},g0);
+  txt(g0,L2.x+L2.w/2,L2.y+L2.h/2+5,L2.k,{fs:14,anchor:'middle',fill:'#fff',w:700});
+  g0.addEventListener('click',()=>select(i));
+  groups.push(g0);});
+ txt(svg,60,360,'↑ 越往上：越快、越小',{fs:12.5,fill:C.mem,w:700});
+ txt(svg,600,360,'↓ 越往下：越大、越慢 ↓',{fs:12.5,anchor:'end',fill:C.err,w:700});
+ const statEl=$('stat4');
+ function select(i){groups.forEach((g0,j)=>{g0.querySelector('rect').setAttribute('opacity',j===i?1:.55);});
+  statEl.innerHTML=layers[i].stat+'<br><span style="color:#8a8aa3">👆 点击左侧金字塔的每一层，这里切换对应详情</span>';}
+ layers.forEach((L2,i)=>groups[i].addEventListener('click',()=>select(i)));
+ select(3);
+})();
+/*SEC1*/
+/* ============ Sec5 Tensor Core ============ */
+initSection(5,sec=>{
+ const svg=sec.svg;svg.innerHTML='';defArrow(svg,'ah5','#9a9a9a');
+ boxRect(svg,40,40,440,330,'#fdf6f1',{stroke:'#e8c9a8'});
+ txt(svg,260,68,'普通 CUDA core：一次 1 个乘加',{fs:14,anchor:'middle',w:700,fill:C.cpu});
+ const L=[];
+ for(let i=0;i<16;i++){const r=Math.floor(i/4),c=i%4;
+  L.push(el('rect',{x:150+c*60,y:100+r*60,width:44,height:44,rx:6,fill:'#e8e8ee',stroke:'#c9c9d5'},svg));}
+ txt(svg,260,398,'16 个输出 = 16 个周期逐个来',{fs:12,anchor:'middle',fill:'#8a5a2a',mono:true});
+ boxRect(svg,560,40,440,330,'#f5f1fa',{stroke:'#c9bfe0'});
+ txt(svg,780,68,'Tensor Core：一条指令吃一整块',{fs:14,anchor:'middle',w:700,fill:C.tc});
+ const R=[];
+ for(let i=0;i<16;i++){const r=Math.floor(i/4),c=i%4;
+  R.push(el('rect',{x:670+c*60,y:100+r*60,width:44,height:44,rx:6,fill:'#d9c9ec',stroke:'#b5a3d1'},svg));}
+ txt(svg,780,398,'D[4×4] = A[4×4] × B[4×4] + C —— 一拍完成',{fs:12,anchor:'middle',fill:'#6b5b8e',mono:true});
+ sec.steps=[
+  {label:'场景：算一个 4×4 的输出矩阵。普通 CUDA core 一个周期只能做 1 个乘加——16 个输出要排 16 拍。',go:async()=>{for(const r of L){r.setAttribute('fill',C.mem);await sleep(90);}}},
+  {label:'Tensor Core（专设的矩阵车间）：一条指令同时算完 D = A×B+C 的整个 4×4 块——64 个乘加一拍完成。',go:async()=>{for(const r of R){r.setAttribute('fill',C.mem);r.setAttribute('stroke','none');}await sleep(400);}},
+  {label:'数量级：同时钟下 FP16 Tensor Core 的吞吐 ≈ 普通 CUDA core 的十几倍。大模型的矩阵乘法（GEMM）几乎全由它包场。',go:async()=>{await pulse(R[5],300);await pulse(R[10],300);}},
+  {label:'混合精度：FP16 做乘加（快）、FP32 做累加（稳）——训练和推理的标准姿势，也是下一页量化话题的先声。',go:async()=>{await pulse(R[0],250);await pulse(L[0],250);}},
+ ]});
+
+/* ============ Sec6 roofline（交互） ============ */
+(function(){
+ const svg=$('svg6');svg.innerHTML='';
+ const X=ai=>50+(Math.log10(ai)+1.4)*(560/3.4);
+ const Y=p=>400-(Math.log10(p)+1)*100;
+ const PEAK=100,BW=10,RIDGE=PEAK/BW;
+ el('line',{x1:40,y1:415,x2:640,y2:415,stroke:'#c9c9c9','stroke-width':1.2},svg);
+ el('line',{x1:44,y1:30,x2:44,y2:415,stroke:'#c9c9c9','stroke-width':1.2},svg);
+ [[0.1,'0.1'],[1,'1'],[10,'10'],[100,'100']].forEach(t=>{txt(svg,X(t[0]),432,t[1],{fs:11,anchor:'middle',fill:'#9a9a9a',mono:true});});
+ [[1,'1'],[10,'10'],[100,'100']].forEach(t=>{txt(svg,34,Y(t[0])+4,t[1],{fs:11,anchor:'end',fill:'#9a9a9a',mono:true});});
+ txt(svg,340,456,'算术强度（FLOP/Byte，对数轴）',{fs:12,anchor:'middle',fill:'#6d6d6d'});
+ txt(svg,20,30,'可达性能',{fs:11,fill:'#6d6d6d'});
+ const slope=el('path',{d:`M ${X(0.05)} ${Y(0.05*BW)} L ${X(RIDGE)} ${Y(PEAK)}`,stroke:C.grad,'stroke-width':3,fill:'none'},svg);
+ const flat=el('path',{d:`M ${X(RIDGE)} ${Y(PEAK)} L ${X(100)} ${Y(PEAK)}`,stroke:C.err,'stroke-width':3,fill:'none'},svg);
+ txt(svg,X(RIDGE)+12,Y(PEAK)-14,'峰值算力 100（compute-bound 天花板）',{fs:11,fill:C.err,w:700});
+ txt(svg,X(0.5),Y(0.5*BW)-16,'斜坡：性能 = 带宽 × 强度',{fs:11,fill:C.grad,w:700});
+ el('circle',{cx:X(RIDGE),cy:Y(PEAK),r:4,fill:C.warn},svg);
+ txt(svg,X(RIDGE)-14,Y(PEAK)+18,'脊点 '+RIDGE,{fs:11,fill:C.warn,w:700,anchor:'end'});
+ const ball=el('circle',{cx:0,cy:0,r:9,fill:C.loss||'#AA3377',stroke:'#fff','stroke-width':2},svg);
+ txt(svg,X(3),Y(45),'memory-bound ←|→ compute-bound',{fs:11,anchor:'middle',fill:'#9a9a9a',mono:true});
+ const stat=$('stat6');
+ function render(){
+  const ai=+$('ai').value;$('aiv').textContent=ai.toFixed(2);
+  const perf=Math.min(PEAK,BW*ai);
+  const mb=ai<RIDGE;
+  ball.setAttribute('cx',X(ai));ball.setAttribute('cy',Y(perf)-12);
+  stat.innerHTML='实验读数<br>——————<br>算术强度 <b>'+ai.toFixed(2)+'</b> FLOP/Byte<br>可达性能 <b>'+perf.toFixed(1)+'</b>（峰值 100）<br>区域 <b style="color:'+(mb?'#e8b86e':'#8ec9a0')+'">'+(mb?'🚚 搬运瓶颈 memory-bound':'🔥 计算瓶颈 compute-bound')+'</b><br>处方 '+(mb?'<b>少搬数据 / 加带宽</b>（FlashAttention、量化都属此类）':'<b>加算力 / 更好的核心</b>（Tensor Core 的主场）');
+ }
+ $('ai').oninput=render;
+ [['rv',0.06],['ra',0.2],['rg',30]].forEach(([id,v])=>{$(id).onclick=()=>{$('ai').value=v;render();};});
+ render();
+})();
+
+/* ============ Sec7 kernel 一生 ============ */
+initSection(7,sec=>{
+ const svg=sec.svg;svg.innerHTML='';defArrow(svg,'ah7','#9a9a9a');defArrow(svg,'ah7p',C.sched);
+ const host=chip(svg,40,90,220,70,'CPU 主机内存\n数据 a, b（准备就绪）',C.cpu,{fs:12});
+ const bus=el('path',{d:'M 260 125 L 600 125',stroke:C.sched,'stroke-width':5,dash:'10 6'},svg);bus.style.opacity=0;
+ txt(svg,430,105,'PCIe 总线（搬运通道，比 HBM 慢几十倍）',{fs:11.5,anchor:'middle',fill:C.sched,w:700}).style.opacity=0;
+ const busT=svg.lastChild;
+ const gpu=boxRect(svg,600,60,400,380,'#eef3f9',{stroke:C.gpu,sw:2});
+ txt(svg,800,88,'GPU',{fs:15,anchor:'middle',w:700,fill:C.gpu});
+ const hbm=chip(svg,630,110,340,50,'HBM 显存：d_A, d_B 已就位',C.mem,{fs:12});hbm.style.opacity=0;
+ const sm=chip(svg,630,200,340,120,'kernel：vec_add\n<<<4, 256>>> → 1024 线程\n铺满所有 SM 并行计算','#555',{fs:12.5});sm.style.opacity=0;
+ const outc=chip(svg,630,350,340,50,'HBM 显存：结果 d_C',C.mem,{fs:12});outc.style.opacity=0;
+ const back=el('path',{d:'M 600 165 C 480 165, 400 220, 264 220',stroke:C.sched,'stroke-width':3,dash:'8 5',fill:'none','marker-end':'url(#ah7p)'},svg);back.style.opacity=0;
+ txt(svg,430,245,'结果拷回 CPU',{fs:11.5,anchor:'middle',fill:C.sched,w:700}).style.opacity=0;
+ const backT=svg.lastChild;
+ const stack=[['PyTorch（最上层：拆算子）','#3d5f9e'],['cuDNN / cuBLAS（现成 kernel 库）','#4a6fa8'],['CUDA C++（你刚学的模型）','#587aa8'],['驱动 + 硬件（SM/Tensor Core/HBM）','#44546a']];
+ const stackT=stack.map((s2,i)=>{const t=txt(svg,640,521-i*20,s2[0],{fs:12,fill:s2[1],w:600,mono:true});t.style.opacity=0;return t;});
+ sec.steps=[
+  {label:'一切从 CPU 开始：主机内存里准备好数据（数组 a、b）。',go:async()=>{host.style.opacity=1;await pulse(host,350);}},
+  {label:'cudaMemcpy：把数据从主机内存拷进 GPU 的 HBM 显存（代码里 d_ 开头＝存在 GPU 上）——走 PCIe 总线。注意：这条通道比 HBM 慢几十倍，能不搬就不搬。',go:async()=>{bus.style.opacity=1;busT.style.opacity=1;hbm.style.opacity=1;await packet(el('path',{d:'M 260 125 L 600 125',stroke:'none',fill:'none'},svg),C.sched,6,900);}},
+  {label:'启动 kernel：<<<4,256>>> 的 1024 个线程铺满 SM，几微秒内算完——计算本身不是瓶颈。',go:async()=>{sm.style.opacity=1;await pulse(sm,450);}},
+  {label:'结果 d_C 还在 GPU 显存里——需要时再拷回主机。',go:async()=>{outc.style.opacity=1;back.style.opacity=1;backT.style.opacity=1;await packet(back,C.mem,6,700);}},
+  {label:'深度学习 = 成千上万个这样的 kernel 按正确顺序编排；训练循环（第⑤页）就是它们的车轮，转几百万圈。',go:async()=>{await pulse(gpu,400);}},
+  {label:'名词地图（右下角）：PyTorch 在最上层拆算子 → cuDNN/cuBLAS 提供调优好的 kernel → CUDA 执行。全栈视野打通！',go:async()=>{for(const t of stackT){t.style.opacity=1;await sleep(160);}}},
+ ]});
+
+/* ============ 测验 ============ */
+initQuiz('quiz1',[{q:'GPU 处理矩阵乘法特别快，根本原因是？',opts:['GPU 单核比 CPU 快一百倍','GPU 的显存特别大','矩阵乘的每个输出元素都能独立计算，恰好铺给海量小核心','GPU 有风扇散热好'],a:2,exp:'矩阵乘的输出之间互不依赖——正是第 1 章"100 个独立乘法"的放大版。GPU 赢在并行度，不在单核。'}]);
+initQuiz('quiz2',[{q:'启动 <<<8, 128>>> 时，block 3、thread 17 的线程负责哪个下标？',opts:['37','401','417','385'],a:1,exp:'i = blockIdx × blockDim + threadIdx = 3×128 + 17 = 401。这个下标公式是 CUDA 编程的心脏。'}]);
+initQuiz('quiz3',[{q:'"分支发散"为什么是 kernel 的大忌？',opts:['会让显存爆炸','同一 warp 的两条岔路只能先后各跑一遍，并行优势打折','会让线程数变少','编译不过'],a:1,exp:'warp 内 32 线程锁步：if/else 各走一遍 = 每个线程都花了两倍时间，其中一半在"陪跑"。'}]);
+initQuiz('quiz4',[{q:'内存金字塔里，"共享内存（shared memory）"最像什么？',opts:['图书馆：容量巨大但要跑一趟','明信片：只能存一句话','书包：同一个 block 的线程共用，快但容量有限','云盘：无限大'],a:2,exp:'shared memory 在 SM 内、同 block 共享、速度接近寄存器——手工把数据搬到计算旁边，是 kernel 优化的核心手段。'}]);
+initQuiz('quiz5',[{q:'大模型普遍采用“FP16 做乘加、FP32 做累加”的混合精度，为什么？',opts:['FP16 省显存、算得快；FP32 累加防止误差越加越大','FP16 能表示更大的数','FP32 只是习惯，没有作用','为了兼容老显卡'],a:0,exp:'乘加用 FP16 换速度和显存，但几百上万项连加的误差会累积，所以累加器用精度更高的 FP32 兜底——这就是 Tensor Core 的标准工作方式。'}]);
+ initQuiz('quiz6',[{q:'大模型逐字生成（decode）阶段在 roofline 上处于哪一侧？',opts:['计算瓶颈：该加算力','搬运瓶颈：每生成一个字都要搬一遍全部权重，该省搬运/加带宽','既不是也不是','永远在脊点上'],a:1,exp:'decode 每步只做一点点计算，却要把整个模型从 HBM 过一遍——算术强度极低，是典型的 memory-bound。这正是推理优化系列技巧的出发点。'}]);
+initQuiz('quiz7',[
+ {q:'Tensor Core 与普通 CUDA core 的区别是？',opts:['Tensor Core 是一种显存','Tensor Core 一条指令完成一个 4×4×4 矩阵块的乘加，吞吐高一个量级','Tensor Core 是软件库','Tensor Core 不支持 FP16'],a:1,exp:'它是专为矩阵运算设计的"粗加工车间"——大模型的 GEMM 几乎全由它执行。'},
+ {q:'SM 的"延迟隐藏"靠的是什么机制？',opts:['提高时钟频率','一个 warp 等显存时，调度器立刻切换到另一个 warp 继续算','压缩数据','减少线程数'],a:1,exp:'SM 里常驻多个 warp：谁在等显存就切谁——用"人多"把几百周期的等待填满，这是 GPU 与 CPU 哲学的分野。'},
+ {q:'关于数据搬运，下列说法正确的是？',opts:['CPU 与 GPU 之间走 PCIe，比 HBM 内部慢几十倍，"能不搬就不搬"','PCIe 比 HBM 快','数据拷贝是免费的','HBM 在 CPU 里'],a:0,exp:'PCIe ≈ 64GB/s，HBM ≈ 3.35TB/s。训练/推理的常见瓶颈之一就是把数据来回拷。'},
+ {q:'启动配置 <<<4, 256>>> 一共会运行多少个线程？',opts:['260','4','1024','256'],a:2,exp:'blocks × threads = 4 × 256 = 1024。多余的线程用 if(i<n) 挡住即可。'},
+ {q:'PyTorch、cuDNN、CUDA 三者的关系是？',opts:['三个互相竞争的框架','PyTorch 在最上层拆算子，cuDNN/cuBLAS 提供调优好的 kernel，最终由 CUDA 在 GPU 上执行','PyTorch 编译成 cuDNN','CUDA 是 PyTorch 的插件'],a:1,exp:'它们是上下层关系：框架 → 库 → 平台 → 硬件。学完本页，你已能看懂这条栈。'}]);
+
+/* ============ 启动 ============ */
+if(location.hash==='#autoplay'){SPEED=8;const sp=$('speed');sp.value='4';sp.dispatchEvent(new Event('change'));
+ Object.keys(SECTIONS).forEach(k=>{const s=SECTIONS[k];(async()=>{const total=(s.steps&&s.steps.length)?s.steps.length:30;for(let i=0;i<total;i++){await s.step();}})();});}
+console.log('%cGPU & CUDA 交互讲解已加载','color:#4477AA;font-weight:bold');
+/*BOOT*/
+</script>
+</div>
+</body>
+</html>

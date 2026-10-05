@@ -1,0 +1,15 @@
+{
+  "name": "literature-review",
+  "version": "0.1.0",
+  "description": "文献综述生成器：根据用户提供的文献（DOI、论文链接、arXiv 链接、本地 PDF/Word/tex 论文文件）总结每篇论文的主要工作与贡献并评价其意义与价值，生成中英文一句话总结、参考文献级 bibtex（期刊名一律由用户输入确认，元数据仅作建议）、以及可直接粘贴进论文的 [1][2]… 编号式文献综述，并将综述、参考文献列表与 bibtex 同时输出到 Markdown 文件和对话框。当用户提到「文献综述」「总结这篇/这几篇论文」「总结文献」「生成参考文献」「bibtex」「引用格式」「literature review」「summarize this paper」「generate citations」等需求时触发——即使用户没有说\"文献综述\"三个字，只要涉及总结学术论文并生成可引用的材料，就应触发本 skill。",
+  "description_i18n": {
+    "en": "文献综述生成器：根据用户提供的文献（DOI、论文链接、arXiv 链接、本地 PDF/Word/tex 论文文件）总结每篇论文的主要工作与贡献并评价其意义与价值，生成中英文一句话总结、参考文献级 bibtex（期刊名一律由用户输入确认，元数据仅作建议）、以及可直接粘贴进论文的 [1][2]… 编号式文献综述，并将综述、参考文献列表与 bibtex 同时输出到 Markdown 文件和对话框。当用户提到「文献综述」「总结这篇/这几篇论文」「总结文献」「生成参考文献」「bibtex」「引用格式」「literature review」「summarize this paper」「generate citations」等需求时触发——即使用户没有说\"文献综述\"三个字，只要涉及总结学术论文并生成可引用的材料，就应触发本 skill。",
+    "zh-CN": "论文转文献综述"
+  },
+  "author": {
+    "name": "openkills",
+    "url": "https://github.com/openkills"
+  },
+  "license": "MIT",
+  "keywords": []
+}

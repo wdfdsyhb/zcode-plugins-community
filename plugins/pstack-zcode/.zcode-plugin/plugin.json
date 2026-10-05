@@ -1,0 +1,28 @@
+{
+  "name": "pstack",
+  "displayName": "pstack",
+  "version": "0.14.1-zcode.1",
+  "description": "ZCode port of poteto's pstack: rigorous agent workflows, principles, playbooks and subagents you can parallelize with confidence. Write less, higher quality code.",
+  "author": {
+    "name": "Luks3110",
+    "url": "https://github.com/Luks3110"
+  },
+  "homepage": "https://github.com/cursor/plugins/tree/main/pstack",
+  "repository": "https://github.com/cursor/plugins",
+  "license": "MIT",
+  "keywords": [
+    "pstack",
+    "poteto-mode",
+    "workflow",
+    "principles",
+    "agent-style",
+    "subagents",
+    "unslop"
+  ],
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "description_i18n": {
+    "en": "ZCode port of poteto's pstack: rigorous agent workflows, principles, playbooks and subagents you can parallelize with confidence. Write less, higher quality code.",
+    "zh-CN": "pstack 移植版:skills+playbooks+原则库"
+  }
+}

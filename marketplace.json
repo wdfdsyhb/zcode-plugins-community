@@ -24,9 +24,18 @@
         "zh-CN": "SRC/众测工作流、护网攻防双视角、CNVD/CNNVD 证书报送、11 类漏洞方法论，四合一中文安全技能包。"
       },
       "version": "0.1.0",
-      "author": { "name": "wdfdsyhb", "url": "https://github.com/wdfdsyhb" },
+      "author": {
+        "name": "wdfdsyhb",
+        "url": "https://github.com/wdfdsyhb"
+      },
       "category": "security",
-      "keywords": ["security", "bugbounty", "src", "hw", "cnvd"]
+      "keywords": [
+        "security",
+        "bugbounty",
+        "src",
+        "hw",
+        "cnvd"
+      ]
     },
     {
       "name": "data-competition-pack",
@@ -42,9 +51,17 @@
         "zh-CN": "天池/Kaggle 六阶段方法论：赛道分析 → Baseline → 上探 → 融合 → 提交 → 复盘，附过拟合诊断。"
       },
       "version": "0.1.0",
-      "author": { "name": "wdfdsyhb", "url": "https://github.com/wdfdsyhb" },
+      "author": {
+        "name": "wdfdsyhb",
+        "url": "https://github.com/wdfdsyhb"
+      },
       "category": "data-science",
-      "keywords": ["data-science", "tianchi", "kaggle", "competition"]
+      "keywords": [
+        "data-science",
+        "tianchi",
+        "kaggle",
+        "competition"
+      ]
     },
     {
       "name": "bruce-drawio",
@@ -60,9 +77,17 @@
         "zh-CN": "直接生成 draw.io XML（流程图/架构图/UML/ER/思维导图），校验后 CLI 导出 PNG/SVG/PDF。作者 bruc3van，跨平台。"
       },
       "version": "4.0.1",
-      "author": { "name": "bruc3van", "url": "https://github.com/bruc3van/bruce-drawio" },
+      "author": {
+        "name": "bruc3van",
+        "url": "https://github.com/bruc3van/bruce-drawio"
+      },
       "category": "dev-tools",
-      "keywords": ["drawio", "diagram", "uml", "architecture"]
+      "keywords": [
+        "drawio",
+        "diagram",
+        "uml",
+        "architecture"
+      ]
     },
     {
       "name": "awwwards-mcp",
@@ -78,9 +103,17 @@
         "zh-CN": "检索获奖网站真实截图、提取设计 DNA、抓取在线站点，供前端设计参考。Mobbin 替代品，无需 API key。作者 INSANE0777。"
       },
       "version": "0.1.0",
-      "author": { "name": "INSANE0777", "url": "https://github.com/INSANE0777/Awwwards-mcp" },
+      "author": {
+        "name": "INSANE0777",
+        "url": "https://github.com/INSANE0777/Awwwards-mcp"
+      },
       "category": "dev-tools",
-      "keywords": ["mcp", "design", "frontend", "ui"]
+      "keywords": [
+        "mcp",
+        "design",
+        "frontend",
+        "ui"
+      ]
     },
     {
       "name": "zcode-tps-monitor",
@@ -96,9 +129,17 @@
         "zh-CN": "shy3130 的 Token 速率监控：每条调用工具的回答末尾自动附真实 tok/s（读 ZCode usage 数据库），附 /tps 命令、MCP 工具与实时监控大屏，另支持业务 TPS 监控。"
       },
       "version": "0.8.5",
-      "author": { "name": "shy3130", "url": "https://github.com/shy3130/zcode-tps-monitor" },
+      "author": {
+        "name": "shy3130",
+        "url": "https://github.com/shy3130/zcode-tps-monitor"
+      },
       "category": "productivity",
-      "keywords": ["monitor", "tps", "usage", "dashboard"]
+      "keywords": [
+        "monitor",
+        "tps",
+        "usage",
+        "dashboard"
+      ]
     },
     {
       "name": "zcode-auto-resume",
@@ -114,9 +155,17 @@
         "zh-CN": "cv-superding 的自动续跑插件：回合因「系统繁忙 / 限流 / 5xx / 超时 / 网络错误」中断时自动注入继续指令恢复任务；认证、余额等永久性错误不盲目重试。"
       },
       "version": "0.1.0",
-      "author": { "name": "cv-superding", "url": "https://github.com/cv-superding/zcode-auto-resume" },
+      "author": {
+        "name": "cv-superding",
+        "url": "https://github.com/cv-superding/zcode-auto-resume"
+      },
       "category": "productivity",
-      "keywords": ["resume", "retry", "hooks", "reliability"]
+      "keywords": [
+        "resume",
+        "retry",
+        "hooks",
+        "reliability"
+      ]
     },
     {
       "name": "api-quota",
@@ -132,9 +181,16 @@
         "zh-CN": "2877905731 的余额与速度状态条：输入框下方显示 API 剩余余额/套餐额度与生成速度，附 /quota 命令、会话启动自动注入与常驻悬浮窗。"
       },
       "version": "1.1.1",
-      "author": { "name": "2877905731", "url": "https://github.com/2877905731/zcode-quota" },
+      "author": {
+        "name": "2877905731",
+        "url": "https://github.com/2877905731/zcode-quota"
+      },
       "category": "productivity",
-      "keywords": ["quota", "balance", "statusbar"]
+      "keywords": [
+        "quota",
+        "balance",
+        "statusbar"
+      ]
     },
     {
       "name": "picturereader",
@@ -150,9 +206,17 @@
         "zh-CN": "jing-hy 的图片读取插件：赋予纯文本模型「读图」能力——image_scan（粗像素网格+色相/结构分析）、image_ocr、image_sample 经 MCP 提供，另附读图技能。"
       },
       "version": "1.0.2",
-      "author": { "name": "jing-hy", "url": "https://github.com/jing-hy/picturereader-zcode" },
+      "author": {
+        "name": "jing-hy",
+        "url": "https://github.com/jing-hy/picturereader-zcode"
+      },
       "category": "productivity",
-      "keywords": ["image", "ocr", "mcp", "vision"]
+      "keywords": [
+        "image",
+        "ocr",
+        "mcp",
+        "vision"
+      ]
     },
     {
       "name": "innovation-proposal",
@@ -168,9 +232,16 @@
         "zh-CN": "xwu43361-sys 的大赛策划书技能：内置中国国际大学生创新大赛 2026 官方评审规则，适配挑战杯、创青春、三创赛、大创计划等。触发词：大创赛、商业计划书。"
       },
       "version": "0.1.0",
-      "author": { "name": "xwu43361-sys", "url": "https://github.com/xwu43361-sys/innovation-proposal" },
+      "author": {
+        "name": "xwu43361-sys",
+        "url": "https://github.com/xwu43361-sys/innovation-proposal"
+      },
       "category": "education",
-      "keywords": ["education", "contest", "business-plan"]
+      "keywords": [
+        "education",
+        "contest",
+        "business-plan"
+      ]
     },
     {
       "name": "md-convert",
@@ -186,9 +257,548 @@
         "zh-CN": "whlle-yi 的 Markdown 转 Word/PDF/HTML 技能：内置中文排版规范——宋体+Times、无伪粗体、三线表、原生公式，可生成可提交的正式文档/论文。"
       },
       "version": "0.1.0",
-      "author": { "name": "whlle-yi", "url": "https://github.com/whlle-yi/md-convert-skill" },
+      "author": {
+        "name": "whlle-yi",
+        "url": "https://github.com/whlle-yi/md-convert-skill"
+      },
       "category": "docs-writing",
-      "keywords": ["markdown", "docx", "pdf", "typography"]
+      "keywords": [
+        "markdown",
+        "docx",
+        "pdf",
+        "typography"
+      ]
+    },
+    {
+      "name": "context-budget",
+      "source": "./plugins/Context-Budget",
+      "displayName": "上下文预算压缩:一个回合打包多动作,最小化输入 token 成本",
+      "displayName_i18n": {
+        "en": "context-budget",
+        "zh-CN": "上下文预算压缩:一个回合打包多动作,最小化输入 token 成本"
+      },
+      "description": "Minimize the number of API requests and input-token cost on any task — building, fixing, reviewing, or answering questions about code — by executing the whole job in two mega-batched requests with hard caps on what any single call may return.",
+      "description_i18n": {
+        "en": "Minimize the number of API requests and input-token cost on any task — building, fixing, reviewing, or answering questions about code — by executing the whole job in two mega-batched requests with hard caps on what any single call may return.",
+        "zh-CN": "上下文预算压缩:一个回合打包多动作,最小化输入 token 成本"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "SoftArax",
+        "url": "https://github.com/SoftArax"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "omz",
+      "source": "./plugins/OhMyZcode",
+      "displayName": "多 agent 并行编排:访谈式规划、独立评审与双证据验收,core 零侵入",
+      "displayName_i18n": {
+        "en": "omz",
+        "zh-CN": "多 agent 并行编排:访谈式规划、独立评审与双证据验收,core 零侵入"
+      },
+      "description": "Oh My ZCode — OmO 编排能力的 ZCode 移植：core（9 子代理 / 5 命令 / 4 skill）+ 可选 graph/orchestration/dashboard profile，默认全关",
+      "description_i18n": {
+        "en": "Oh My ZCode — OmO 编排能力的 ZCode 移植：core（9 子代理 / 5 命令 / 4 skill）+ 可选 graph/orchestration/dashboard profile，默认全关",
+        "zh-CN": "多 agent 并行编排:访谈式规划、独立评审与双证据验收,core 零侵入"
+      },
+      "version": "1.8.1",
+      "author": {
+        "name": "djt889",
+        "url": "https://github.com/djt889"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "academic-search",
+      "source": "./plugins/academic-search",
+      "displayName": "任意主题学术文献自动追踪与周报生成",
+      "displayName_i18n": {
+        "en": "academic-search",
+        "zh-CN": "任意主题学术文献自动追踪与周报生成"
+      },
+      "description": "学术文献自动追踪与周报生成。当用户想持续追踪某个研究方向/主题的最新论文、生成中文文献周报、跟进学术领域进展时使用。覆盖检索→去重→过滤→摘要补全→LLM中文概述→HTML/Markdown报告全流程。触发场景如\"追踪XXX方向的最新论文\"\"帮我跟进XXX领域文献\"\"这周XXX有什么新文章\"。",
+      "description_i18n": {
+        "en": "学术文献自动追踪与周报生成。当用户想持续追踪某个研究方向/主题的最新论文、生成中文文献周报、跟进学术领域进展时使用。覆盖检索→去重→过滤→摘要补全→LLM中文概述→HTML/Markdown报告全流程。触发场景如\"追踪XXX方向的最新论文\"\"帮我跟进XXX领域文献\"\"这周XXX有什么新文章\"。",
+        "zh-CN": "任意主题学术文献自动追踪与周报生成"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "pisen233",
+        "url": "https://github.com/pisen233"
+      },
+      "category": "education",
+      "keywords": []
+    },
+    {
+      "name": "ai-skill-engine",
+      "source": "./plugins/ai-skill-engine",
+      "displayName": "AI skill 引擎:洋葱模型中间件核心+Multica 小队派单/验收",
+      "displayName_i18n": {
+        "en": "ai-skill-engine",
+        "zh-CN": "AI skill 引擎:洋葱模型中间件核心+Multica 小队派单/验收"
+      },
+      "description": "ai-skill-engine",
+      "description_i18n": {
+        "en": "ai-skill-engine",
+        "zh-CN": "AI skill 引擎:洋葱模型中间件核心+Multica 小队派单/验收"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "mikasaw",
+        "url": "https://github.com/mikasaw"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "harmonyos-dev",
+      "source": "./plugins/arkpilot",
+      "displayName": "鸿蒙 NEXT(ArkTS)开发驾驶舱:30 个 MCP 工具覆盖环境检查/构建/设备/UI 自动化",
+      "displayName_i18n": {
+        "en": "harmonyos-dev",
+        "zh-CN": "鸿蒙 NEXT(ArkTS)开发驾驶舱:30 个 MCP 工具覆盖环境检查/构建/设备/UI 自动化"
+      },
+      "description": "通过 arkpilot MCP 工具构建、运行、检查并自动化 HarmonyOS NEXT (ArkTS) 应用。",
+      "description_i18n": {
+        "en": "通过 arkpilot MCP 工具构建、运行、检查并自动化 HarmonyOS NEXT (ArkTS) 应用。",
+        "zh-CN": "鸿蒙 NEXT(ArkTS)开发驾驶舱:30 个 MCP 工具覆盖环境检查/构建/设备/UI 自动化"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "taobaoaz",
+        "url": "https://github.com/taobaoaz"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "crawl-content",
+      "source": "./plugins/crawl-content-skill",
+      "displayName": "中文社媒内容与评论爬取(B站/小红书/抖音/微博/快手/知乎),多平台并行,仅限学习研究并遵守平台条款",
+      "displayName_i18n": {
+        "en": "crawl-content",
+        "zh-CN": "中文社媒内容与评论爬取(B站/小红书/抖音/微博/快手/知乎),多平台并行,仅限学习研究并遵守平台条款"
+      },
+      "description": "Use to crawl Chinese social media (B站/小红书/抖音/微博/快手/知乎) for content + comments via MediaCrawler, optionally chain to /wechat-article (writes 4000-char body) → export as local docx report at `$CRAWL_WORKDIR/{主题}-{YYYYMMDD}.docx`. Supports multi-platform parallel crawling — natural-language input is auto-split into jobs (e.g. 「全网扫 LABUBU」→ xhs+dy+wb+bili in parallel). Trigger on /crawl-content <平台> <",
+      "description_i18n": {
+        "en": "Use to crawl Chinese social media (B站/小红书/抖音/微博/快手/知乎) for content + comments via MediaCrawler, optionally chain to /wechat-article (writes 4000-char body) → export as local docx report at `$CRAWL_WORKDIR/{主题}-{YYYYMMDD}.docx`. Supports multi-platform parallel crawling — natural-language input is auto-split into jobs (e.g. 「全网扫 LABUBU」→ xhs+dy+wb+bili in parallel). Trigger on /crawl-content <平台> <",
+        "zh-CN": "中文社媒内容与评论爬取(B站/小红书/抖音/微博/快手/知乎),多平台并行,仅限学习研究并遵守平台条款"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "JJ188-coder",
+        "url": "https://github.com/JJ188-coder"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "disk-scanner",
+      "source": "./plugins/disk-scanner",
+      "displayName": "Windows 磁盘空间扫描分析:目录体积/文件类型分布/最大文件清单",
+      "displayName_i18n": {
+        "en": "disk-scanner",
+        "zh-CN": "Windows 磁盘空间扫描分析:目录体积/文件类型分布/最大文件清单"
+      },
+      "description": "Windows disk space scanner and analyzer: folder sizes, file-type breakdown, largest files. By wdfdsyhb.",
+      "description_i18n": {
+        "en": "Windows disk space scanner and analyzer: folder sizes, file-type breakdown, largest files. By wdfdsyhb.",
+        "zh-CN": "Windows 磁盘空间扫描分析:目录体积/文件类型分布/最大文件清单"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "wdfdsyhb",
+        "url": "https://github.com/wdfdsyhb"
+      },
+      "category": "productivity",
+      "keywords": [
+        "windows",
+        "disk",
+        "cleanup"
+      ]
+    },
+    {
+      "name": "learn",
+      "source": "./plugins/learn-skill",
+      "displayName": "一个链接→AI 总结/亮点/术语/评分/图谱/深度 OCR 入库",
+      "displayName_i18n": {
+        "en": "learn",
+        "zh-CN": "一个链接→AI 总结/亮点/术语/评分/图谱/深度 OCR 入库"
+      },
+      "description": "|",
+      "description_i18n": {
+        "en": "|",
+        "zh-CN": "一个链接→AI 总结/亮点/术语/评分/图谱/深度 OCR 入库"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "gtbwpkwjnb-alt",
+        "url": "https://github.com/gtbwpkwjnb-alt"
+      },
+      "category": "education",
+      "keywords": []
+    },
+    {
+      "name": "lessonry",
+      "source": "./plugins/lessonry",
+      "displayName": "把任何主题变成单文件交互式课程",
+      "displayName_i18n": {
+        "en": "lessonry",
+        "zh-CN": "把任何主题变成单文件交互式课程"
+      },
+      "description": "Create single-file interactive learning webpages in the \"step-player\" house style — Chinese beginner-friendly tutorials with SVG step-by-step animations, per-chapter quizzes, lab sliders, and a built-in visual acceptance pipeline. Use whenever the user wants an interactive tutorial/lesson/学习网页 about any topic (Transformer, agents, K8s, CLIP, gradient descent, CUDA, KV cache — or anything else enti",
+      "description_i18n": {
+        "en": "Create single-file interactive learning webpages in the \"step-player\" house style — Chinese beginner-friendly tutorials with SVG step-by-step animations, per-chapter quizzes, lab sliders, and a built-in visual acceptance pipeline. Use whenever the user wants an interactive tutorial/lesson/学习网页 about any topic (Transformer, agents, K8s, CLIP, gradient descent, CUDA, KV cache — or anything else enti",
+        "zh-CN": "把任何主题变成单文件交互式课程"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "zryshuaige",
+        "url": "https://github.com/zryshuaige"
+      },
+      "category": "education",
+      "keywords": []
+    },
+    {
+      "name": "literature-review",
+      "source": "./plugins/literature-review-skill",
+      "displayName": "论文(DOI/链接/文件)一键转可直接粘贴的文献综述",
+      "displayName_i18n": {
+        "en": "literature-review",
+        "zh-CN": "论文(DOI/链接/文件)一键转可直接粘贴的文献综述"
+      },
+      "description": "文献综述生成器：根据用户提供的文献（DOI、论文链接、arXiv 链接、本地 PDF/Word/tex 论文文件）总结每篇论文的主要工作与贡献并评价其意义与价值，生成中英文一句话总结、参考文献级 bibtex（期刊名一律由用户输入确认，元数据仅作建议）、以及可直接粘贴进论文的 [1][2]… 编号式文献综述，并将综述、参考文献列表与 bibtex 同时输出到 Markdown 文件和对话框。当用户提到「文献综述」「总结这篇/这几篇论文」「总结文献」「生成参考文献」「bibtex」「引用格式」「literature review」「summarize this paper」「generate citations」等需求时触发——即使用户没有说\"文献综述\"三个字，只要涉及总结学术论文并生成可引用的材料，就应触发本 skill。",
+      "description_i18n": {
+        "en": "文献综述生成器：根据用户提供的文献（DOI、论文链接、arXiv 链接、本地 PDF/Word/tex 论文文件）总结每篇论文的主要工作与贡献并评价其意义与价值，生成中英文一句话总结、参考文献级 bibtex（期刊名一律由用户输入确认，元数据仅作建议）、以及可直接粘贴进论文的 [1][2]… 编号式文献综述，并将综述、参考文献列表与 bibtex 同时输出到 Markdown 文件和对话框。当用户提到「文献综述」「总结这篇/这几篇论文」「总结文献」「生成参考文献」「bibtex」「引用格式」「literature review」「summarize this paper」「generate citations」等需求时触发——即使用户没有说\"文献综述\"三个字，只要涉及总结学术论文并生成可引用的材料，就应触发本 skill。",
+        "zh-CN": "论文(DOI/链接/文件)一键转可直接粘贴的文献综述"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "openkills",
+        "url": "https://github.com/openkills"
+      },
+      "category": "education",
+      "keywords": []
+    },
+    {
+      "name": "multi-agent-mailbox",
+      "source": "./plugins/multi-agent-mailbox",
+      "displayName": "多智能体信箱:CLI/MCP 本地消息互通,实测 Codex/ZCode/OpenClaw 等",
+      "displayName_i18n": {
+        "en": "multi-agent-mailbox",
+        "zh-CN": "多智能体信箱:CLI/MCP 本地消息互通,实测 Codex/ZCode/OpenClaw 等"
+      },
+      "description": "多智能体信箱:CLI/MCP 本地消息互通",
+      "description_i18n": {
+        "en": "多智能体信箱:CLI/MCP 本地消息互通",
+        "zh-CN": "多智能体信箱:CLI/MCP 本地消息互通,实测 Codex/ZCode/OpenClaw 等"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "WQMYH",
+        "url": "https://github.com/WQMYH"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "project-architecture-analyzer",
+      "source": "./plugins/project-architecture-analyzer",
+      "displayName": "企业级 Java 项目架构逆向:单文件可视化看板,接口档案/调用链/数据流,每个结论带代码证据",
+      "displayName_i18n": {
+        "en": "project-architecture-analyzer",
+        "zh-CN": "企业级 Java 项目架构逆向:单文件可视化看板,接口档案/调用链/数据流,每个结论带代码证据"
+      },
+      "description": "企业级 Java 项目架构逆向分析，产出交互式可视化看板（单文件 HTML）：架构分层图、模块与 61 式接口档案、调用链、数据流、技术\"为什么存在\"、接口×技术矩阵、学渣版解释和基于真实代码的面试题。三种模式：全量分析（扫描整个项目生成完整看板）、功能分析（指定登录/订单/支付等功能深度拆解）、面试审判（基于真实代码出题）。当用户说\"全量分析\"、\"项目体检\"、\"分析这个项目的架构\"、\"这个项目用了什么技术\"、\"分析登录功能\"、\"分析订单/支付/XX功能\"、\"讲讲这个接口\"、\"调用链\"、\"面试审判\"、\"给我出项目面试题\"、\"学渣模式讲讲\"、\"生成架构看板/可视化\"等时使用；只要用户想理解一个真实 Java/Spring Boot 项目的代码与架构，即使没有明确说\"分析\"二字，也应使用。",
+      "description_i18n": {
+        "en": "企业级 Java 项目架构逆向分析，产出交互式可视化看板（单文件 HTML）：架构分层图、模块与 61 式接口档案、调用链、数据流、技术\"为什么存在\"、接口×技术矩阵、学渣版解释和基于真实代码的面试题。三种模式：全量分析（扫描整个项目生成完整看板）、功能分析（指定登录/订单/支付等功能深度拆解）、面试审判（基于真实代码出题）。当用户说\"全量分析\"、\"项目体检\"、\"分析这个项目的架构\"、\"这个项目用了什么技术\"、\"分析登录功能\"、\"分析订单/支付/XX功能\"、\"讲讲这个接口\"、\"调用链\"、\"面试审判\"、\"给我出项目面试题\"、\"学渣模式讲讲\"、\"生成架构看板/可视化\"等时使用；只要用户想理解一个真实 Java/Spring Boot 项目的代码与架构，即使没有明确说\"分析\"二字，也应使用。",
+        "zh-CN": "企业级 Java 项目架构逆向:单文件可视化看板,接口档案/调用链/数据流,每个结论带代码证据"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "WhQ-cc",
+        "url": "https://github.com/WhQ-cc"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "pstack",
+      "source": "./plugins/pstack-zcode",
+      "displayName": "pstack 移植版:skills+playbooks+原则库",
+      "displayName_i18n": {
+        "en": "pstack",
+        "zh-CN": "pstack 移植版:skills+playbooks+原则库"
+      },
+      "description": "ZCode port of poteto's pstack: rigorous agent workflows, principles, playbooks and subagents you can parallelize with confidence. Write less, higher quality code.",
+      "description_i18n": {
+        "en": "ZCode port of poteto's pstack: rigorous agent workflows, principles, playbooks and subagents you can parallelize with confidence. Write less, higher quality code.",
+        "zh-CN": "pstack 移植版:skills+playbooks+原则库"
+      },
+      "version": "0.14.1-zcode.1",
+      "author": {
+        "name": "Luks3110",
+        "url": "https://github.com/Luks3110"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "pstack",
+        "poteto-mode",
+        "workflow",
+        "principles",
+        "agent-style"
+      ]
+    },
+    {
+      "name": "repo-cleanup-skill",
+      "source": "./plugins/repo-cleanup-skill",
+      "displayName": "先报告后删除的仓库清理:过时文档/陈旧分支",
+      "displayName_i18n": {
+        "en": "repo-cleanup-skill",
+        "zh-CN": "先报告后删除的仓库清理:过时文档/陈旧分支"
+      },
+      "description": "repo-cleanup-skill",
+      "description_i18n": {
+        "en": "repo-cleanup-skill",
+        "zh-CN": "先报告后删除的仓库清理:过时文档/陈旧分支"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "peetwan",
+        "url": "https://github.com/peetwan"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "testcase",
+      "source": "./plugins/testcase",
+      "displayName": "从需求到交付:审计 spec→生成真实测试→构建直到全部通过",
+      "displayName_i18n": {
+        "en": "testcase",
+        "zh-CN": "从需求到交付:审计 spec→生成真实测试→构建直到全部通过"
+      },
+      "description": "Agent skills for requirements review, test cases, verified implementation, prompt normalization, and Notion/Slack capture.",
+      "description_i18n": {
+        "en": "Agent skills for requirements review, test cases, verified implementation, prompt normalization, and Notion/Slack capture.",
+        "zh-CN": "从需求到交付:审计 spec→生成真实测试→构建直到全部通过"
+      },
+      "version": "1.17.0",
+      "author": {
+        "name": "xtieume",
+        "url": "https://github.com/xtieume"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "skills",
+        "testing",
+        "test-cases",
+        "qa",
+        "quality-assurance"
+      ]
+    },
+    {
+      "name": "theory-refine-loop",
+      "source": "./plugins/theory-refine-loop-skill",
+      "displayName": "理论打磨循环:review-fix-recheck 直到论证通过",
+      "displayName_i18n": {
+        "en": "theory-refine-loop",
+        "zh-CN": "理论打磨循环:review-fix-recheck 直到论证通过"
+      },
+      "description": "理论分析迭代修正环：调用 math-proof-reviewer 对用户的定理/证明/理论分析做苛刻审查，无问题则直接回复「没问题」；有问题则按审查意见逐条修改后再次送审，如此「审查→修改→再审查」反复循环直至通过；若在循环中发现理论本身站不住（反例成立、定理为假、假设本质性不足、必须削弱结论才能证），立即停止循环并输出详细的失败原因报告。当用户提到「把证明改到没问题」「审到通过为止」「检查理论分析并修改到没问题」「循环审查我的证明」「改到审稿通过」「iterate on my proof until it passes」「fix my proof until it passes」等需求时触发——用户要的不是一份审稿意见，而是一个闭环：审过、改好、再审、直到没问题或给出判死说明。",
+      "description_i18n": {
+        "en": "理论分析迭代修正环：调用 math-proof-reviewer 对用户的定理/证明/理论分析做苛刻审查，无问题则直接回复「没问题」；有问题则按审查意见逐条修改后再次送审，如此「审查→修改→再审查」反复循环直至通过；若在循环中发现理论本身站不住（反例成立、定理为假、假设本质性不足、必须削弱结论才能证），立即停止循环并输出详细的失败原因报告。当用户提到「把证明改到没问题」「审到通过为止」「检查理论分析并修改到没问题」「循环审查我的证明」「改到审稿通过」「iterate on my proof until it passes」「fix my proof until it passes」等需求时触发——用户要的不是一份审稿意见，而是一个闭环：审过、改好、再审、直到没问题或给出判死说明。",
+        "zh-CN": "理论打磨循环:review-fix-recheck 直到论证通过"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "openkills",
+        "url": "https://github.com/openkills"
+      },
+      "category": "education",
+      "keywords": []
+    },
+    {
+      "name": "vmctl",
+      "source": "./plugins/vmctl",
+      "displayName": "VMware Workstation 控制技能:vmrun 开关机/挂起/快照",
+      "displayName_i18n": {
+        "en": "vmctl",
+        "zh-CN": "VMware Workstation 控制技能:vmrun 开关机/挂起/快照"
+      },
+      "description": "Control local VMware Workstation VMs — power on/off, suspend, reset, guest IP, snapshots, run bash commands inside the guest (exec), and guest network connectivity diagnosis & repair (netcheck, --fix-dhcp). Use when the user wants to start/stop/power a VMware VM (虚拟机), manage snapshots, check VM status, execute a command in the guest OS, or troubleshoot guest network / internet problems (虚拟机网络不通、无",
+      "description_i18n": {
+        "en": "Control local VMware Workstation VMs — power on/off, suspend, reset, guest IP, snapshots, run bash commands inside the guest (exec), and guest network connectivity diagnosis & repair (netcheck, --fix-dhcp). Use when the user wants to start/stop/power a VMware VM (虚拟机), manage snapshots, check VM status, execute a command in the guest OS, or troubleshoot guest network / internet problems (虚拟机网络不通、无",
+        "zh-CN": "VMware Workstation 控制技能:vmrun 开关机/挂起/快照"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "realweng",
+        "url": "https://github.com/realweng"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "zcode-fence",
+      "source": "./plugins/zcode-fence",
+      "displayName": "确定性围栏插件:灾难性命令门禁+项目写围栏,Windows-first,仅询问式,零依赖",
+      "displayName_i18n": {
+        "en": "zcode-fence",
+        "zh-CN": "确定性围栏插件:灾难性命令门禁+项目写围栏,Windows-first,仅询问式,零依赖"
+      },
+      "description": "Windows-first workspace fence and catastrophic-command gate for ZCode. Deterministic rules, ask-only, zero dependencies.",
+      "description_i18n": {
+        "en": "Windows-first workspace fence and catastrophic-command gate for ZCode. Deterministic rules, ask-only, zero dependencies.",
+        "zh-CN": "确定性围栏插件:灾难性命令门禁+项目写围栏,Windows-first,仅询问式,零依赖"
+      },
+      "version": "1.3.1",
+      "author": {
+        "name": "zcode-fence contributors",
+        "url": "https://github.com/Momenttttt/zcode-fence"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "security",
+        "hooks",
+        "windows",
+        "fence",
+        "guard"
+      ]
+    },
+    {
+      "name": "git-worktrees",
+      "source": "./plugins/zcode-git-worktrees",
+      "displayName": "Git worktree 并行工作流:隔离工作区+快照+自动会话隔离+保留清理",
+      "displayName_i18n": {
+        "en": "git-worktrees",
+        "zh-CN": "Git worktree 并行工作流:隔离工作区+快照+自动会话隔离+保留清理"
+      },
+      "description": "Every thread automatically gets its own isolated git worktree — parallel work with zero setup. Snapshot-safe removal, background agent tasks, PR checkouts, and retention cleanup included.",
+      "description_i18n": {
+        "en": "Every thread automatically gets its own isolated git worktree — parallel work with zero setup. Snapshot-safe removal, background agent tasks, PR checkouts, and retention cleanup included.",
+        "zh-CN": "Git worktree 并行工作流:隔离工作区+快照+自动会话隔离+保留清理"
+      },
+      "version": "0.5.2",
+      "author": {
+        "name": "Alfredo Gallardo",
+        "url": "https://github.com/agallardol"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "zcode-handbook-en",
+      "source": "./plugins/zcode-powerpack",
+      "displayName": "ZCode 增强合集:技能/插件/MCP/手册",
+      "displayName_i18n": {
+        "en": "zcode-handbook-en",
+        "zh-CN": "ZCode 增强合集:技能/插件/MCP/手册"
+      },
+      "description": "ZCode 使用手册/增强合集(en)",
+      "description_i18n": {
+        "en": "ZCode 使用手册/增强合集(en)",
+        "zh-CN": "ZCode 增强合集:技能/插件/MCP/手册"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "imserhatdemir",
+        "url": "https://github.com/imserhatdemir"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "remotion",
+      "source": "./plugins/zcode-remotion",
+      "displayName": "Remotion 视频可靠性层:官方技能+环境预检+视觉 QA+已验证渲染",
+      "displayName_i18n": {
+        "en": "remotion",
+        "zh-CN": "Remotion 视频可靠性层:官方技能+环境预检+视觉 QA+已验证渲染"
+      },
+      "description": "Create, preview and render videos with Remotion in ZCode. The reliability layer: bootstraps the official Remotion Agent Skills via the official installer, pre-flights the environment, routes to the right official skill, gates renders on visual QA. 用官方安装器引导 Remotion 官方技能，环境预检、静帧门禁、渲染校验一体化。",
+      "description_i18n": {
+        "en": "Create, preview and render videos with Remotion in ZCode. The reliability layer: bootstraps the official Remotion Agent Skills via the official installer, pre-flights the environment, routes to the right official skill, gates renders on visual QA. 用官方安装器引导 Remotion 官方技能，环境预检、静帧门禁、渲染校验一体化。",
+        "zh-CN": "Remotion 视频可靠性层:官方技能+环境预检+视觉 QA+已验证渲染"
+      },
+      "version": "0.2.5",
+      "author": {
+        "name": "AIwork4me",
+        "url": "https://github.com/AIwork4me"
+      },
+      "category": "creative",
+      "keywords": [
+        "remotion",
+        "video-generation",
+        "programmatic-video",
+        "animation",
+        "render"
+      ]
+    },
+    {
+      "name": "zcode-session-manager",
+      "source": "./plugins/zcode-session-manager",
+      "displayName": "会话管理与跨端记忆中继:<20ms 内存映射检索,合盖后手机 IM 无缝接续对话",
+      "displayName_i18n": {
+        "en": "zcode-session-manager",
+        "zh-CN": "会话管理与跨端记忆中继:<20ms 内存映射检索,合盖后手机 IM 无缝接续对话"
+      },
+      "description": "|",
+      "description_i18n": {
+        "en": "|",
+        "zh-CN": "会话管理与跨端记忆中继:<20ms 内存映射检索,合盖后手机 IM 无缝接续对话"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "Mia0a-hi",
+        "url": "https://github.com/Mia0a-hi"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "workspace-guard",
+      "source": "./plugins/zcode-workspace-guard",
+      "displayName": "工作区沙箱:让 ZCode 在项目内执行时有类似 DSH 的隔离效果",
+      "displayName_i18n": {
+        "en": "workspace-guard",
+        "zh-CN": "工作区沙箱:让 ZCode 在项目内执行时有类似 DSH 的隔离效果"
+      },
+      "description": "Workspace fence and dangerous-command gate for ZCode: deterministic PreToolUse hooks, no AI judgment.",
+      "description_i18n": {
+        "en": "Workspace fence and dangerous-command gate for ZCode: deterministic PreToolUse hooks, no AI judgment.",
+        "zh-CN": "工作区沙箱:让 ZCode 在项目内执行时有类似 DSH 的隔离效果"
+      },
+      "version": "0.4.0",
+      "author": {
+        "name": "zcode-workspace-guard"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "tony-agents-pack",
+      "source": "./plugins/zcode_skills",
+      "displayName": "外贸 AI 员工团:找客户、写开发信、做 SEO、盯友商、审内容、验网站,18 个岗位",
+      "displayName_i18n": {
+        "en": "tony-agents-pack",
+        "zh-CN": "外贸 AI 员工团:找客户、写开发信、做 SEO、盯友商、审内容、验网站,18 个岗位"
+      },
+      "description": "外贸 AI 员工团（ZCode 专用）：找客户、写开发信、做 SEO、运营社媒、盯友商、专业编辑部内容门禁、验网站、管仓库，22 个岗位持续新增；v3 强制每次推送前完成 GitHub 智能体发布审查，支持按本地已配置的模型自动适配安装（见 INSTALL-FOR-AI.md）。",
+      "description_i18n": {
+        "en": "外贸 AI 员工团（ZCode 专用）：找客户、写开发信、做 SEO、运营社媒、盯友商、专业编辑部内容门禁、验网站、管仓库，22 个岗位持续新增；v3 强制每次推送前完成 GitHub 智能体发布审查，支持按本地已配置的模型自动适配安装（见 INSTALL-FOR-AI.md）。",
+        "zh-CN": "外贸 AI 员工团:找客户、写开发信、做 SEO、盯友商、审内容、验网站,18 个岗位"
+      },
+      "version": "4.2.3",
+      "author": {
+        "name": "tony-apan",
+        "url": "https://github.com/tony-apan"
+      },
+      "category": "dev-tools",
+      "keywords": []
     }
   ]
 }

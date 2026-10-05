@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@zcode-handbook/zcode-handbook-en-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "ZCode handbook - English. Contains 7 skills and 2 commands."
+}

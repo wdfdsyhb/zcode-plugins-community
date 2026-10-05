@@ -1,0 +1,26 @@
+{
+  "name": "zcode-ops",
+  "version": "0.1.6+codex.20260914185913",
+  "license": "Apache-2.0",
+  "description": "One Codex to orchestrate every agent, starting with ZCode.",
+  "author": {
+    "name": "WQMYH"
+  },
+  "interface": {
+    "displayName": "ZCode Ops",
+    "shortDescription": "Coordinate your agent team from Codex. ZCode first.",
+    "longDescription": "Eight tools inspect existing ZCode desktop tasks, read conversations or a durable inbox, send authorized prompts through one on-demand queue, control delivery, select advertised models, and manage the Sharing Link. Single and batch sends share the same path; explicit pause persists. Legacy ACP diagnostics are not exposed by default. Future support for other desktop agents will follow verified interfaces.",
+    "developerName": "WQMYH",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "\u5217\u51fa ZCode \u684c\u9762\u4efb\u52a1\u72b6\u6001",
+      "\u8bfb\u53d6\u6307\u5b9a ZCode \u5bf9\u8bdd",
+      "\u8bfb\u53d6\u6307\u5b9a ZCode \u5bf9\u8bdd\u7684\u6a21\u578b\u6e05\u5355"
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+ZERO=0000000000000000000000000000000000000000
+HEAD_SHA=$(git -C "$ROOT" rev-parse HEAD)
+CHECK_HEAD=0
+
+# Hook 环境里的 GIT_* 变量（GIT_DIR/GIT_INDEX_FILE 等）会污染后续测试夹具与
+# release gate 的子进程 git 调用，曾把 fixture 提交打进真实仓库并移动分支；
+# 全部步骤都显式 -C "$ROOT"，必须在任何验证前清除这些变量。
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_GRAFT_FILE \
+  GIT_NAMESPACE GIT_INTERNAL_SUPER_PREFIX GIT_PREFIX
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ -z "${local_ref-}" ]; then
+    continue
+  fi
+  if [ "$local_sha" = "$ZERO" ]; then
+    printf '%s\n' "release gate: skipping deleted ref $remote_ref"
+    continue
+  fi
+  commit_sha=$(git -C "$ROOT" rev-parse "${local_ref}^{commit}") || {
+    printf '%s\n' "release gate: cannot resolve $local_ref to a commit" >&2
+    exit 1
+  }
+  if [ "$commit_sha" != "$HEAD_SHA" ]; then
+    printf '%s\n' "release gate: refusing non-HEAD push $local_ref ($commit_sha); checkout that commit and obtain a RELEASE_GATE review" >&2
+    exit 1
+  fi
+  CHECK_HEAD=1
+done
+
+if [ "$CHECK_HEAD" -eq 0 ]; then
+  exit 0
+fi
+
+python3 "$ROOT/scripts/manage.py" validate
+(
+  cd "$ROOT"
+  python3 -m unittest discover -s tests -p 'test_*.py' -v
+)
+python3 "$ROOT/scripts/release_gate.py" check --root "$ROOT" --commit "$HEAD_SHA"

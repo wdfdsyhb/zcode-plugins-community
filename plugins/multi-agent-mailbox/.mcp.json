@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "zcode-ops": {
+      "command": "node",
+      "args": ["./scripts/mcp-gateway.mjs"],
+      "cwd": ".",
+      "enabled": true,
+      "startup_timeout_sec": 30,
+      "tool_timeout_sec": 120,
+      "default_tools_approval_mode": "prompt",
+      "tools": {
+        "zcode_config_status": { "approval_mode": "auto" },
+        "zcode_config_set": { "approval_mode": "prompt" },
+        "zcode_tasks": { "approval_mode": "auto" },
+        "zcode_read": { "approval_mode": "auto" },
+        "zcode_send": { "approval_mode": "prompt" },
+        "zcode_control": { "approval_mode": "prompt" },
+        "zcode_models": { "approval_mode": "auto" },
+        "zcode_set_model": { "approval_mode": "prompt" }
+      }
+    }
+  }
+}

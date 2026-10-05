@@ -1,0 +1,15 @@
+{
+  "name": "lessonry",
+  "version": "0.1.0",
+  "description": "Create single-file interactive learning webpages in the \"step-player\" house style — Chinese beginner-friendly tutorials with SVG step-by-step animations, per-chapter quizzes, lab sliders, and a built-in visual acceptance pipeline. Use whenever the user wants an interactive tutorial/lesson/学习网页 about any topic (Transformer, agents, K8s, CLIP, gradient descent, CUDA, KV cache — or anything else enti",
+  "author": {
+    "name": "zryshuaige",
+    "url": "https://github.com/zryshuaige"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "Create single-file interactive learning webpages in the \"step-player\" house style — Chinese beginner-friendly tutorials with SVG step-by-step animations, per-chapter quizzes, lab sliders, and a built-in visual acceptance pipeline. Use whenever the user wants an interactive tutorial/lesson/学习网页 about any topic (Transformer, agents, K8s, CLIP, gradient descent, CUDA, KV cache — or anything else enti",
+    "zh-CN": "把任何主题变成单文件交互式课程"
+  }
+}

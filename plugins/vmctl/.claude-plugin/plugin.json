@@ -1,0 +1,15 @@
+{
+  "name": "vmctl",
+  "version": "0.1.0",
+  "description": "Control local VMware Workstation VMs — power on/off, suspend, reset, guest IP, snapshots, run bash commands inside the guest (exec), and guest network connectivity diagnosis & repair (netcheck, --fix-dhcp). Use when the user wants to start/stop/power a VMware VM (虚拟机), manage snapshots, check VM status, execute a command in the guest OS, or troubleshoot guest network / internet problems (虚拟机网络不通、无",
+  "author": {
+    "name": "realweng",
+    "url": "https://github.com/realweng"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "Control local VMware Workstation VMs — power on/off, suspend, reset, guest IP, snapshots, run bash commands inside the guest (exec), and guest network connectivity diagnosis & repair (netcheck, --fix-dhcp). Use when the user wants to start/stop/power a VMware VM (虚拟机), manage snapshots, check VM status, execute a command in the guest OS, or troubleshoot guest network / internet problems (虚拟机网络不通、无",
+    "zh-CN": "VMware Workstation 控制技能:vmrun 开关机/挂起/快照"
+  }
+}

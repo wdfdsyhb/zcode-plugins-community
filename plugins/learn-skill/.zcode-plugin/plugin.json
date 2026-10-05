@@ -1,0 +1,15 @@
+{
+  "name": "learn",
+  "version": "0.1.0",
+  "description": "|",
+  "author": {
+    "name": "gtbwpkwjnb-alt",
+    "url": "https://github.com/gtbwpkwjnb-alt"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "|",
+    "zh-CN": "一个链接→AI 总结/亮点/术语/评分/图谱/深度 OCR 入库"
+  }
+}

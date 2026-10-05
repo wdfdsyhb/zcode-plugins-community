@@ -1,0 +1,15 @@
+# academic-search skill · Python 依赖
+# 安装: pip install -r requirements.txt
+
+# HTTP 请求（OpenAlex / Semantic Scholar / Crossref 调用）
+requests>=2.28
+
+# OpenAI 兼容 SDK（LLM 自动中文摘要功能，可选）
+# 任何兼容 OpenAI 接口的服务均可使用（豆包/DeepSeek/Qwen/OpenAI）
+openai>=1.0.0
+
+# YAML 配置解析（读取 topics.yaml）
+pyyaml>=6.0
+
+# .env 自动加载（API Key 管理，可选；未装时回退到系统环境变量）
+python-dotenv>=1.0

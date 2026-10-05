@@ -1,0 +1,29 @@
+# academic-search skill · Git 忽略规则
+
+# 环境变量（含 API Key，绝对不要提交！）
+.env
+
+# 用户主题配置（个人化，不随 skill 分发）
+topics.yaml
+
+# 用户工作区（数据库 + 报告输出，本地生成）
+workspace/
+
+# 期刊白名单生成产物（可重新生成，但保留示例文件作格式参考）
+references/journals-*.md
+!references/journals-example-if3plus.md
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.log
+*.swp

@@ -1,0 +1,14 @@
+{
+  "name": "codex-with-zcode",
+  "interface": {
+    "displayName": "Multi-Agent Mailbox · 多智能体信箱"
+  },
+  "plugins": [
+    {
+      "name": "agent-core",
+      "source": { "source": "local", "path": "./modules/agent-core" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_USE" },
+      "category": "Productivity"
+    }
+  ]
+}

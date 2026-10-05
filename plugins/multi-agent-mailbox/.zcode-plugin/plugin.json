@@ -1,0 +1,15 @@
+{
+  "name": "multi-agent-mailbox",
+  "version": "0.1.0",
+  "description": "多智能体信箱:CLI/MCP 本地消息互通",
+  "description_i18n": {
+    "en": "多智能体信箱:CLI/MCP 本地消息互通",
+    "zh-CN": "多智能体信箱:CLI/MCP 本地消息互通"
+  },
+  "author": {
+    "name": "WQMYH",
+    "url": "https://github.com/WQMYH"
+  },
+  "license": "MIT",
+  "keywords": []
+}

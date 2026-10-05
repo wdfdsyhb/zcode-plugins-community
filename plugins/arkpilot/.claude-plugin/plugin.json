@@ -1,0 +1,15 @@
+{
+  "name": "harmonyos-dev",
+  "version": "0.1.0",
+  "description": "通过 arkpilot MCP 工具构建、运行、检查并自动化 HarmonyOS NEXT (ArkTS) 应用。",
+  "description_i18n": {
+    "en": "通过 arkpilot MCP 工具构建、运行、检查并自动化 HarmonyOS NEXT (ArkTS) 应用。",
+    "zh-CN": "鸿蒙 NEXT(ArkTS)开发技能包"
+  },
+  "author": {
+    "name": "taobaoaz",
+    "url": "https://github.com/taobaoaz"
+  },
+  "license": "MIT",
+  "keywords": []
+}

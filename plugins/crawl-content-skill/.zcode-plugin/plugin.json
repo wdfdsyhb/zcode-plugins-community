@@ -1,0 +1,15 @@
+{
+  "name": "crawl-content",
+  "version": "0.1.0",
+  "description": "Use to crawl Chinese social media (B站/小红书/抖音/微博/快手/知乎) for content + comments via MediaCrawler, optionally chain to /wechat-article (writes 4000-char body) → export as local docx report at `$CRAWL_WORKDIR/{主题}-{YYYYMMDD}.docx`. Supports multi-platform parallel crawling — natural-language input is auto-split into jobs (e.g. 「全网扫 LABUBU」→ xhs+dy+wb+bili in parallel). Trigger on /crawl-content <平台> <",
+  "author": {
+    "name": "JJ188-coder",
+    "url": "https://github.com/JJ188-coder"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "Use to crawl Chinese social media (B站/小红书/抖音/微博/快手/知乎) for content + comments via MediaCrawler, optionally chain to /wechat-article (writes 4000-char body) → export as local docx report at `$CRAWL_WORKDIR/{主题}-{YYYYMMDD}.docx`. Supports multi-platform parallel crawling — natural-language input is auto-split into jobs (e.g. 「全网扫 LABUBU」→ xhs+dy+wb+bili in parallel). Trigger on /crawl-content <平台> <",
+    "zh-CN": "中文社媒内容与评论爬取(B站/小红书/抖音/微博/快手/知乎),多平台并行,仅限学习研究并遵守平台条款"
+  }
+}

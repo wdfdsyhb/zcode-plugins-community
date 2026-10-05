@@ -1,0 +1,15 @@
+{
+  "name": "repo-cleanup-skill",
+  "version": "0.1.0",
+  "description": "repo-cleanup-skill",
+  "author": {
+    "name": "peetwan",
+    "url": "https://github.com/peetwan"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "repo-cleanup-skill",
+    "zh-CN": "先报告后删除的仓库清理:过时文档/陈旧分支"
+  }
+}
