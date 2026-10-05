@@ -1,5 +1,5 @@
 gitleaks-tmp.json
-docs/candidates.md
+docs/auto-candidates.md
 *.log
 .DS_Store
 Thumbs.db
