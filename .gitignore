@@ -1,0 +1,5 @@
+gitleaks-tmp.json
+docs/candidates.md
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+# gitleaks 配置:默认规则全开,仅对渗透测试教学目录豁免示例 token。
+# 真实凭据在任何目录都会被照常检出。
+[extend]
+useDefault = true
+
+[allowlist]
+  description = "Penetration-testing teaching material: example tokens in playbooks/payloader are deliberate placeholders, not credentials"
+  paths = ['''(playbooks|payloader|references|payloads|cheatsheets)[\\/]''']
+  rules = ['''(?i)^(jwt|generic-api-key|curl-auth-header|aws-access-token|github-pat|slack-webhook)$''']

@@ -1,0 +1,26 @@
+name: discover
+on:
+  schedule:
+    - cron: "23 5 * * *"   # 每天 05:23 UTC(北京时间 13:23),避免高频刷 issue
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scan GitHub topics for new ZCode plugins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/discover.py docs/candidates.md
+      - name: Open issue from candidate report
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "candidates: ZCode 插件候选清单(每日自动)"
+          content-filepath: docs/candidates.md
+          labels: discovery

@@ -1,0 +1,22 @@
+{
+  "name": "data-competition-pack",
+  "version": "0.1.0",
+  "description": "End-to-end AI data-competition assistant for Tianchi/Kaggle-style contests: track analysis, baseline, score-pushing, model blending, submission strategy and post-mortem, with overfitting diagnostics and feature-engineering checklists.",
+  "description_i18n": {
+    "en": "End-to-end AI data-competition assistant for Tianchi/Kaggle-style contests: track analysis, baseline, score-pushing, model blending, submission strategy and post-mortem, with overfitting diagnostics and feature-engineering checklists.",
+    "zh-CN": "天池/Kaggle 等数据竞赛全流程助手：赛道分析 → Baseline → 上探 → 模型融合 → 提交策略 → 复盘六阶段方法论，附过拟合诊断速查与特征工程清单。触发词：打比赛、竞赛 baseline、模型融合、提交策略。"
+  },
+  "author": {
+    "name": "wdfdsyhb",
+    "url": "https://github.com/wdfdsyhb"
+  },
+  "license": "MIT",
+  "keywords": [
+    "data-science",
+    "tianchi",
+    "kaggle",
+    "competition",
+    "baseline",
+    "ensemble"
+  ]
+}

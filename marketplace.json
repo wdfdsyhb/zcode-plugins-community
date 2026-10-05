@@ -1,0 +1,50 @@
+{
+  "name": "zcode-plugins-community",
+  "description": "Community-run plugin marketplace for ZCode: Chinese security packs, data-science competition workflows, and curated community plugins.",
+  "description_i18n": {
+    "en": "Community-run plugin marketplace for ZCode: Chinese security packs, data-science competition workflows, and curated community plugins.",
+    "zh-CN": "ZCode 社区插件市场：中文安全技能包、数据竞赛工作流与精选社区插件。"
+  },
+  "owner": {
+    "name": "wdfdsyhb",
+    "url": "https://github.com/wdfdsyhb"
+  },
+  "plugins": [
+    {
+      "name": "security-cn-pack",
+      "source": "./plugins/security-cn-pack",
+      "displayName": "中文安全挖洞技能包",
+      "displayName_i18n": {
+        "en": "Chinese Security Hunting Pack",
+        "zh-CN": "中文安全挖洞技能包"
+      },
+      "description": "SRC/bug-bounty workflow + HW red/blue drills + CNVD/CNNVD submission + 11-class vulnerability methodology, in Chinese.",
+      "description_i18n": {
+        "en": "SRC/bug-bounty workflow + HW red/blue drills + CNVD/CNNVD submission + 11-class vulnerability methodology, in Chinese.",
+        "zh-CN": "SRC/众测工作流、护网攻防双视角、CNVD/CNNVD 证书报送、11 类漏洞方法论，四合一中文安全技能包。"
+      },
+      "version": "0.1.0",
+      "author": { "name": "wdfdsyhb", "url": "https://github.com/wdfdsyhb" },
+      "category": "security",
+      "keywords": ["security", "bugbounty", "src", "hw", "cnvd"]
+    },
+    {
+      "name": "data-competition-pack",
+      "source": "./plugins/data-competition-pack",
+      "displayName": "数据竞赛全流程助手",
+      "displayName_i18n": {
+        "en": "Data Competition Pack",
+        "zh-CN": "数据竞赛全流程助手"
+      },
+      "description": "Tianchi/Kaggle contest lifecycle: track analysis, baseline, blending, submission strategy, post-mortem.",
+      "description_i18n": {
+        "en": "Tianchi/Kaggle contest lifecycle: track analysis, baseline, blending, submission strategy, post-mortem.",
+        "zh-CN": "天池/Kaggle 六阶段方法论：赛道分析 → Baseline → 上探 → 融合 → 提交 → 复盘，附过拟合诊断。"
+      },
+      "version": "0.1.0",
+      "author": { "name": "wdfdsyhb", "url": "https://github.com/wdfdsyhb" },
+      "category": "data-science",
+      "keywords": ["data-science", "tianchi", "kaggle", "competition"]
+    }
+  ]
+}
