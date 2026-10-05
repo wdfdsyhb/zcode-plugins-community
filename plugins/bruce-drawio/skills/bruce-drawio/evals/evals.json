@@ -1,0 +1,107 @@
+{
+  "skill_name": "bruce-drawio",
+  "evals": [
+    {
+      "id": 1,
+      "name": "E-commerce Order Flowchart",
+      "prompt": "Draw a flowchart for an e-commerce order process: user places order, stock check, payment, shipping, delivery confirmation. If out of stock, show notification. If payment fails, prompt retry.",
+      "expected_output": "Well-structured drawio XML with start/end nodes (green), process steps (blue), decision diamonds (yellow), error paths (red). Vertical main flow, branches go right. No overlapping nodes. All edges use orthogonalEdgeStyle."
+    },
+    {
+      "id": 2,
+      "name": "Microservice Architecture",
+      "prompt": "Draw a microservice architecture diagram with: Nginx gateway, User Service, Order Service, Payment Service, MySQL databases, Redis cache. Show service-to-service calls and data layer connections.",
+      "expected_output": "Layer-based architecture diagram. Client (red) at top, gateway (green) layer, services (blue) layer, data (blue cylinders + yellow cache) at bottom. Each layer horizontally centered. Dashed lines for cache access."
+    },
+    {
+      "id": 3,
+      "name": "User Registration Sequence Diagram",
+      "prompt": "Draw a UML sequence diagram for user registration. Participants: User (actor), Frontend, User Service, Database. Show the full registration flow including validation and response.",
+      "expected_output": "UML sequence diagram with actor + object participants at top, dashed lifelines, activation bars, solid arrows for requests and dashed arrows for responses. Participants spaced 200px apart."
+    },
+    {
+      "id": 4,
+      "name": "Blog System ER Diagram",
+      "prompt": "Draw an ER diagram for a blog system with: users table (id, username, email), articles table (id, title, content, author_id FK), comments table (id, content, article_id FK, user_id FK). Show relationships between tables.",
+      "expected_output": "ER diagram using swimlane tables with proper PK/FK notation, divider lines, and ERmandOne/ERmany relationship arrows. Tables spaced in a row or grid with no overlap."
+    },
+    {
+      "id": 5,
+      "name": "AI Agent Mindmap",
+      "prompt": "Draw a mindmap with 'AI Agent' as the center. Branches: Core Capabilities (Perception, Reasoning, Action), Applications (Customer Service, Programming, Research), Tech Stack (LLM, RAG, Tool Calling), Challenges (Hallucination, Safety, Cost).",
+      "expected_output": "Radial mindmap with center ellipse (accent blue), 4 branches in different colors spread in 4 directions, leaves fanning out from each branch. Curved edges (no arrows). No overlapping between branches."
+    },
+    {
+      "id": 6,
+      "name": "Home Network Topology",
+      "prompt": "Draw a home network topology: modem/ONT, router, switch, NAS, smart TV, phone (wireless), laptop. Show wired connections as solid lines and wireless as dashed lines.",
+      "expected_output": "Hierarchical network diagram. Modem at top, router below, switch below that, end devices at bottom. Solid lines for wired, dashed for wireless. Devices use rounded rectangles with bold labels."
+    },
+    {
+      "id": 7,
+      "name": "UML Class Diagram",
+      "prompt": "Draw a UML class diagram with: User class (id, name, email; login(), register()), Admin class inheriting from User (with manage() method), Order class (id, total; create(), cancel()) associated with User 1:N.",
+      "expected_output": "UML class diagram with 3-section boxes (name, attributes, methods). Inheritance arrow (empty triangle) from Admin to User. Association arrow with 1..* label from User to Order. HTML-formatted content inside boxes."
+    },
+    {
+      "id": 8,
+      "name": "Cross-platform Export",
+      "prompt": "Draw a simple flowchart (start -> process -> end) and export it as PNG.",
+      "expected_output": "Valid drawio XML saved to .drawio file. Shell-appropriate detection is used (Get-Command / Test-Path on PowerShell, which / ls on bash), then a platform-appropriate CLI export command (macOS: /Applications/draw.io.app/..., Windows: draw.io.exe from Program Files or LOCALAPPDATA, Linux: drawio) with --scale 2 --border 20. The output file's existence and non-zero size are verified afterwards rather than the exit code being trusted."
+    },
+    {
+      "id": 9,
+      "name": "Multiline Label Encoding",
+      "prompt": "Draw a layered architecture diagram with layer labels split into two lines, such as 'Scene Layer' and 'Application Layer'.",
+      "expected_output": "Any forced line break inside XML value attributes is encoded as &#xa; rather than literal \\n, so draw.io renders actual new lines instead of backslash-n text."
+    },
+    {
+      "id": 10,
+      "name": "Balanced Alignment And Dense Fill",
+      "prompt": "Draw a layered architecture diagram with a right-side cross-cutting concerns sidebar and several grouped modules in the core layer.",
+      "expected_output": "Sibling boxes are evenly aligned with consistent gaps, incomplete rows are centered, and containers/sidebar are tightened or redistributed so there is no obvious one-sided blank space or oversized unused area."
+    },
+    {
+      "id": 11,
+      "name": "Browser Link On Request",
+      "prompt": "Draw a simple flowchart (start -> process -> end), then give me a link to open it in draw.io.",
+      "expected_output": "After saving the .drawio file, scripts/open_in_drawio.py (or open_in_drawio.js) is run on it and the resulting https://app.diagrams.net/?title=...#R... link is delivered, together with the warning that browser edits do not sync back to the local file. The browser is NOT launched unless the user asked it to be opened."
+    },
+    {
+      "id": 12,
+      "name": "Browser Fallback When Desktop App Missing",
+      "prompt": "Draw a microservice architecture diagram and export it as PNG. (Assume draw.io desktop is not installed on this machine.)",
+      "expected_output": "Detection fails, but the run does not stop and does not block on an install prompt. The .drawio file is still saved, an app.diagrams.net link is generated and delivered as the primary way to see the diagram, the fork warning is included, the skipped export is stated in one line, and the desktop install is mentioned only as an optional extra."
+    },
+    {
+      "id": 13,
+      "name": "Validator Is Run Before Delivery",
+      "prompt": "Draw a network topology with a modem, router, switch, NAS, TV, phone and laptop.",
+      "expected_output": "scripts/validate_drawio.py is run on the saved .drawio file and exits clean before any export or delivery. If it reports errors, the XML is fixed and the validator re-run rather than the errors being explained away."
+    },
+    {
+      "id": 14,
+      "name": "Background Plate Z-Order",
+      "prompt": "Draw a layered architecture diagram with a gray background plate behind all layers.",
+      "expected_output": "The background rectangle is the FIRST cell in <root> after ids 0 and 1, followed by layer containers, then sub-groups, then leaf items, then edges. A background emitted after the nodes would hide the whole diagram."
+    },
+    {
+      "id": 15,
+      "name": "Nested Container Coordinates",
+      "prompt": "Draw an ER diagram for an inventory system, and a layered architecture diagram for the same system.",
+      "expected_output": "The ER tables use true nesting (row parent = swimlane id, y is an offset inside the table, x omitted). The architecture diagram uses the flat form (every cell parent=\"1\" with absolute canvas coordinates) even though items look nested inside sub-groups. The two conventions are not mixed within one group."
+    },
+    {
+      "id": 16,
+      "name": "No Unrequested Link When Export Succeeds",
+      "prompt": "Draw a simple flowchart (start -> process -> end) and export it as PNG. (Assume draw.io desktop IS installed and the export succeeds.)",
+      "expected_output": "Delivery is the image plus the .drawio path and format - short. No app.diagrams.net link is pasted, because none was asked for and the user already has both an image and a locally editable file; at most one closing line offers a link on request."
+    },
+    {
+      "id": 17,
+      "name": "Stale Local File After Browser Edit",
+      "prompt": "(Follow-up turn, after the agent handed over an app.diagrams.net link.) I tweaked the diagram in the browser - now make the payment node red.",
+      "expected_output": "The agent recognises that browser edits never reached the local .drawio, does not silently rebuild from the stale file, and asks the user to save their browser version over the local file (File -> Save as -> Device) before applying the change."
+    }
+  ]
+}

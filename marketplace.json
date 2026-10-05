@@ -45,6 +45,42 @@
       "author": { "name": "wdfdsyhb", "url": "https://github.com/wdfdsyhb" },
       "category": "data-science",
       "keywords": ["data-science", "tianchi", "kaggle", "competition"]
+    },
+    {
+      "name": "bruce-drawio",
+      "source": "./plugins/bruce-drawio",
+      "displayName": "draw.io 图表生成",
+      "displayName_i18n": {
+        "en": "draw.io Diagram Generator",
+        "zh-CN": "draw.io 图表生成"
+      },
+      "description": "Generate draw.io diagrams (flowchart/architecture/UML/ER/mindmap) as XML, validate, export PNG/SVG/PDF via CLI. By bruc3van.",
+      "description_i18n": {
+        "en": "Generate draw.io diagrams (flowchart/architecture/UML/ER/mindmap) as XML, validate, export PNG/SVG/PDF via CLI. By bruc3van.",
+        "zh-CN": "直接生成 draw.io XML（流程图/架构图/UML/ER/思维导图），校验后 CLI 导出 PNG/SVG/PDF。作者 bruc3van，跨平台。"
+      },
+      "version": "4.0.1",
+      "author": { "name": "bruc3van", "url": "https://github.com/bruc3van/bruce-drawio" },
+      "category": "dev-tools",
+      "keywords": ["drawio", "diagram", "uml", "architecture"]
+    },
+    {
+      "name": "awwwards-mcp",
+      "source": "./plugins/awwwards-mcp",
+      "displayName": "获奖网站设计灵感 MCP",
+      "displayName_i18n": {
+        "en": "Awwwards Design Inspiration MCP",
+        "zh-CN": "获奖网站设计灵感 MCP"
+      },
+      "description": "Search award-winning websites with real screenshots, pull design DNA, capture live sites. Mobbin alternative, no API key. By INSANE0777.",
+      "description_i18n": {
+        "en": "Search award-winning websites with real screenshots, pull design DNA, capture live sites. Mobbin alternative, no API key. By INSANE0777.",
+        "zh-CN": "检索获奖网站真实截图、提取设计 DNA、抓取在线站点，供前端设计参考。Mobbin 替代品，无需 API key。作者 INSANE0777。"
+      },
+      "version": "0.1.0",
+      "author": { "name": "INSANE0777", "url": "https://github.com/INSANE0777/Awwwards-mcp" },
+      "category": "dev-tools",
+      "keywords": ["mcp", "design", "frontend", "ui"]
     }
   ]
 }

@@ -24,6 +24,8 @@ zcode plugins marketplace add https://cdn.jsdelivr.net/gh/wdfdsyhb/zcode-plugins
 |---|---|---|
 | [security-cn-pack](plugins/security-cn-pack/) | security | 中文安全挖洞四合一：SRC 工作流、护网红蓝队、CNVD/CNNVD 报送、11 类漏洞方法论 |
 | [data-competition-pack](plugins/data-competition-pack/) | data-science | 天池/Kaggle 六阶段竞赛方法论 + 过拟合诊断 |
+| [bruce-drawio](plugins/bruce-drawio/) | dev-tools | draw.io 图表生成（流程/架构/UML/ER），CLI 导出 PNG/SVG/PDF · by [bruc3van](https://github.com/bruc3van/bruce-drawio) |
+| [awwwards-mcp](plugins/awwwards-mcp/) | dev-tools | 获奖网站设计灵感 MCP，真实截图检索 · by [INSANE0777](https://github.com/INSANE0777/Awwwards-mcp) |
 
 更多条目见 [marketplace.json](marketplace.json)。收录标准见 [docs/SUBMIT.md](docs/SUBMIT.md)。
 

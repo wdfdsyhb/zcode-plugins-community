@@ -1,0 +1,21 @@
+{
+  "name": "bruce-drawio",
+  "version": "4.0.1",
+  "description": "Cross-platform draw.io diagram generation skill by bruc3van: flowcharts, architecture, UML, ER, mindmaps and network topologies. The agent writes drawio XML directly, validates it, then exports PNG/SVG/PDF via CLI (falls back to an app.diagrams.net link).",
+  "description_i18n": {
+    "en": "Cross-platform draw.io diagram generation skill by bruc3van: flowcharts, architecture, UML, ER, mindmaps and network topologies. The agent writes drawio XML directly, validates it, then exports PNG/SVG/PDF via CLI (falls back to an app.diagrams.net link).",
+    "zh-CN": "bruc3van 的跨平台 draw.io 图表生成技能：流程图、架构图、UML 时序/类图、ER 图、思维导图、网络拓扑。Agent 直接生成 drawio XML，校验后 CLI 导出 PNG/SVG/PDF，无桌面版时自动降级为 app.diagrams.net 在线链接。"
+  },
+  "author": {
+    "name": "bruc3van",
+    "url": "https://github.com/bruc3van/bruce-drawio"
+  },
+  "license": "MIT",
+  "keywords": [
+    "drawio",
+    "diagram",
+    "uml",
+    "architecture",
+    "mindmap"
+  ]
+}

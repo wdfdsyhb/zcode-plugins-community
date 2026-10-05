@@ -1,0 +1,21 @@
+{
+  "name": "awwwards-mcp",
+  "version": "0.1.0",
+  "description": "MCP server by INSANE0777 giving AI coding agents design inspiration from award-winning websites: search with real screenshots, pull design DNA, capture and record live sites. A Mobbin alternative, no API key required.",
+  "description_i18n": {
+    "en": "MCP server by INSANE0777 giving AI coding agents design inspiration from award-winning websites: search with real screenshots, pull design DNA, capture and record live sites. A Mobbin alternative, no API key required.",
+    "zh-CN": "INSANE0777 的设计灵感 MCP 服务器：从获奖网站中检索真实截图、提取设计 DNA、抓取与记录在线站点，供 AI 编程 Agent 做前端设计参考。Mobbin 替代品，无需 API key（经 npx 拉取 npm 包 awwwards-mcp 运行）。"
+  },
+  "author": {
+    "name": "INSANE0777",
+    "url": "https://github.com/INSANE0777/Awwwards-mcp"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "design",
+    "frontend",
+    "ui",
+    "inspiration"
+  ]
+}

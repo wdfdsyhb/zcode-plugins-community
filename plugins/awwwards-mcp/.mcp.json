@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "awwwards": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "awwwards-mcp"],
+      "timeoutMs": 60000
+    }
+  }
+}
