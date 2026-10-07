@@ -1,0 +1,27 @@
+{
+  "name": "claritykit",
+  "owner": {
+    "name": "maxi3777"
+  },
+  "metadata": {
+    "description": "ClarityKit — turn vague design into reviewable artifacts (briefs, architecture candidates, behavior models, data contracts, UI prototypes). A toolbox first, with an optional explicitly-activated design flow.",
+    "version": "2.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claritykit",
+      "source": "./",
+      "description": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+      "version": "2.1.0",
+      "keywords": [
+        "specification",
+        "clarification",
+        "mermaid",
+        "diagrams",
+        "behavior-model",
+        "prototype",
+        "adr"
+      ]
+    }
+  ]
+}

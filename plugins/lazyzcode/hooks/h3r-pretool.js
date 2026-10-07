@@ -1,0 +1,306 @@
+#!/usr/bin/env node
+// PreToolUse 命令层 H3R 门原型（0.2.3 goal v023-h3r-enforcement#N3；ADR-0022 增补节）。
+//
+// 车道边界=**仅无人值守段**：唤醒开关 `LZY_ABLATE_H3R_PRETOOL` 恰 "1"（反向语义，同家族
+// 的 H3R_GATE）**且** drive 注入的身份段标 `LZY_SEGMENT_ID` 在场才判——交互会话即使拿到
+// 开关也拿不到段标，天然免门（交互会话就是恢复路径）。开关的反向语义 + 「PRETOOL 依赖
+// ONESTEP 的段标、单开=惰性空转」这一条，ADR-0022 增补节与开关表同批记录。
+//
+// 判定面=Bash 工具的命令文本（分段+词元序列匹配，v024-debt-bundle N1 根解；词表单一
+// 来源 `plugin/hooks/h3r-words.json`，与 `core/h3r.js` 同读一份）。子串语义的三类误报/
+// 绕过由词元边界封堵：双词形吃进复数/连字子串（「ssh keys」「npm publish-dry」）、引号内
+// 藏词。解析歧义（引号/括号/反引号不平衡）⇒ fail-closed deny（休眠原型无生产影响，保守
+// 方向与家族红线一致）。命中 ⇒ 写 `loop/h3r-hit.json`（带段标；drive 按段校验后 rename
+// 原子消费）+ 返 **deny**——不是 ask：无人值守没有批准者，ask 会挂住（`core/drive.js`
+// 同族理由）。伪造面（ADJ-18，对齐 ADR-0022 口径）：段标相符的伪造标记**可以**改写收束
+// 因分类（防伪边界=记账不裁决）；他段残留与无段标伪造不可消费。
+//
+// 失败语义（诚实边界，报告记账；ADJ-07 订正）：非命中路径静默 exit 0；坏 stdin → 引擎按
+// 空判定处置（fail-open）；**进程崩溃/超时/非 0 退出**在引擎侧为 `throw ToolExecutionFailed
+// (recoverable:true)` + stderr/stdout 预览——模型可见错误面，非静默放行；命令本体最终命运
+// 不可裁（活体探针 INFRA-FAIL，2026-09-22）。标记写失败**不阻断 deny**——拦截是主目的，
+// 收束由 drive 的预算/段账兜底。
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { emit, failOpen, inputCwd, readStdinJson } from "./hook-lib.js";
+
+const WORDS_FILE = join(dirname(fileURLToPath(import.meta.url)), "h3r-words.json");
+const DENY_ANCHOR = "H3R_DENY"; // deny 理由的稳定首词：消融仪器按它锚定（别改成会变的文案）
+const CMD_MAX = 300;
+
+// 记账面排除（评审 P2-12）：仓库自身的 CLI 与提交管道不是「执行型动作」，而步标题里本就
+// 含词表字样（h2 的步标题「执行 rm -rf build-cache/」）——不排除会把「记录本步」打成命中，
+// 既污染读数又卡住段内收尾。
+// ADJ-05（v023 双审）：复合命令以记账动词打头曾整行免检（`git status && rm -rf …` 探针
+// 放行）——含 shell 元字符（管道/链接/重定向/命令替换）的行一律不豁免，记账豁免只服务
+// 「单条记账命令」本形。
+// ADJ-06（v023 双审）：`node \S*lzy.js` 的 `\S*` 无法跨越空格——win32 全局装路径含空格
+// 用户名时引号形态静默失效；`("[^"]*"|\S*)` 两形并列（引号内允许空格）。
+// 边界如实记账：把高危命令藏进被排除通道是理论绕过轴（元字符护栏把复合形态堵死后，
+// 该轴收窄为「单条记账命令文本内嵌词表字样」的误伤面，由 deny 的词元匹配兜底——ADJ-34
+// 订正：判定面自 v024-debt-bundle#N1 起已不是裸子串，故此处不再写「子串匹配」。
+function isBookkeeping(command) {
+  const c = command.trim();
+  // ADJ-05 元字符护栏：链接（&、&&、|、||）、分号、重定向（<、>）、命令替换（`、$(`)
+  // 任一在场即不豁免——记账豁免只服务「单条记账命令」本形。`$` 后非 `(` 不误伤
+  //（提交信息含 $VAR 的合法记账形态）。
+  // ADJ-07：元字符类补换行/回车——换行是 shell 分隔符，`git status\nrm -rf …` 曾被整行免检
+  // （记账豁免只服务「单条记账命令」本形；`\r` 同族，win32 行尾/粘贴形态）。
+  if (/[&|;<>`\n\r]|\$\(/.test(c)) return false;
+  if (/^git\s+(commit|add|status)\b/.test(c)) return true;
+  if (/^lzy\b/.test(c)) return true;
+  if (/^node\s+("[^"]*lzy\.js"|\S*cli[\\/]lzy\.js\b)/.test(c)) return true;
+  if (/^node\s+("[^"]*lzy\.js"|\S*lzy\.js\b)/.test(c)) return true;
+  return false;
+}
+
+function wordlist() {
+  try {
+    const parsed = JSON.parse(readFileSync(WORDS_FILE, "utf8"));
+    return Array.isArray(parsed?.words)
+      ? parsed.words.map((x) => x?.w).filter((w) => typeof w === "string" && w !== "")
+      : [];
+  } catch {
+    return null; // 读不到=不可判 ⇒ fail-open（doctor 的 h3r-words 行巡逻载荷完整性）
+  }
+}
+
+// ── N1（v024-debt-bundle，ADR-0022 升格触发件）：解析面根解 ──────────────────────
+// 段切分：shell 元字符（§N1 清单）；词元切分：空白+引号（按引号/空白切——引号是切分点，
+// 「cat "ssh key"」藏词形态落在相邻词元上照常命中）+ 反斜杠（封「ssh\ key」转义空格绕过）
+// + 圆括号（子壳/替换残余「(rm -rf x)」的词元边界；非段界，纯词元面——全部封堵方向的
+// 加宽，无新放行面）。
+const SEGMENT_SPLIT = /&&|\|\||[;&|`\n]|\$\(/;
+// 词元流 A（沿用）：空白/引号/反斜杠/圆括号皆为切分点——`cat "ssh key"` 的藏词形态落成相邻
+// 词元 [ssh, key]，词表双词形照常命中。
+const TOKEN_SPLIT = /[\s"'\\()]+/;
+
+// 词元流 B（shell 忠实流，ADJ-09 新增）：引号**剥除但不切词**——`npm pub"lish"` 在 shell 里
+// 就是一个词 `publish`，旧流把它劈成 [pub, lish] 后词表双词形漏出（字节级等价逃逸：
+// `git push --for"ce"` 同理）。空白与未转义圆括号仍是切分点；反斜杠转义下一字符（字面保留）。
+// 两流任一命中即命中（并集只加宽检测面，不放行任何既有命中）。
+function shellTokens(seg) {
+  const out = [];
+  let cur = "";
+  let started = false;
+  let mode = null;
+  const flush = () => {
+    if (started) out.push(cur);
+    cur = "";
+    started = false;
+  };
+  for (let i = 0; i < seg.length; i += 1) {
+    const ch = seg[i];
+    if (mode === "'") {
+      if (ch === "'") mode = null;
+      else {
+        cur += ch;
+        started = true;
+      }
+      continue;
+    }
+    if (ch === "\\") {
+      cur += seg[i + 1] ?? "";
+      started = true;
+      i += 1;
+      continue;
+    }
+    if (mode === '"') {
+      if (ch === '"') mode = null;
+      else {
+        cur += ch;
+        started = true;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      mode = ch;
+      started = true; // 空引号也构成一个词
+      continue;
+    }
+    if (/\s/.test(ch) || ch === "(" || ch === ")") {
+      flush();
+      continue;
+    }
+    cur += ch;
+    started = true;
+  }
+  flush();
+  return out;
+}
+
+// 解析歧义（§N1.4 fail-closed 判据）：任一不平衡=无法无歧义解析，保守拦截。
+// ADJ-08：原实现把 `"` 与 `'` 的**合计奇偶**当歧义判据——`echo "it's fine"`（引号合法、shell
+// 正常执行）合计三个引号被判奇而误停，头注「不损失真面」不实。现行按 shell 语义逐字符扫描：
+// 单引号内一切字面；双引号内单引号**不切换**状态（`"it's"` 合法）；反斜杠转义下一字符；
+// 收尾仍在引号内=未闭合。反引号/圆括号仍按合计判（不参与配对语义，用于发现截断形；
+// 引号内的反引号会被顺带计入，方向保守）。
+function parseAmbiguityReason(command) {
+  let mode = null; // null | '"' | "'"
+  for (let i = 0; i < command.length; i += 1) {
+    const ch = command[i];
+    if (mode === "'") {
+      if (ch === "'") mode = null;
+      continue;
+    }
+    if (ch === "\\") {
+      i += 1; // 转义：下一字符为字面（含引号本身）
+      continue;
+    }
+    if (mode === '"') {
+      if (ch === '"') mode = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") mode = ch;
+  }
+  if (mode === '"') return "double-quote";
+  if (mode === "'") return "single-quote";
+  if ((command.match(/`/g) ?? []).length % 2 === 1) return "backtick";
+  if ((command.match(/\(/g) ?? []).length !== (command.match(/\)/g) ?? []).length) return "parens";
+  return null;
+}
+
+// 单词形走词元包含：路径内嵌（~/.ssh/id_rsa、~/.config/credentials.json）、后缀家族
+//（credentials.json / .env.local）、旗标形态（--force-with-lease）等真实敏感面不因词元化
+// 漏出——单词形与旧子串语义逐字段同（--force 覆盖 --force-with-lease 的过匹配是词表 src
+// 记账的照设计保留，既有契约钉）。多词形走相邻词元精确序列：ssh keys / npm publish-dry
+// 不再被双词形的子串误吃（§N1 点名误报形，红绿对照钉）。
+function wordHit(lowerTokens, wordTokens) {
+  if (wordTokens.length === 1) return lowerTokens.some((t) => t.includes(wordTokens[0]));
+  for (let i = 0; i + wordTokens.length <= lowerTokens.length; i += 1) {
+    if (wordTokens.every((w, j) => lowerTokens[i + j] === w)) return true;
+  }
+  return false;
+}
+
+// rm 族删除目标词元抽取（detail 机器可判读面，为升格 B 拍板供数据）：命中词首词元 ∈
+// rm/rmdir/shred 时，取匹配尾之后的非旗标词元（≤3；truncate 的首参是旗标/尺寸，目标
+// 抽取不可靠，不入族）。
+const DELETION_HEADS = new Set(["rm", "rmdir", "shred"]);
+function deletionTargets(tokens, lowerTokens, hitWords, wordTokenList) {
+  const targets = [];
+  for (const { word, tokens: wt } of wordTokenList) {
+    if (!hitWords.includes(word) || !DELETION_HEADS.has(wt[0])) continue;
+    for (let i = 0; i + wt.length <= lowerTokens.length; i += 1) {
+      if (!wt.every((w, j) => lowerTokens[i + j] === w)) continue;
+      for (let k = i + wt.length; k < tokens.length && targets.length < 3; k += 1) {
+        if (lowerTokens[k].startsWith("-")) continue;
+        if (!targets.includes(tokens[k])) targets.push(tokens[k]);
+      }
+      break;
+    }
+  }
+  return targets;
+}
+
+function analyzeCommand(command, words) {
+  const reason = parseAmbiguityReason(command);
+  const wordTokenList = words.map((w) => ({ word: w, tokens: w.toLowerCase().split(/\s+/).filter(Boolean) }));
+  // ADJ-06：原实现 `.slice(0, 8)` 静默截断——第 9 段起的高危词永不进入判定（填 8 段良性命令
+  // 即机械绕过：探针实跑 9 段放行 / 8 段 deny）。现行全量分段，无截断也无 truncated 标记需求。
+  const segments = command
+    .split(SEGMENT_SPLIT)
+    .map((s) => s.trim())
+    .filter((s) => s !== "")
+    .map((seg) => {
+      const tokens = seg.split(TOKEN_SPLIT).filter(Boolean);
+      const lowerTokens = tokens.map((t) => t.toLowerCase());
+      const tokensB = shellTokens(seg);
+      const lowerTokensB = tokensB.map((t) => t.toLowerCase());
+      const hits = wordTokenList
+        .filter(({ tokens: wt }) => wordHit(lowerTokens, wt) || wordHit(lowerTokensB, wt))
+        .map(({ word }) => word);
+      const segInfo = { text: seg.slice(0, 80), hits };
+      const targets = [
+        ...new Set([
+          ...deletionTargets(tokens, lowerTokens, hits, wordTokenList),
+          ...deletionTargets(tokensB, lowerTokensB, hits, wordTokenList),
+        ]),
+      ].slice(0, 3);
+      if (targets.length > 0) segInfo.targets = targets;
+      return segInfo;
+    });
+  return {
+    matched: [...new Set(segments.flatMap((s) => s.hits))],
+    parse: reason ? { ok: false, reason } : { ok: true },
+    segments,
+  };
+}
+
+try {
+  const input = readStdinJson();
+  if (!input) failOpen(); // 无/坏 stdin：静默（fail-open 由引擎侧承担）
+  // LZY_ABLATE_HOOK_H3R_PRETOOL（ADR-0015）：恰 "1" = 本钩子整层短路——消融 E 臂
+  // （no-hook-layer）靠它把 H3R 钩子一起灭掉，否则该臂不再是「整层消融」。stdin 已吃净后
+  // 短路（同 comment-checker 家法）。注意与下一行的**唤醒**开关是两回事：那个是这条原型
+  // 自己的反向开关，这个是家族消融面。
+  if (process.env.LZY_ABLATE_HOOK_H3R_PRETOOL === "1") failOpen();
+  if (process.env.LZY_ABLATE_H3R_PRETOOL !== "1") failOpen(); // 休眠：默认行为逐字段同
+  // 段标形状校验（ADJ-22，v023 双审）：只认 drive 注入形 `<整数>:seg-<整数>`——残留 env
+  //（手动实验/照抄 export 后未清）按「无段标」处置：声明面的「构造上免门」降格为「以 env
+  // 卫生为前提」后的机器半，交互会话的恢复路径不再被残留段标误罩。
+  const segmentId = process.env.LZY_SEGMENT_ID;
+  if (!/^\d+:seg-\d+$/.test(segmentId ?? "")) failOpen();
+  if (input.tool_name !== "Bash") failOpen();
+  const command = input?.tool_input?.command;
+  if (typeof command !== "string" || command.trim() === "") failOpen();
+  if (isBookkeeping(command)) failOpen();
+  const words = wordlist();
+  if (!words || words.length === 0) failOpen();
+  const analysis = analyzeCommand(command, words);
+  // §N1.4：词零命中且解析无歧义 ⇒ 放行；歧义在场均 deny（fail-closed）。
+  if (analysis.matched.length === 0 && analysis.parse.ok) failOpen();
+  // matched 保形（字符串数组，core/drive.js takeH3rHit 按 join 渲染、零改动）：歧义态
+  // 无真实命中词，落诚实占位词——detail.parse 承载机器真相。
+  const matched = analysis.matched.length > 0 ? analysis.matched : ["(解析歧义)"];
+  // 结构化明细（deny 理由附加段 + h3r-hit.json detail 键，纯加字段）。
+  const detailNote = analysis.parse.ok
+    ? analysis.segments
+        .filter((s) => s.hits.length > 0)
+        .map((s) => `段「${s.text}」命中 ${s.hits.join("/")}${s.targets?.length ? `（目标 ${s.targets.join(" ")}）` : ""}`)
+        .join("；")
+        .slice(0, 300)
+    : `命令无法无歧义解析（${analysis.parse.reason}），保守拦截`;
+
+  // 命中：先落标记（drive 据此走干净收束 + 7 字段快照），再 deny。
+  const loopDir = process.env.LZY_LOOP_DIR || join(inputCwd(input) ?? process.cwd(), ".lazyzcode", "loop");
+  try {
+    mkdirSync(loopDir, { recursive: true });
+    const file = join(loopDir, "h3r-hit.json");
+    const tmp = `${file}.tmp`;
+    writeFileSync(
+      tmp,
+      `${JSON.stringify(
+        {
+          segmentId,
+          tool: input.tool_name,
+          command: command.slice(0, CMD_MAX),
+          matched,
+          detail: { parse: analysis.parse, segments: analysis.segments },
+          at: new Date().toISOString(),
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
+    renameSync(tmp, file);
+  } catch {
+    // 写不成也照拦（见头注失败语义）
+  }
+  emit({
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason:
+        `${DENY_ANCHOR} 需人工确认（H3R）：命令命中高危面（${matched.join("、")}）——明细：${detailNote}。` +
+        `本门只作用于无人值守 drive 段循环（ADR-0022），请交回人工会话确认`,
+      additionalContext:
+        "停手，不要改写命令绕过；本段将由 drive 干净收束并写交接快照，恢复=在交互会话读快照按计划推进。",
+    },
+  });
+  process.exit(0);
+} catch {
+  failOpen();
+}

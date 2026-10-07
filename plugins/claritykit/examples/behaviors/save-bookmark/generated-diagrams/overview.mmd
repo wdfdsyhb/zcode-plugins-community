@@ -1,0 +1,28 @@
+%% title: save-bookmark · machine view · overview (generated)
+%% group: save-bookmark
+%% caption: mechanical full render of behavior.yaml — completeness baseline (every state, every transition) to review coverage against. Hand views select from it; they never replace it.
+stateDiagram-v2
+  idle : 空闲
+  editing : 编辑中
+  state editing {
+    viewing : 查看
+    modifying : 修改
+  }
+  syncing : 同步中
+  sync_failed : 同步失败
+  pending_sync : 待同步
+  saved : 已保存
+  [*] --> idle
+  idle --> editing : 保存网页
+  editing --> viewing
+  viewing --> modifying : 编辑信息
+  viewing --> syncing : 确认
+  modifying --> viewing : 确认
+  modifying --> idle : 取消
+  syncing --> pending_sync : 取消
+  syncing --> saved : onDone(sync_service)
+  syncing --> sync_failed : onError(sync_service)
+  sync_failed --> syncing : 重试 [允许重试]
+  sync_failed --> pending_sync : 取消
+  pending_sync --> syncing : 网络恢复 [在线]
+  saved --> [*]

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ai-ui-aesthetics-design-research": {
+      "command": "python",
+      "args": ["${ZCODE_PLUGIN_ROOT}/mcp-server/launch_mcp.py"],
+      "env": {
+        "ZCODE_PLUGIN_ID": "ai-ui-aesthetics@ai-ui-aesthetics"
+      }
+    }
+  }
+}

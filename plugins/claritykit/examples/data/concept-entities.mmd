@@ -1,0 +1,7 @@
+%% title: Reading list · conceptual entities
+%% caption: what the system remembers, in the user's language — no fields; the user reviews THIS
+erDiagram
+  用户 ||--o{ 书签 : "保存"
+  书签 ||--o{ 标签 : "标注"
+  书签 ||--o| 抓取快照 : "拥有"
+  书签 ||--o{ 同步记录 : "产生"

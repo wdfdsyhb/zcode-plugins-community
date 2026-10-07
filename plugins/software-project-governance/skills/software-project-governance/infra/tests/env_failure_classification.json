@@ -1,0 +1,214 @@
+{
+  "schema_version": "env-failure-classification/v1",
+  "generated": "2026-09-10",
+  "generated_by": "AUDIT-152",
+  "baseline_report": "docs/requirements/env-failure-classification-0.80.0.md",
+  "suite_command": "python -B -m unittest discover -s skills/software-project-governance/infra/tests",
+  "suite_summary": {
+    "head": "a599843",
+    "ran": 2304,
+    "failures": 31,
+    "errors": 1,
+    "skipped": 1,
+    "seconds": 716.848,
+    "load_class": "serial-exclusive-approximate",
+    "transcript": "%TEMP%/audit152_unittest_full.txt"
+  },
+  "classes": {
+    "env_sensitive": "result determined by execution environment (bash/WSL runtime, system codepage, machine load); code and data both correct",
+    "known_defect": "registered defect (test-face or manifest-face); reproducible, root-caused, fix direction known",
+    "data_coupling": "test pins a data-plane precondition that legitimately evolved (new doc committed, governance data archived/fixed); scanner/code behavior correct",
+    "regression_candidate": "suspected real regression; escalate to Developer",
+    "unclassified": "insufficient evidence, honestly marked"
+  },
+  "families": {
+    "bash_wsl_hook": "hook executes via WSL bash; host has no default distro (UTF-16 WSL_E_DEFAULT_DISTRO_NOT_FOUND)",
+    "codepage_gbk": "GBK negative-control skips by design on UTF-8 (cp65001) machines",
+    "load_timing": "timing/timeout assertion sensitive to parallel governance load (RISK-048); passes in serial windows",
+    "test_assertion_stale": "known defect: test assertion not updated after legitimate data fix (FIX-293)",
+    "manifest_presets": "known defect: manifest.json presets/ dir vs cleanup PLUGIN_SCOPE_DIRS vs disk, three-way drift",
+    "review_doc_claim": "docs/reviews/* claim-accounting findings couple real-repo LRC scans to trigger docs -> semantic verdict BLOCKED; trigger-source rotation measured at FIX-388 refresh (2026-09-24, HEAD 0840876): prior source review-FIX-300-CODE-R0.md 3x UNSUPPORTED_AFFIRMATIVE absorbed into the FIX-320 notice-binding ledger (no longer in findings); current sources = review-REL-086-RELEASE-R2.md ragged row (ACCOUNTING_MARKDOWN_AMBIGUOUS_BOUNDARY) + review-FIX-376-CODE-R0.md accounting:29:1 (UNKNOWN_STATE_PREDICATE, L29), owned by FIX-389 whose doc fixes materialized in the working tree the same day (uncommitted at refresh close); LRC re-measured PASS with 0 findings (post-fix measurement)",
+    "authority_archive_side_effect": "EVD-983 archive migration moved pinned DEC-104 row out of live decision-log -> AUTHORITY_SOURCE_OCCURRENCE found 0",
+    "live_plan_tracker_row": "live-replay test pins REL-071 task row that EVD-983 migration archived out of hot plan-tracker",
+    "clock_window_sensitive": "assertion depends on local wall-clock position relative to midnight (00:00-02:00 window): a date-only timestamp parsed at that day 00:00 makes a now-Nh derivation cross the day boundary and flip a freshness verdict; deterministic once the clock is injected (family identified by FIX-364/EVD-1124; registered by the AUDIT-152 ledger write-back, FIX-386)"
+  },
+  "tests": {
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_a_legacy_end_column_hits": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "traceback 'hook function run failed: rc=1', stdout UTF-16 'wsl.exe --list --online' / WSL_E_DEFAULT_DISTRO_NOT_FOUND; subTest hook=pre-commit/commit-msg; expected green on Linux CI (native bash)",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_b_machine_row_with_zero_blockers_hits": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_blocked_never_passes": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_blockers_tail_must_be_exactly_zero": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 4,
+      "evidence": "2 tail_cols variants x 2 hooks; same WSL rc=1 family",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_c_machine_row_with_nonzero_blockers_misses": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_d_needs_change_misses_both_forms": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 4,
+      "evidence": "2 forms (legacy/machine) x 2 hooks; same WSL rc=1 family",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_machine_plain_approved_still_hits": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_other_task_machine_row_does_not_hit": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_plain_approved_with_blockers_tail_misses": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_pre_commit_review_evidence.ReviewEvidenceRegexTests.test_replay_real_evidence_log_fix260": {
+      "class": "env_sensitive",
+      "family": "bash_wsl_hook",
+      "count": 2,
+      "evidence": "same WSL rc=1 family as above",
+      "since": "<=2026-08-25 (FIX-278 EVD, via AUDIT-151 section 4-F1)",
+      "ticket": null
+    },
+    "test_utf8_read_guard": {
+      "class": "env_sensitive",
+      "family": "codepage_gbk",
+      "count": 1,
+      "evidence": "skip (expected behavior): 'system ANSI codepage is 65001, not 936 (GBK) - mojibake negative control not reproducible on this machine'",
+      "since": "by design since test introduction (AUDIT-151 section 4-F0)",
+      "ticket": null
+    },
+    "test_triage_write_guard.GovernanceWriteGuardPlanTrackerTests.test_live_plan_tracker_flags_only_known_m1_rows": {
+      "class": "known_defect",
+      "family": "test_assertion_stale",
+      "count": 1,
+      "evidence": "AssertionError 'set() is not true : live M1 four rows must be flagged' (test L533, line number as of this 2026-09-10 registry snapshot); FIX-293 fixed the data on 2026-09-09 (EVD-963) so flagged set became empty by design; guard CLI itself PASSes",
+      "since": "2026-09-09 (FIX-293 landing)",
+      "resolved": true,
+      "resolved_by": "FIX-330 (2026-09-14) adopted the recorded flip candidate: (b) zero-hit assertion assertEqual(set(), flagged) + face-level sentinel gate assertNotIn(\"\", flagged, face), 1 file +63/-5; module then Ran 32 OK with skipped=0; re-verified 2026-09-17 by FIX-332 (canary single-run OK, module OK, skipped=0 - now 35 tests incl. FIX-333 GBK negative cases); the same review also falsified the FIX-328/R0 F-1 'real sensitivity regression' premise by inverted experiment (unreadable face flagged={''} non-empty => HEAD and (a) both red at the subset assertion; real defect downgraded to diagnostic distortion, correction registered in DEC-194) - docs/reviews/review-FIX-330-CODE-R0.md (APPROVED_WITH_NOTES, unresolved_blockers=0)",
+      "ticket": "resolved by FIX-330 (was: AUDIT-152 recommends new FIX task, report section 7); entry kept with resolution record per maintenance note 'update alongside data-evolution events (F2 fixes)'"
+    },
+    "test_cleanup.TestPluginScopeDirs.test_all_manifest_dirs_covered": {
+      "class": "known_defect",
+      "family": "manifest_presets",
+      "count": 1,
+      "evidence": "AssertionError {'presets'}: manifest.json declares top-level dir presets/ but cleanup PLUGIN_SCOPE_DIRS lacks it and the directory does not exist on disk (three-way drift)",
+      "since": "<=2026-08-25 (FIX-278 EVD 'cleanup presets', via AUDIT-151 section 4-F3)",
+      "ticket": "existing reconciliation candidate (report section 7)"
+    },
+    "test_verify_workflow.FIX300DualCaliberAgreementTests.test_identity_host_source_drift_reproduces_divergence_shape": {
+      "class": "data_coupling",
+      "family": "review_doc_claim",
+      "count": 1,
+      "evidence": "L197 assertEqual('PASS', semantic.verdict) -> 'PASS' != 'BLOCKED'; installed_host semantic scan of real repo sees 3x UNSUPPORTED_AFFIRMATIVE on docs/reviews/review-FIX-300-CODE-R0.md (locators accounting:71:1/71:4/72:1, claim LRC-ACTIVE-RUNTIME forbidden_current); installed_host skips authority validation (loop_runtime_claims.py L1240-1241); single-run reproduces identically | FIX-388 refresh (2026-09-24, HEAD 0840876): FIX-300 trigger source absorbed into the FIX-320 notice-binding ledger (no longer in findings); still failing, live cause rotated to review-REL-086-RELEASE-R2.md ragged row + review-FIX-376-CODE-R0.md accounting:29:1 ('PASS' != 'BLOCKED' pre-fix measurement); FIX-389 doc fixes materialized the same day - LRC re-measured PASS/0 findings and this entry re-ran green (post-fix measurement)",
+      "since": "2026-09-10 e994c7a (review doc committed)",
+      "ticket": "AUDIT-152 recommends allowlist notice-binding candidate (report section 7)"
+    },
+    "test_verify_workflow.FIX300DualCaliberAgreementTests.test_fixture_identity_mode_agrees_with_engine_on_present_sources": {
+      "class": "data_coupling",
+      "family": "review_doc_claim",
+      "co_causes": ["authority_archive_side_effect"],
+      "count": 1,
+      "evidence": "ERROR form: SystemExit(1) uncaught from cmd_check_loop_runtime_claims (verify_workflow.py L20735 via test L177); aggregate verdict FAIL; review-doc cause necessarily present (product scan BLOCKED), DEC-104 archive cause co-present on copied host governance files; single-run reproduces identically | FIX-388 refresh (2026-09-24, HEAD 0840876): FIX-300 trigger source absorbed into the FIX-320 notice-binding ledger; authority_archive_side_effect co-cause also cleared (0 AUTHORITY_SOURCE_OCCURRENCE findings at refresh); failure form changed to plain assert ('PASS' != 'FAIL', pre-fix measurement), live cause rotated to review-REL-086-RELEASE-R2.md ragged row + review-FIX-376-CODE-R0.md accounting:29:1; FIX-389 doc fixes materialized the same day - LRC re-measured PASS/0 findings and this entry re-ran green (post-fix measurement)",
+      "since": "2026-09-10 e994c7a (review doc); archive cause since EVD-983 (2026-09-10, post a599843)",
+      "ticket": "AUDIT-152 recommends allowlist notice-binding candidate (report section 7)"
+    },
+    "test_loop_runtime_claims.LoopRuntimeClaimTests.test_real_repository_inventory_complete_and_within_budget": {
+      "class": "data_coupling",
+      "family": "review_doc_claim",
+      "co_causes": ["authority_archive_side_effect"],
+      "count": 1,
+      "evidence": "L904 verdict BLOCKED; direct scanner run: exactly 4 findings = 1x AUTHORITY_SOURCE_OCCURRENCE (.governance/decision-log.md 'found 0', pinned DEC-104 row archived by EVD-983: live=0/archive=1 measured) + 3x UNSUPPORTED_AFFIRMATIVE (review-FIX-300-CODE-R0.md); two independent sufficient causes; single-run reproduces identically | FIX-388 refresh (2026-09-24, HEAD 0840876): both 2026-09-10 causes cleared (FIX-300 source absorbed into the FIX-320 notice-binding ledger; DEC-104 authority row no longer flagged - 0 AUTHORITY_SOURCE_OCCURRENCE findings at refresh); still failing, new finding pair = review-REL-086-RELEASE-R2.md ragged row + review-FIX-376-CODE-R0.md accounting:29:1 (pre-fix measurement); FIX-389 doc fixes materialized the same day - LRC re-measured PASS/0 findings and this entry re-ran green (post-fix measurement)",
+      "since": "2026-09-10 e994c7a (review doc) + EVD-983 (same day, post a599843)",
+      "ticket": "AUDIT-152 recommends notice-binding + authority contract candidates (report section 7)"
+    },
+    "test_loop_runtime_claims.LoopRuntimePerformanceAndGoldenTests.test_three_run_performance_identity_and_median": {
+      "class": "data_coupling",
+      "family": "review_doc_claim",
+      "latent_class": "env_sensitive",
+      "latent_family": "load_timing",
+      "count": 1,
+      "evidence": "L1082 identities[0][0] 'PASS' != 'BLOCKED'; finding_snapshots = 3x (UNSUPPORTED_AFFIRMATIVE, review-FIX-300); clean :index clone has no .governance so authority check FIX-240-exempt - review-doc cause ONLY; median<8s assertion (L1083) unevaluated today (masked by verdict failure) and is the RISK-048 load-sensitive exposure (EVD-962/964/967; EVD-981 1E unrecorded test-id) | FIX-388 refresh (2026-09-24, HEAD 0840876): FIX-300 source absorbed into the FIX-320 notice-binding ledger (no longer in findings); still failing ('PASS' != 'BLOCKED' re-measured), finding_snapshots rotated to 2x (ACCOUNTING_MARKDOWN_AMBIGUOUS_BOUNDARY, review-REL-086-RELEASE-R2) + (UNKNOWN_STATE_PREDICATE, review-FIX-376-CODE-R0); review-doc cause ONLY still held (pre-fix measurement); FIX-389 doc fixes materialized the same day - LRC re-measured PASS/0 findings and this entry re-ran green (post-fix measurement) | FIX-401 (2026-09-28, HEAD f06a2bf, working-tree change pending R0 review/commit): load_timing latent exposure narrowed - timing clock domain switched wall (perf_counter) -> process CPU (process_time); budget 27.0 -> 27.8 (p50 x 1.5 discipline kept; anchor session CPU p50 18.547 s); same-day 8-proc CPU-saturation control left CPU median 13.688 s (13.000 / 13.688 / 14.062) un-inflated - the same load shape is what inflated the old wall assertion (RISK-048 false-RED mode); full-file re-run 62 passed + 81 subtests in 147.42 s",
+      "since": "2026-09-10 e994c7a (review doc)",
+      "resolved": true,
+      "resolved_by": "FIX-401 (2026-09-28, HEAD f06a2bf, pending R0/commit): latent load_timing face narrowed by the clock-domain switch (wall -> process CPU; RISK-048 mitigation landed), primary review_doc_claim face already re-ran green with the FIX-389 doc fixes; entry kept with resolution record per the maintenance note",
+      "ticket": "resolved by FIX-401 (was: load exposure owned by FEAT-018 calibration slice); notice-binding face green since FIX-389; sibling adapter-timeout face (test_claim_command_emits_complete_pass_report, this file) remains load_timing - deferred to 0.93+ candidate pool"
+    },
+    "test_verify_workflow.LoopRuntimeClaimAdapterTests.test_claim_command_emits_complete_pass_report": {
+      "class": "data_coupling",
+      "family": "review_doc_claim",
+      "latent_class": "env_sensitive",
+      "latent_family": "load_timing",
+      "count": 1,
+      "evidence": "L51 assertEqual(0, completed.returncode) -> 0 != 1 (real CLI subprocess, stderr empty); serial run fails on rc=1 (data coupling); under parallel governance load the same timeout=15 subprocess historically surfaces as TimeoutExpired ERROR (RISK-048 family - likely the FEAT-018 1E, test-id unrecorded, mechanism-level inference only); single-run reproduces as FAIL | FIX-388 refresh (2026-09-24, HEAD 0840876): underlying cause rotated - FIX-300 trigger source absorbed into the FIX-320 notice-binding ledger; still failing (re-measured 0 != 1, stderr empty), live LRC verdict BLOCKED via review-REL-086-RELEASE-R2.md ragged row + review-FIX-376-CODE-R0.md accounting:29:1 (pre-fix measurement); FIX-389 doc fixes materialized the same day - LRC re-measured PASS/0 findings and this entry re-ran green (post-fix measurement)",
+      "since": "2026-09-10 e994c7a (review doc)",
+      "ticket": "notice-binding candidate (report section 7); load exposure owned by FEAT-018 calibration slice"
+    },
+    "test_hooks.PlanTrackerMatcherTests.test_replay_real_plan_tracker_hits": {
+      "class": "data_coupling",
+      "family": "live_plan_tracker_row",
+      "count": 1,
+      "evidence": "subTest task_id='REL-071' only: L312 assertTrue(_run_pattern('REL-071', plan_text)) -> False; EVD-983 migration archived the REL-071 task row out of hot plan-tracker (remaining occurrences are evidence cells and a roadmap row that the FIX-282 anchored matcher correctly MISSes by design, test L265-270); matcher behavior correct - pinned live-data precondition expired; not present in AUDIT-151 (pre-migration) nor FIX-301 commit-time evidence (EVD-983 ran after a599843)",
+      "since": "2026-09-10 EVD-983 (real archive migration, post a599843)",
+      "ticket": "AUDIT-152 recommends live-replay representative refresh + migration checklist item (report section 7)"
+    },
+    "test_resolve_entry.ResolveEntryTests.test_snapshot_freshness_recent_is_fresh": {
+      "class": "env_sensitive",
+      "family": "clock_window_sensitive",
+      "count": 1,
+      "evidence": "fixture wrote a date-only session_date derived from datetime.now() - timedelta(hours=2); the engine parsed it at that day 00:00 and freshness = now - date <= 24h, so a run inside the local 00:00-02:00 window saw the 2h subtraction cross midnight, recorded yesterday's date, and judged the snapshot stale (snapshot_fresh=False); temp-dir isolated fixture, no live-data coupling (0.85.0 M-2 window: 00:41/01:15/01:30 runs; review-FEAT-054-RELEASE-R0 V10② in-window reproduction)",
+      "since": "2026-09-20 (0.85.0 M-2 window, first documented occurrence)",
+      "resolved": true,
+      "resolved_by": "FIX-364 (2026-09-20, commit 9aa27a6): fixture derives session_date at the engine's date granularity + stdlib clock injection (zero new deps) + midnight-window positive/negative double-pin (test_snapshot_freshness_midnight_window_is_fresh / test_snapshot_freshness_midnight_window_stale_stays_stale); REVIEW-FIX-364-CODE-R0 APPROVED_WITH_NOTES/0; EVD-1124",
+      "ticket": "resolved by FIX-364 (was: 0.85.0 checklist #14 recommendation 'FIX-364 candidate + AUDIT-152 ledger registration'); family registered by FIX-386 per EVD-1124 note 'AUDIT-152 账本 proposed 登记待 Developer 席写回'"
+    }
+  },
+  "consumption": {
+    "post_run_diff_script": "after a suite run, extract FAIL/ERROR test ids and diff against tests keys: unregistered id => treat as regression_candidate and fail loudly (anti-masking); registered id that passes => classification stale, flag for cleanup",
+    "test_code_wiring": "explicitly NOT done in AUDIT-152 (skipUnless/expectedFailure would require test-code changes; WSL family should really run on Linux CI rather than skip); wiring is a follow-up task decision",
+    "maintenance": "this file is a 2026-09-10 snapshot at HEAD a599843; update alongside data-evolution events (new review docs, archive migrations, F2/F3 fixes); targeted refresh 2026-09-24 by FIX-388 (HEAD 0840876, no full re-baseline): review_doc_claim trigger sources rotated (FIX-300 source absorbed by the FIX-320 notice-binding ledger; new sources review-REL-086-RELEASE-R2.md ragged row + review-FIX-376-CODE-R0.md accounting:29:1 registered per measured findings; FIX-389 doc fixes materialized in the working tree the same day (uncommitted at refresh close) - LRC re-measured PASS/0 findings and the five review_doc_claim entries re-ran green in post-fix 4-test + 2-test runs); clock_window_sensitive family + FIX-364 resolved entry (FIX-386, 2026-09-24 d6dd300 batch) left untouched"
+  }
+}

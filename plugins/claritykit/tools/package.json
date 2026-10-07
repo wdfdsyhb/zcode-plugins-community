@@ -1,0 +1,11 @@
+{
+  "name": "claritykit-tools",
+  "private": true,
+  "type": "module",
+  "description": "ClarityKit toolchain: validate behavior models, render Mermaid drafts, verify diagrams, build the preview site, manage the preview server.",
+  "dependencies": {
+    "jsdom": "^30.0.1",
+    "mermaid": "^11.16.1",
+    "yaml": "^2.5.0"
+  }
+}

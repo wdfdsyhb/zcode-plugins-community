@@ -1,0 +1,17 @@
+#!/bin/bash
+# prepare-commit-msg governance hook
+# Does not persist commit messages for pre-commit.
+# pre-commit runs before this hook, so a bridge file would be stale by design.
+# commit-msg reads the final current message from $1 and is authoritative.
+# @version: 0.95.0
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+GOV_COMMIT_MSG_PATH=$(git rev-parse --git-path GOV_COMMIT_MSG 2>/dev/null || true)
+if [ -n "$GOV_COMMIT_MSG_PATH" ]; then
+    rm -f "$GOV_COMMIT_MSG_PATH" 2>/dev/null || true
+fi
+
+exit 0

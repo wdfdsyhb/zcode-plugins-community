@@ -1,0 +1,51 @@
+{
+  "name": "taskswarm",
+  "version": "4.0.0",
+  "description": "TaskSwarm: recursive task decomposition, wave-based parallel subagent dispatch, and a shared MCP progress board. Zero dependencies, Node >= 23.4. Ships a CLI (cli/taskswarm.mjs) for non-MCP hosts and terminals, plus a PPR review gate: a task with a reviewer stays blocked until the reviewer approves.",
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "Wersky",
+    "url": "https://github.com/Wersky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wersky/taskswarm.git"
+  },
+  "homepage": "https://github.com/Wersky/taskswarm#readme",
+  "bugs": {
+    "url": "https://github.com/Wersky/taskswarm/issues"
+  },
+  "keywords": [
+    "zcode",
+    "zcode-plugin",
+    "mcp",
+    "mcp-server",
+    "multi-agent",
+    "orchestration",
+    "task-decomposition",
+    "任务蜂群"
+  ],
+  "engines": {
+    "node": ">=23.4"
+  },
+  "main": "mcp/server.mjs",
+  "bin": {
+    "taskswarm": "cli/taskswarm.mjs",
+    "taskswarm-mcp": "mcp/server.mjs"
+  },
+  "files": [
+    ".zcode-plugin",
+    "commands",
+    "mcp",
+    "scripts",
+    "skills",
+    "cli",
+    "ui"
+  ],
+  "scripts": {
+    "test": "node --test \"mcp/test/**/*.test.mjs\"",
+    "coverage": "node scripts/coverage.mjs",
+    "sync": "node scripts/sync-installed.mjs"
+  }
+}

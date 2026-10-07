@@ -799,6 +799,465 @@
       },
       "category": "dev-tools",
       "keywords": []
+    },
+    {
+      "name": "adopt",
+      "source": "./plugins/Game-Studios-Plugin",
+      "displayName": "游戏工作室多 agent 框架:50+ agents + 70+ skills + 守护 hooks",
+      "displayName_i18n": {
+        "en": "adopt",
+        "zh-CN": "游戏工作室多 agent 框架:50+ agents + 70+ skills + 守护 hooks"
+      },
+      "description": "Brownfield onboarding — audits existing project artifacts for template format compliance (not just existence), classifies gaps by impact, and produces a numbered migration plan. Run this when joining an in-progress project or upgrading from an older template version. Distinct from /project-stage-detect (which checks what exists) — this checks whether what exists will actually work with the templat",
+      "description_i18n": {
+        "en": "Brownfield onboarding — audits existing project artifacts for template format compliance (not just existence), classifies gaps by impact, and produces a numbered migration plan. Run this when joining an in-progress project or upgrading from an older template version. Distinct from /project-stage-detect (which checks what exists) — this checks whether what exists will actually work with the templat",
+        "zh-CN": "游戏工作室多 agent 框架:50+ agents + 70+ skills + 守护 hooks"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "HunLuanZhiZhu",
+        "url": "https://github.com/HunLuanZhiZhu"
+      },
+      "category": "game-dev",
+      "keywords": []
+    },
+    {
+      "name": "ai-ui-aesthetics",
+      "source": "./plugins/ai-ui-aesthetics",
+      "displayName": "前端美学技能:教 AI 设计精致、有层次、一致性的 UI",
+      "displayName_i18n": {
+        "en": "ai-ui-aesthetics",
+        "zh-CN": "前端美学技能:教 AI 设计精致、有层次、一致性的 UI"
+      },
+      "description": "前端美学增强插件。Skill（教 AI 写漂亮 UI：设计 Token、排版层级、留白、丝滑动效）+ MCP（设计调研：抓参考站、扫图取色、配色建议）。零依赖、框架无关，可跨 Agent Harness（含 DeepSeek Harness）使用。",
+      "description_i18n": {
+        "en": "前端美学增强插件。Skill（教 AI 写漂亮 UI：设计 Token、排版层级、留白、丝滑动效）+ MCP（设计调研：抓参考站、扫图取色、配色建议）。零依赖、框架无关，可跨 Agent Harness（含 DeepSeek Harness）使用。",
+        "zh-CN": "前端美学技能:教 AI 设计精致、有层次、一致性的 UI"
+      },
+      "version": "1.0.0",
+      "author": {
+        "name": "Jaye2610",
+        "url": "https://github.com/Jaye2610"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "bufatechno-webgamedev",
+      "source": "./plugins/bufatechno-webgamedev",
+      "displayName": "网页游戏开发技能",
+      "displayName_i18n": {
+        "en": "bufatechno-webgamedev",
+        "zh-CN": "网页游戏开发技能"
+      },
+      "description": "BUFATECHNO WEB GAME DEV — skill for building complete, production-ready web games with Three.js (WebGPU/TSL) or Babylon.js (WebGPU/Havok). Optimized for ZCode and Claude. Covers scaffolding, ECS, PBR/IBL, WebGPU/TSL, VFX/particles/post-processing, Web Audio, assets (GLTF/Draco/KTX2/Splat), 2D canvas/sprites, and animation (mixer/skeletal/morph/blending). Use when user asks to create, build or ship",
+      "description_i18n": {
+        "en": "BUFATECHNO WEB GAME DEV — skill for building complete, production-ready web games with Three.js (WebGPU/TSL) or Babylon.js (WebGPU/Havok). Optimized for ZCode and Claude. Covers scaffolding, ECS, PBR/IBL, WebGPU/TSL, VFX/particles/post-processing, Web Audio, assets (GLTF/Draco/KTX2/Splat), 2D canvas/sprites, and animation (mixer/skeletal/morph/blending). Use when user asks to create, build or ship",
+        "zh-CN": "网页游戏开发技能"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "bufatechno",
+        "url": "https://github.com/bufatechno"
+      },
+      "category": "game-dev",
+      "keywords": []
+    },
+    {
+      "name": "chuigong",
+      "source": "./plugins/chuigong",
+      "displayName": "垂拱:主对话只编排,廉价子代理执行,节省模型配额",
+      "displayName_i18n": {
+        "en": "chuigong",
+        "zh-CN": "垂拱:主对话只编排,廉价子代理执行,节省模型配额"
+      },
+      "description": "垂拱而治：君上（主对话）只做拆解、派发、裁决、汇总，调研/写作/编码/数据处理/审核全部由预置百官子智能体（通政·翰林·将作·书吏·御史）执行；含究诘（需求拷问）与 sdd（严肃流程）技能；出厂模型 GLM-5.3-Flash，可经设置→子智能体 UI 更换",
+      "description_i18n": {
+        "en": "垂拱而治：君上（主对话）只做拆解、派发、裁决、汇总，调研/写作/编码/数据处理/审核全部由预置百官子智能体（通政·翰林·将作·书吏·御史）执行；含究诘（需求拷问）与 sdd（严肃流程）技能；出厂模型 GLM-5.3-Flash，可经设置→子智能体 UI 更换",
+        "zh-CN": "垂拱:主对话只编排,廉价子代理执行,节省模型配额"
+      },
+      "version": "0.3.0",
+      "author": {
+        "name": "rouyiemei",
+        "url": "https://github.com/rouyiemei"
+      },
+      "category": "productivity",
+      "keywords": [
+        "zcode-plugin",
+        "multi-agent",
+        "delegation",
+        "subagents",
+        "orchestration"
+      ]
+    },
+    {
+      "name": "claritykit",
+      "source": "./plugins/claritykit",
+      "displayName": "需求澄清工具:通过问答与 Mermaid 图理清应用创建过程",
+      "displayName_i18n": {
+        "en": "claritykit",
+        "zh-CN": "需求澄清工具:通过问答与 Mermaid 图理清应用创建过程"
+      },
+      "description": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+      "description_i18n": {
+        "en": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+        "zh-CN": "需求澄清工具:通过问答与 Mermaid 图理清应用创建过程"
+      },
+      "version": "2.1.0",
+      "author": {
+        "name": "maxi3777",
+        "url": "https://github.com/maxi3777"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "specification",
+        "clarification",
+        "agent-skills",
+        "design-flow",
+        "mermaid"
+      ]
+    },
+    {
+      "name": "dragon-agents",
+      "source": "./plugins/dragon-agents",
+      "displayName": "六个只读研究子代理:仓库测绘/文档漂移审计/共享库级联分析",
+      "displayName_i18n": {
+        "en": "dragon-agents",
+        "zh-CN": "六个只读研究子代理:仓库测绘/文档漂移审计/共享库级联分析"
+      },
+      "description": "Read-only research subagents for repo, markets, and machine work: repo maps, doc-drift and release audits, cascade and spec checks, CI triage and posture, workspace sweeps, code review, git archaeology, claim verification, dependency and test-gap audits, debt census, duplication scouting, slop reads, equity and ETF research briefs from keyless public market data, personal finance and library brief",
+      "description_i18n": {
+        "en": "Read-only research subagents for repo, markets, and machine work: repo maps, doc-drift and release audits, cascade and spec checks, CI triage and posture, workspace sweeps, code review, git archaeology, claim verification, dependency and test-gap audits, debt census, duplication scouting, slop reads, equity and ETF research briefs from keyless public market data, personal finance and library brief",
+        "zh-CN": "六个只读研究子代理:仓库测绘/文档漂移审计/共享库级联分析"
+      },
+      "version": "0.6.0",
+      "author": {
+        "name": "VirInvictus",
+        "url": "https://github.com/VirInvictus"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "fun-code",
+      "source": "./plugins/fun-code",
+      "displayName": "恶作剧模式:agent 扮演过度自信的新手,在简单部分埋 silly 彩蛋",
+      "displayName_i18n": {
+        "en": "fun-code",
+        "zh-CN": "恶作剧模式:agent 扮演过度自信的新手,在简单部分埋 silly 彩蛋"
+      },
+      "description": "Joke troll mode: the agent works like an overconfident clumsy idiot, plants silly mistakes in the easiest places, and stays annoying until told to stop.",
+      "description_i18n": {
+        "en": "Joke troll mode: the agent works like an overconfident clumsy idiot, plants silly mistakes in the easiest places, and stays annoying until told to stop.",
+        "zh-CN": "恶作剧模式:agent 扮演过度自信的新手,在简单部分埋 silly 彩蛋"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "temmeik",
+        "url": "https://github.com/temmeik"
+      },
+      "category": "fun",
+      "keywords": []
+    },
+    {
+      "name": "garmin-connect",
+      "source": "./plugins/garmin-connect-plugin-for-dsh",
+      "displayName": "Garmin Connect 集成:浏览器安全 MFA 的技能+MCP(DSH 生态兼容)",
+      "displayName_i18n": {
+        "en": "garmin-connect",
+        "zh-CN": "Garmin Connect 集成:浏览器安全 MFA 的技能+MCP(DSH 生态兼容)"
+      },
+      "description": "在 WorkBuddy 中下载并配置 dsh-plugin-garmin-connect npm 包，通过 MCP 工具分析 Garmin 活动、睡眠、步数、心率、体重、训练库、跑步趋势和有限的恢复信息，也可按用户要求创建 Garmin 训练或下载活动 FIT 文件。适用于 Garmin 配置、回顾、比较和明确授权的写操作；不用于医疗诊断。",
+      "description_i18n": {
+        "en": "在 WorkBuddy 中下载并配置 dsh-plugin-garmin-connect npm 包，通过 MCP 工具分析 Garmin 活动、睡眠、步数、心率、体重、训练库、跑步趋势和有限的恢复信息，也可按用户要求创建 Garmin 训练或下载活动 FIT 文件。适用于 Garmin 配置、回顾、比较和明确授权的写操作；不用于医疗诊断。",
+        "zh-CN": "Garmin Connect 集成:浏览器安全 MFA 的技能+MCP(DSH 生态兼容)"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "Likenttt",
+        "url": "https://github.com/Likenttt"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "multi-model-bridge",
+      "source": "./plugins/multi-model-bridge",
+      "displayName": "多模型协同桥:主模型缺能力(图像/视觉)时把子任务路由给外部模型",
+      "displayName_i18n": {
+        "en": "multi-model-bridge",
+        "zh-CN": "多模型协同桥:主模型缺能力(图像/视觉)时把子任务路由给外部模型"
+      },
+      "description": "Multi-model collaboration skill: delegate image/vision understanding (or future capabilities) to an external model when the active model lacks them.",
+      "description_i18n": {
+        "en": "Multi-model collaboration skill: delegate image/vision understanding (or future capabilities) to an external model when the active model lacks them.",
+        "zh-CN": "多模型协同桥:主模型缺能力(图像/视觉)时把子任务路由给外部模型"
+      },
+      "version": "1.0.0",
+      "author": {
+        "name": "Et3rW",
+        "url": "https://github.com/Et3rW"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "senmu-buildos",
+      "source": "./plugins/senmu-buildos",
+      "displayName": "AI 原生 BuildOS:产品发现→UI/UX 设计→软件工程全流程,多宿主适配",
+      "displayName_i18n": {
+        "en": "senmu-buildos",
+        "zh-CN": "AI 原生 BuildOS:产品发现→UI/UX 设计→软件工程全流程,多宿主适配"
+      },
+      "description": "Project governance and engineering coaching for AI coding agents: align requirements and interface design, reuse frameworks and components, improve code quality, and deliver with evidence.",
+      "description_i18n": {
+        "en": "Project governance and engineering coaching for AI coding agents: align requirements and interface design, reuse frameworks and components, improve code quality, and deliver with evidence.",
+        "zh-CN": "AI 原生 BuildOS:产品发现→UI/UX 设计→软件工程全流程,多宿主适配"
+      },
+      "version": "2.24.1",
+      "author": {
+        "name": "SenMuShare",
+        "url": "https://github.com/SenMuShare"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "zcode",
+        "zcode-plugin",
+        "agent-skills",
+        "ai-agents",
+        "project-management"
+      ]
+    },
+    {
+      "name": "software-project-governance",
+      "source": "./plugins/software-project-governance",
+      "displayName": "软件项目治理:证据支撑的规划/评审/风险/质量/发布控制",
+      "displayName_i18n": {
+        "en": "software-project-governance",
+        "zh-CN": "软件项目治理:证据支撑的规划/评审/风险/质量/发布控制"
+      },
+      "description": "AI coding delivery trust layer for governance-aware coding agents. Tracks goals, evidence, risks, quality budgets, and release readiness without making broad runtime claims.",
+      "description_i18n": {
+        "en": "AI coding delivery trust layer for governance-aware coding agents. Tracks goals, evidence, risks, quality budgets, and release readiness without making broad runtime claims.",
+        "zh-CN": "软件项目治理:证据支撑的规划/评审/风险/质量/发布控制"
+      },
+      "version": "0.95.0",
+      "author": {
+        "name": "peterwangze",
+        "url": "https://github.com/peterwangze"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "taskswarm",
+      "source": "./plugins/taskswarm",
+      "displayName": "任务树多级拆解+按依赖波次并行派发子代理+共享 MCP 看板,123 tests 90.3% 覆盖",
+      "displayName_i18n": {
+        "en": "taskswarm",
+        "zh-CN": "任务树多级拆解+按依赖波次并行派发子代理+共享 MCP 看板,123 tests 90.3% 覆盖"
+      },
+      "description": "任务蜂群：多级任务拆解 + 波次并行派发子代理 + 共享看板进度互通。主代理把任务拆成任务树，按依赖波次并行启动后台子代理，子代理通过 MCP 看板互查进度，主代理负责转发关键进展与最终汇总。零依赖 Node 实现，可跨平台移植。",
+      "description_i18n": {
+        "en": "任务蜂群：多级任务拆解 + 波次并行派发子代理 + 共享看板进度互通。主代理把任务拆成任务树，按依赖波次并行启动后台子代理，子代理通过 MCP 看板互查进度，主代理负责转发关键进展与最终汇总。零依赖 Node 实现，可跨平台移植。",
+        "zh-CN": "任务树多级拆解+按依赖波次并行派发子代理+共享 MCP 看板,123 tests 90.3% 覆盖"
+      },
+      "version": "4.0.0",
+      "author": {
+        "name": "Wersky",
+        "url": "https://github.com/Wersky"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "zcode-repo-wiki",
+      "source": "./plugins/zcode-repo-wiki",
+      "displayName": "本地仓库 wiki:agent 读代码写分页 wiki,文件级证据+一次构建单页概览",
+      "displayName_i18n": {
+        "en": "zcode-repo-wiki",
+        "zh-CN": "本地仓库 wiki:agent 读代码写分页 wiki,文件级证据+一次构建单页概览"
+      },
+      "description": "Local-only repo wiki for ZCode: an agent reads your code and writes a paged wiki with file-level evidence.",
+      "description_i18n": {
+        "en": "Local-only repo wiki for ZCode: an agent reads your code and writes a paged wiki with file-level evidence.",
+        "zh-CN": "本地仓库 wiki:agent 读代码写分页 wiki,文件级证据+一次构建单页概览"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "Acfufu",
+        "url": "https://github.com/Acfufu"
+      },
+      "category": "docs-writing",
+      "keywords": []
+    },
+    {
+      "name": "zcode-tokenspeed",
+      "source": "./plugins/zcode-toolkit",
+      "displayName": "桌面客户端增强:思考档位/用量图表/TPS 状态栏/一键增强提示词,纯 Python 标准库",
+      "displayName_i18n": {
+        "en": "zcode-tokenspeed",
+        "zh-CN": "桌面客户端增强:思考档位/用量图表/TPS 状态栏/一键增强提示词,纯 Python 标准库"
+      },
+      "description": "ZCode 桌面客户端本地补丁注入工具：思考档位配置、用量页去截断、模型弹窗加宽、TPS 状态栏、思考强度滑条、增强提示词按钮（右键可选润色所用模型）、设置页模型拉取按钮。装完重启即自动注入（零配置），全部幂等、可检查、可精确还原，并支持在插件详情页逐项开关。",
+      "description_i18n": {
+        "en": "ZCode 桌面客户端本地补丁注入工具：思考档位配置、用量页去截断、模型弹窗加宽、TPS 状态栏、思考强度滑条、增强提示词按钮（右键可选润色所用模型）、设置页模型拉取按钮。装完重启即自动注入（零配置），全部幂等、可检查、可精确还原，并支持在插件详情页逐项开关。",
+        "zh-CN": "桌面客户端增强:思考档位/用量图表/TPS 状态栏/一键增强提示词,纯 Python 标准库"
+      },
+      "version": "0.6.10",
+      "author": {
+        "name": "c80361619",
+        "url": "https://github.com/c80361619"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "fusion",
+      "source": "./plugins/fusion-zcode-plugin",
+      "displayName": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换",
+      "displayName_i18n": {
+        "en": "fusion",
+        "zh-CN": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换"
+      },
+      "description": "Hybrid smart model fusion with auto-shifting between consensus, sequential, specialist, and fallback modes. Use whenever the user wants multiple models to collaborate on a task - automatically selects the optimal strategy based on task analysis.",
+      "description_i18n": {
+        "en": "Hybrid smart model fusion with auto-shifting between consensus, sequential, specialist, and fallback modes. Use whenever the user wants multiple models to collaborate on a task - automatically selects the optimal strategy based on task analysis.",
+        "zh-CN": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "roman-ryzenadvanced",
+        "url": "https://github.com/roman-ryzenadvanced"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "lazyzcode",
+      "source": "./plugins/lazyzcode",
+      "displayName": "编码工作流纪律层:计划/执行/取证,不半途而废",
+      "displayName_i18n": {
+        "en": "lazyzcode",
+        "zh-CN": "编码工作流纪律层:计划/执行/取证,不半途而废"
+      },
+      "description": "AI coding-workflow discipline layer for ZCode: plan, execute, take evidence, never stop half-done.",
+      "description_i18n": {
+        "en": "AI coding-workflow discipline layer for ZCode: plan, execute, take evidence, never stop half-done.",
+        "zh-CN": "编码工作流纪律层:计划/执行/取证,不半途而废"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "Acfufu",
+        "url": "https://github.com/Acfufu"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "autoresearch",
+      "source": "./plugins/zcode-autoresearch",
+      "displayName": "自主实验循环:基于固定度量让 agent 自动迭代优化",
+      "displayName_i18n": {
+        "en": "autoresearch",
+        "zh-CN": "自主实验循环:基于固定度量让 agent 自动迭代优化"
+      },
+      "description": "Autonomous experiment loop for ZCode: set a goal, pick a mechanical metric, and let the agent iterate automatically.",
+      "description_i18n": {
+        "en": "Autonomous experiment loop for ZCode: set a goal, pick a mechanical metric, and let the agent iterate automatically.",
+        "zh-CN": "自主实验循环:基于固定度量让 agent 自动迭代优化"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "luochang212",
+        "url": "https://github.com/luochang212"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "session-mailbox",
+      "source": "./plugins/zcode-session-mailbox",
+      "displayName": "ZCode 会话间消息交换(内置 session mailbox)",
+      "displayName_i18n": {
+        "en": "session-mailbox",
+        "zh-CN": "ZCode 会话间消息交换(内置 session mailbox)"
+      },
+      "description": ">-",
+      "description_i18n": {
+        "en": ">-",
+        "zh-CN": "ZCode 会话间消息交换(内置 session mailbox)"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "mkosinov",
+        "url": "https://github.com/mkosinov"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "token-meter",
+      "source": "./plugins/zcode-token-meter",
+      "displayName": "Windows 置顶悬浮窗:实时 tok/s + prompt 缓存命中率,无控制台窗口",
+      "displayName_i18n": {
+        "en": "token-meter",
+        "zh-CN": "Windows 置顶悬浮窗:实时 tok/s + prompt 缓存命中率,无控制台窗口"
+      },
+      "description": "A tiny floating window showing live output speed (tokens/second) and prompt-cache hit rate for the ZCode agent.",
+      "description_i18n": {
+        "en": "A tiny floating window showing live output speed (tokens/second) and prompt-cache hit rate for the ZCode agent.",
+        "zh-CN": "Windows 置顶悬浮窗:实时 tok/s + prompt 缓存命中率,无控制台窗口"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "alixntuyt-eng",
+        "url": "https://github.com/alixntuyt-eng"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "zcode-tokline",
+      "source": "./plugins/zcode-tokline",
+      "displayName": "每轮回复末尾注入速率行:首字/本轮/轮均 tok/s,零依赖",
+      "displayName_i18n": {
+        "en": "zcode-tokline",
+        "zh-CN": "每轮回复末尾注入速率行:首字/本轮/轮均 tok/s,零依赖"
+      },
+      "description": "每轮注入「完整显示规则 + 最新速率行」,模型在回复末尾原样引用。⏱ 本轮/轮均 tok/s。零第三方依赖,纯本地读 usage 数据库。",
+      "description_i18n": {
+        "en": "每轮注入「完整显示规则 + 最新速率行」,模型在回复末尾原样引用。⏱ 本轮/轮均 tok/s。零第三方依赖,纯本地读 usage 数据库。",
+        "zh-CN": "每轮回复末尾注入速率行:首字/本轮/轮均 tok/s,零依赖"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "nengong-ai",
+        "url": "https://github.com/nengong-ai"
+      },
+      "category": "productivity",
+      "keywords": []
+    },
+    {
+      "name": "zcode-websearch",
+      "source": "./plugins/zcode-websearch",
+      "displayName": "Tavily 联网搜索:只回链接与短摘要(MCP+技能)",
+      "displayName_i18n": {
+        "en": "zcode-websearch",
+        "zh-CN": "Tavily 联网搜索:只回链接与短摘要(MCP+技能)"
+      },
+      "description": "Tavily web search for ZCode: returns only links and short summaries. MCP server + skill.",
+      "description_i18n": {
+        "en": "Tavily web search for ZCode: returns only links and short summaries. MCP server + skill.",
+        "zh-CN": "Tavily 联网搜索:只回链接与短摘要(MCP+技能)"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "Yoahoug",
+        "url": "https://github.com/Yoahoug"
+      },
+      "category": "productivity",
+      "keywords": []
     }
   ]
 }

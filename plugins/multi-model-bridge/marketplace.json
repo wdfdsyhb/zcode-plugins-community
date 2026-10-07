@@ -1,0 +1,33 @@
+{
+  "name": "multi-model-bridge-marketplace",
+  "plugins": [
+    {
+      "name": "multi-model-bridge",
+      "source": {
+        "source": "url",
+        "type": "zip",
+        "url": "https://github.com/Et3rW/multi-model-bridge/releases/download/v1.0.0/multi-model-bridge.zip",
+        "sha256": "6C7FC96856E4FEAE8D10CA3157BC1FE241BC2CC548394B5647AA1903520DAC4A",
+        "path": "multi-model-bridge"
+      },
+      "description": "Multi-model collaboration for ZCode: when the active model lacks a capability (image/vision understanding, now), delegate the subtask to an external model and fold its result into your reasoning.",
+      "description_i18n": {
+        "en": "Multi-model collaboration for ZCode: when the active model lacks a capability (image/vision understanding, now), delegate the subtask to an external model and fold its result into your reasoning.",
+        "zh-CN": "ZCode 多模型协同：当当前模型缺失某项能力（现在为图像/视觉理解）时，把子任务路由给外部模型处理，并把结果整合进推理。"
+      },
+      "version": "1.0.0",
+      "author": {
+        "name": "Et3rW"
+      },
+      "category": "developer-tools",
+      "keywords": [
+        "multi-model",
+        "vision",
+        "image",
+        "bridge",
+        "ocr",
+        "collaboration"
+      ]
+    }
+  ]
+}

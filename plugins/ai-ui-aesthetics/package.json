@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@aiwork/ai-ui-aesthetics",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "前端美学增强 ZCode 插件：设计 Token、排版层级、留白、丝滑动效。四支柱结构（风格原型 / 审美知识 / 设计 Token / 代码规则）。"
+}

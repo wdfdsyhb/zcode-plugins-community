@@ -1,0 +1,14 @@
+{
+  "name": "dragon-agents",
+  "version": "0.6.0",
+  "description": "Read-only research subagents for repo, markets, and machine work: repo maps, doc-drift and release audits, cascade and spec checks, CI triage and posture, workspace sweeps, code review, git archaeology, claim verification, dependency and test-gap audits, debt census, duplication scouting, slop reads, equity and ETF research briefs from keyless public market data, personal finance and library briefs, dataset profiling, security review, machine and backup health census, and charter design for new agents.",
+  "author": {
+    "name": "VirInvictus",
+    "url": "https://github.com/VirInvictus"
+  },
+  "license": "MIT",
+  "description_i18n": {
+    "en": "Read-only research subagents for repo, markets, and machine work: repo maps, doc-drift and release audits, cascade and spec checks, CI triage and posture, workspace sweeps, code review, git archaeology, claim verification, dependency and test-gap audits, debt census, duplication scouting, slop reads, equity and ETF research briefs from keyless public market data, personal finance and library briefs, dataset profiling, security review, machine and backup health census, and charter design for new agents.",
+    "zh-CN": "六个只读研究子代理:仓库测绘/文档漂移审计/共享库级联分析"
+  }
+}

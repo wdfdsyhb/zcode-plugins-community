@@ -1,0 +1,107 @@
+{
+  "Game-Studios-Plugin": {
+    "category": "game-dev",
+    "author_github": "HunLuanZhiZhu",
+    "display_zh": "游戏工作室多 agent 框架:50+ agents + 70+ skills + 守护 hooks"
+  },
+  "ai-ui-aesthetics": {
+    "category": "dev-tools",
+    "author_github": "Jaye2610",
+    "display_zh": "前端美学技能:教 AI 设计精致、有层次、一致性的 UI"
+  },
+  "bufatechno-webgamedev": {
+    "category": "game-dev",
+    "author_github": "bufatechno",
+    "display_zh": "网页游戏开发技能"
+  },
+  "chuigong": {
+    "category": "productivity",
+    "author_github": "rouyiemei",
+    "display_zh": "垂拱:主对话只编排,廉价子代理执行,节省模型配额"
+  },
+  "claritykit": {
+    "category": "dev-tools",
+    "author_github": "maxi3777",
+    "display_zh": "需求澄清工具:通过问答与 Mermaid 图理清应用创建过程"
+  },
+  "dragon-agents": {
+    "category": "dev-tools",
+    "author_github": "VirInvictus",
+    "display_zh": "六个只读研究子代理:仓库测绘/文档漂移审计/共享库级联分析"
+  },
+  "fun-code": {
+    "category": "fun",
+    "author_github": "temmeik",
+    "display_zh": "恶作剧模式:agent 扮演过度自信的新手,在简单部分埋 silly 彩蛋"
+  },
+  "garmin-connect-plugin-for-dsh": {
+    "category": "productivity",
+    "author_github": "Likenttt",
+    "display_zh": "Garmin Connect 集成:浏览器安全 MFA 的技能+MCP(DSH 生态兼容)"
+  },
+  "multi-model-bridge": {
+    "category": "dev-tools",
+    "author_github": "Et3rW",
+    "display_zh": "多模型协同桥:主模型缺能力(图像/视觉)时把子任务路由给外部模型"
+  },
+  "senmu-buildos": {
+    "category": "dev-tools",
+    "author_github": "SenMuShare",
+    "display_zh": "AI 原生 BuildOS:产品发现→UI/UX 设计→软件工程全流程,多宿主适配"
+  },
+  "software-project-governance": {
+    "category": "dev-tools",
+    "author_github": "peterwangze",
+    "display_zh": "软件项目治理:证据支撑的规划/评审/风险/质量/发布控制"
+  },
+  "taskswarm": {
+    "category": "productivity",
+    "author_github": "Wersky",
+    "display_zh": "任务树多级拆解+按依赖波次并行派发子代理+共享 MCP 看板,123 tests 90.3% 覆盖"
+  },
+  "zcode-toolkit": {
+    "category": "dev-tools",
+    "author_github": "c80361619",
+    "display_zh": "桌面客户端增强:思考档位/用量图表/TPS 状态栏/一键增强提示词,纯 Python 标准库"
+  },
+  "zcode-autoresearch": {
+    "category": "dev-tools",
+    "author_github": "luochang212",
+    "display_zh": "自主实验循环:基于固定度量让 agent 自动迭代优化"
+  },
+  "zcode-token-meter": {
+    "category": "productivity",
+    "author_github": "alixntuyt-eng",
+    "display_zh": "Windows 置顶悬浮窗:实时 tok/s + prompt 缓存命中率,无控制台窗口"
+  },
+  "zcode-tokline": {
+    "category": "productivity",
+    "author_github": "nengong-ai",
+    "display_zh": "每轮回复末尾注入速率行:首字/本轮/轮均 tok/s,零依赖"
+  },
+  "zcode-repo-wiki": {
+    "category": "docs-writing",
+    "author_github": "Acfufu",
+    "display_zh": "本地仓库 wiki:agent 读代码写分页 wiki,文件级证据+一次构建单页概览"
+  },
+  "zcode-websearch": {
+    "category": "productivity",
+    "author_github": "Yoahoug",
+    "display_zh": "Tavily 联网搜索:只回链接与短摘要(MCP+技能)"
+  },
+  "lazyzcode": {
+    "category": "productivity",
+    "author_github": "Acfufu",
+    "display_zh": "编码工作流纪律层:计划/执行/取证,不半途而废"
+  },
+  "zcode-session-mailbox": {
+    "category": "productivity",
+    "author_github": "mkosinov",
+    "display_zh": "ZCode 会话间消息交换(内置 session mailbox)"
+  },
+  "fusion-zcode-plugin": {
+    "category": "dev-tools",
+    "author_github": "roman-ryzenadvanced",
+    "display_zh": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "session-mailbox",
+  "version": "0.1.0",
+  "description": ">-",
+  "author": {
+    "name": "mkosinov",
+    "url": "https://github.com/mkosinov"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": ">-",
+    "zh-CN": "ZCode 会话间消息交换(内置 session mailbox)"
+  }
+}

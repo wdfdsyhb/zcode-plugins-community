@@ -1,0 +1,3 @@
+* text=auto
+hooks/session-start text eol=lf
+*.cmd text eol=crlf

@@ -1,0 +1,2585 @@
+#!/usr/bin/env python3
+"""Task dependency / priority analysis — FIX-226 (0.71.0).
+
+This module is the **pure dependency-analysis layer** for the governance
+plan-tracker. It parses the ``优先级一览`` priority tables in
+``plan-tracker.md`` — including the headerless ``### 最近完成（本会话提交窗口）``
+window table (FIX-251) — builds a directed acyclic graph (DAG) from the ``依赖``
+(dependency) column, and computes which tasks are blocked / unblocked / ready
+to recommend as the next step.
+
+It exists to close the AUDIT-141 / FIX-223 gap: the ``依赖`` column was
+free-text with no machine-parseable graph and no "what's unblocked" computation,
+so the behavior protocol could not honor its own rule (analyze dependencies
+before recommending next steps). This tool provides that analysis.
+
+**Third-class status filter (FIX-237.2 / ADR-017 §4.4 P1-3):** dependency
+satisfaction alone does NOT make a row an executable candidate. Only rows whose
+status leading marker is ⏳ (pending/active) — or which have no leading status
+marker at all — may enter ``Unblocked`` / ``Recommended next``. Rows with a
+terminal / non-executable leading marker (⛔ blocked, ⏸ split/held, 🔴 blocked,
+🚧 historical in-progress, 🛑 stopped, 📋 queued, ✅ completed) are excluded
+even when dependency-satisfied and reported in a separate ``non_executable``
+bucket. FIX-288 ⑦ extends the filter beyond leading markers: non-✅ terminal
+WORDING (completion-word forms like the live 「🔄 规划段完成 + M-0 裁决完成」,
+bare 已终止/已撤回/... prefixes) is non-executable too — 「🔄 进行中」 stays
+active (🔄 also marks genuine in-progress rows).
+
+**Cycle tolerance (FIX-237.2):** a dependency cycle is a WARNING, not an ERROR.
+The report keeps the cycle list for visibility, sets the ``cycle_warning``
+flag, formats a ``CYCLE DETECTED (WARNING)`` banner, and still produces the
+best-effort analysis.
+
+**Empty-recommendation fallback (FIX-254 / REQ-110):** when no task is
+unblocked (``recommended_next == []`` — the live-data norm: total > 0 with
+unblocked = 0), the report never degrades to a bare empty list (the
+AUDIT-143 data-layer root cause of the "mechanically enumerate an
+unfinished item" degradation). :func:`compute_unblocked_tasks` walks the
+blocked dependency graph and attaches either (a) an
+:class:`UnblockRecommendation` — the head node of the highest-value blocked
+chain (the root blocker whose resolution reopens the most downstream
+tasks), with a dependency reason — and/or (b) a structured
+``empty_reason`` (``all_blocked`` / ``all_non_executable`` /
+``no_active_tasks``) with the nearest actionable step.
+:func:`format_report` renders both; downstream consumers
+(loop_exit_bridge.py / the next-candidates CLI) forward them as machine
+fields.
+
+**Purity contract (load-bearing):** this module imports ONLY the Python
+standard library. The compute functions (:func:`parse_task_dependencies`,
+:func:`compute_unblocked_tasks`, :func:`format_report`) perform NO file I/O and
+hold NO module-level mutable state. The CLI entry in ``verify_workflow.py``
+passes the file *text* to :func:`parse_task_dependencies`, keeping the
+analysis trivially testable with fixture strings and deterministic across
+runs. Documented I/O exceptions (FEAT-012 G5 consolidation): besides the
+``_coerce_text`` convenience read, the RECO snapshot writer
+(:func:`write_recommendation_snapshot`), the tpa last-run cache helpers
+(:func:`read_last_run_state` / :func:`write_last_run_state`), the FIX-341
+archive-index resolution helpers (:func:`parse_archive_index_completed_ids`
+takes TEXT — pure; :func:`read_archive_index_completed_ids` /
+:func:`_archive_index_mtime` read the parameterized index path) and the CLI
+orchestrator :func:`run_cli_analysis` perform explicit, parameterized file
+I/O — they never touch module state and stay stdlib-only at module level.
+FEAT-077 / ADR-021 §2.2.2 (3) adds one more documented orchestration-layer
+exception: :func:`_resolve_row_demand_sources` lazily imports
+``change_triage.load_triage_records`` (function-local — a module-level
+import would be circular since change_triage imports THIS module) to feed
+the PURE :func:`resolve_demand_source` authority merge; the compute path
+itself stays stdlib-only with no peer coupling.
+
+**Task-family vs cross-entity (FIX-171 precedent):** the ``依赖`` column
+routinely mixes task-family IDs (``FIX-162``, ``REL-047``, ``AUDIT-124`` —
+things that can appear as Task IDs and therefore have a status) with
+cross-entity reference IDs (``RISK-039``, ``DEC-090``, ``REVIEW-FIX-155`` —
+descriptive context that is NEVER a task and has no status). Only task-family
+dependencies can block a task; a cross-entity ref is descriptive and never
+blocks. This mirrors the AUDIT-126 / FIX-171 fix in ``archive.py``.
+
+Usage::
+
+    from task_priority import parse_task_dependencies, compute_unblocked_tasks, format_report
+    text = Path(".governance/plan-tracker.md").read_text(encoding="utf-8")
+    tasks = parse_task_dependencies(text)
+    report = compute_unblocked_tasks(tasks)
+    print(format_report(report))
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+import unicodedata
+from dataclasses import dataclass, field, replace
+from datetime import date
+from pathlib import Path
+
+
+__version__ = "0.71.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task-family classification (FIX-171 precedent; mirrored from archive.py)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# These are the prefixes that can appear as Task IDs in plan-tracker and
+# therefore can resolve to a status (completed / active). Everything else in
+# the ``依赖`` column is a cross-entity reference (RISK / DEC / REVIEW / EVD /
+# TIER / CONSTRAINT / TOOL / ADR) — descriptive context that never blocks.
+#
+# Kept as a local copy (rather than importing archive.py) so this module stays
+# pure-stdlib with no peer coupling, and so the allow-list is self-documenting
+# for the priority-analysis use case. Conservative: when uncertain, INCLUDE a
+# prefix — a non-task ID in this set simply matches nothing in the status map
+# (no false block). The list below was derived from the real governance data
+# (prefixes that appear as Task IDs in plan-tracker table rows). ``FEAT`` and
+# ``DOC`` are included because the live plan-tracker uses them as task IDs
+# (FEAT-001..009, DOC-001); ``VAL`` likewise (VAL-007..009).
+_TASK_FAMILY_PREFIXES = frozenset({
+    "FIX", "REL", "AUDIT", "REQ", "FMT", "DIAG", "MAINT", "SYSGAP", "TD",
+    "DESIGN", "VAL", "CLEANUP", "PRINCIPLE", "TASK", "RESEARCH", "ACCEPT",
+    "INIT", "PLAN", "FEAT", "DOC",
+})
+
+# Cross-entity prefixes — NEVER task IDs, never block. Documented for clarity;
+# the task-family allow-list above is authoritative.
+_CROSS_ENTITY_PREFIXES = frozenset({
+    "RISK", "DEC", "REVIEW", "EVD", "TIER", "CONSTRAINT", "TOOL", "ADR",
+})
+
+# A task-family or cross-entity ID token: PREFIX-NNN (e.g. FIX-226, RISK-039).
+# The negative lookbehind ``(?<![-A-Z])`` is load-bearing: without it the regex
+# would extract ``FIX-155`` from inside ``REVIEW-FIX-155`` (the ``-`` before
+# ``FIX`` is a non-word boundary, so plain ``\b`` would still match). A
+# REVIEW-prefixed ref is a single cross-entity record (the review of FIX-155),
+# NOT the FIX-155 task itself, and must not be re-counted as a task dependency.
+# Forbidding a preceding ``-`` or uppercase letter correctly treats
+# ``REVIEW-FIX-155`` as a single token whose prefix is ``REVIEW`` (cross-entity)
+# while still matching a standalone ``FIX-155``.
+_ID_TOKEN_RE = re.compile(r"(?<![-A-Z])([A-Z]+)-(\d+)\b")
+# A bare ID cell value (after stripping markdown), e.g. "FIX-226".
+_ID_CELL_RE = re.compile(r"^[A-Z]+-\d+$")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# demand_source (provenance) vocabulary — FEAT-077 / ADR-021 §2.2.2 (M1-L2 B2)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 需求源三值封闭枚举（ADR-021 §2 术语与字段命名先决裁决：字段名
+# ``demand_source``，不复用 ``provenance``——governance_store.py 已将该词
+# 定义为写入器机器溯源，同词两义是架构腐化 P-v1 D2）。行内（md）标注格式
+# ``〔用户点名〕/〔活性缺陷〕/〔机器信号〕``（全角方括号，与治理文本现有
+# ``〔op-…〕`` 锚风格一致）。
+DEMAND_SOURCE_VALUES = ("user-named", "active-defect", "machine-signal")
+# 无标注存量行 = legacy（ADR §2.2.1 向后兼容：消费者按「缺失 = 未标」处理）；
+# 两面矛盾 = conflict（数据一致性 fail-closed，§2.2.2 (3)）。
+DEMAND_SOURCE_LEGACY = "legacy"
+DEMAND_SOURCE_CONFLICT = "conflict"
+
+_DEMAND_SOURCE_MARKER_RE = re.compile(r"〔(用户点名|活性缺陷|机器信号)〕")
+_MARKER_TO_DEMAND_SOURCE = {
+    "用户点名": "user-named",
+    "活性缺陷": "active-defect",
+    "机器信号": "machine-signal",
+}
+
+# Sort tie-break rank — ADR-021 裁决点 D1（DEC-289 采纳）：provenance 排在
+# priority 之内作第一 tie-break（同 P 级内 user-named > active-defect >
+# machine-signal），**不跨 P 级**——跨级压制会把 user-named 结构性需求抬到
+# P0 阻断热修之上制造新倒挂；跨级倒挂由 ADR-021 §2.2.3 反倒挂判定件兜底
+# （分级执法，B3 接线——编号随 ADR 返工重编，不在此写死）。
+# ``legacy`` 与 ``user-named`` 同 rank（存量未标行保守视为用户/Coordinator
+# 点名，报告面显式披露 legacy 清单倒逼补标）；``conflict`` 亦同 rank 0
+# （排序按 user-named 保守处理 + 显式披露，§2.2.2 验收判据 2）。
+_DEMAND_RANK = {
+    "user-named": 0,
+    "active-defect": 1,
+    "machine-signal": 2,
+    "legacy": 0,
+    "conflict": 0,
+}
+
+
+def _is_task_family_id(task_id: str) -> bool:
+    """Return True if ``task_id``'s prefix is a task-family prefix.
+
+    A task-family ID is one that can appear as a Task ID in plan-tracker and
+    therefore can resolve to a status. Cross-entity refs (RISK-/DEC-/REVIEW-/
+    EVD-/TIER-/CONSTRAINT-/TOOL-/ADR-) are descriptive context, never tasks,
+    and must NOT block.
+
+    Args:
+        task_id: an ID string of the form ``PREFIX-NNN``. The caller
+            pre-validates the shape; this function only inspects the prefix.
+
+    Returns:
+        True if the prefix is in :data:`_TASK_FAMILY_PREFIXES`, False otherwise.
+    """
+    prefix = task_id.split("-", 1)[0]
+    return prefix in _TASK_FAMILY_PREFIXES
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Status parsing
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# The plan-tracker ``状态`` cell is the LAST data column of the 7-col priority
+# table. Real cells observed in the live data:
+#   "✅ 完成 (2026-06-30)"
+#   "✅ 已交付"
+#   "✅ 已发布 (2026-07-25)——origin/master=..."
+#   "⏸ 停滞待重新评估 (2026-06-27)"
+#   "🚧 前向门禁完成，历史处置待 DEC (2026-07-11)"
+#   "⛔ BLOCKED_BY FIX-212/FIX-202 (2026-07-17)"
+#   "⏳ 待执行"
+#   "🔴 ..." (blocked)
+#   "⏸ SPLIT_TO FIX-199/FIX-200 (2026-07-13)"
+#
+# Rule (per FIX-226 spec): ✅ = completed; ANY other status = active (i.e. the
+# task is not done, so it counts as a blocker for dependents and as a
+# candidate for unblocked/recommended). We match on the leading ✅ emoji
+# specifically, NOT a substring scan of the whole cell — because the cell may
+# contain ✅ inside a parenthetical (e.g. "FIX-155✅" appears in the DEPENDENCY
+# column, not status; but defensive). The status cell is leading-emoji driven.
+_COMPLETED_EMOJI = "✅"
+# Active (non-completed) markers — informational only; the rule is "not ✅ →
+# active". Listed here so the docstring / format output can label sub-states.
+_ACTIVE_STATUS_HINTS = {
+    "⏳": "pending",
+    "🔴": "blocked",
+    "🚧": "in_progress",
+    "🛑": "stopped",
+    "⏸": "paused",
+    "⛔": "blocked",
+}
+
+
+# FIX-393 — writer-terminal recognition (0.89.0).
+#
+# task_row_update.py (0.86.0 M0 batch-1) is the ONLY sanctioned write path
+# for plan-tracker task rows, and contracts.TASK_TRANSITIONS makes
+# ``committed`` the ONLY terminal state (empty legal-transition tuple).
+# A row flipped by the writer carries its status token from the writer's
+# ordered, mutually-exclusive marker chain AND the ops receipt anchor
+# 〔op-<32hex>〕 (task_row_update DoD 9 machine provenance). That
+# combination — NOT the display prefix text — is the authoritative terminal
+# signal: the live 0.88.0 delivered batch (「committed 已 lock 待派发
+# …〔op-…〕」 / 「committed 已发布 …〔op-…〕」) carries no ✅ and no
+# completion word, so the pre-FIX-393 ✅-only rule re-recommended delivered
+# tickets (FEAT-060/REL-086/REL-087) and mis-blocked their dependents
+# (FEAT-061/064/063/385).
+#
+# Local mirror discipline (same pattern as _TASK_FAMILY_PREFIXES being a
+# local copy of the archive.py allow-list): this module stays pure-stdlib
+# with no peer coupling, so the writer's chain is mirrored verbatim below;
+# a sync guard pins the mirror to ``task_row_update._STATE_MARKER_CHAIN``
+# byte-for-byte (tests/test_fix393_writer_terminal_states.py).
+_WRITER_STATE_MARKER_CHAIN = (
+    ("completed", re.compile(r"✅\s*完成")),
+    ("blocked", re.compile(r"⛔|BLOCKED")),
+    ("dev", re.compile(r"🔄|进行中")),
+    ("committed", re.compile(r"\bcommitted\b|已提交")),
+    ("approved", re.compile(r"\bapproved\b|已审查")),
+    ("review", re.compile(r"\breview\b|待审查|审查中")),
+    ("triaged", re.compile(r"\btriaged\b|已\s*triage")),
+)
+# The ops receipt anchor the writer appends to every flipped row's status
+# cell. Search-anywhere (NOT end-anchored): a live cell may carry further
+# narrative brackets AFTER the anchor (FEAT-061's trailing 〔R0 …〕 group).
+_WRITER_OP_ANCHOR_RE = re.compile(r"〔op-[0-9a-f]{32}〕")
+
+
+def _writer_chain_state(status_cell: str):
+    """First hit of the writer's ordered marker chain over a status cell.
+
+    Mirrors ``task_row_update.detect_row_state``'s chain discipline (first
+    hit wins; the fixed order disambiguates compound cells — e.g. the live
+    「committed 审查中 …」 is ``committed``, not ``review``). Returns the
+    state name, or None when nothing matches (unknown → never guessed).
+    """
+    for state, pattern in _WRITER_STATE_MARKER_CHAIN:
+        if pattern.search(status_cell):
+            return state
+    return None
+
+
+def _status_is_writer_committed(status_cell: str) -> bool:
+    """True when the cell is a writer-committed TERMINAL row (FIX-393).
+
+    Terminal ⟺ the writer chain first-hit is ``committed`` (the
+    contracts.TASK_TRANSITIONS terminal state) AND the ops receipt anchor
+    〔op-<32hex>〕 is present. The anchor is the writer's machine
+    provenance mark: a cell that merely displays the word 「committed」
+    without it was not written by the governed writer (the B-1 hand-edit
+    class) and is never guessed terminal — display-prefix text is not an
+    authoritative status source.
+    """
+    s = str(status_cell or "")
+    if not _WRITER_OP_ANCHOR_RE.search(s):
+        return False
+    return _writer_chain_state(s) == "committed"
+
+
+def _status_is_completed(status_cell: str) -> bool:
+    """Return True if the status cell indicates the task is completed.
+
+    Completed = the cell contains the ✅ emoji (every hand-written-era
+    variant: ✅ 完成 / ✅ 已交付 / ✅ 已发布 / ✅ 代码完成 / ✅ ACCEPTED /
+    etc.) OR the cell is a writer-committed terminal row
+    (:func:`_status_is_writer_committed` — FIX-393: the governed writer's
+    committed token + ops receipt anchor, e.g. the live 0.88.0
+    「committed 已 lock 待派发 …〔op-…〕」 batch, which carries no ✅).
+    Any other cell is treated as active (pending / blocked / in-progress /
+    paused / stopped / a display-prefix committed WITHOUT the anchor), which
+    means the task still blocks its dependents.
+    """
+    return (_COMPLETED_EMOJI in status_cell
+            or _status_is_writer_committed(status_cell))
+
+
+# Third-class status filter (FIX-237.2 / ADR-017 §4.4 P1-3).
+#
+# A row may enter "Unblocked (ready to work)" / "Recommended next" ONLY when
+# its status leading marker is ⏳ (pending/active) or the cell has no leading
+# marker. Terminal / non-executable markers are excluded even when the row's
+# dependencies are satisfied, because the status records a deliberate stop
+# (blocked / split / held / historical in-progress terminal / completed) that
+# dependency analysis cannot override.
+#
+# The marker set reuses the module's existing status classification
+# (_ACTIVE_STATUS_HINTS) minus ⏳, plus ✅ (defense-in-depth — completed rows
+# are excluded upstream by _status_is_completed and never reach this
+# predicate) and 📋 (待启动 queued rows, which are not yet executable).
+_NON_CANDIDATE_MARKERS = frozenset(
+    {marker for marker in _ACTIVE_STATUS_HINTS if marker != "⏳"}
+) | {"✅", "📋"}
+
+# FIX-288 ⑦ — non-✅ terminal WORDING forms.
+#
+# The emoji marker set above does not cover terminal statuses that occur in
+# live plan-tracker data (router 2026-08-27: four all-terminal rows were
+# still listed as Top pick / Unblocked):
+#
+#   - 🔄-led rows whose wording records a completion — the live REL-073 row
+#     「🔄 规划段完成 + M-0 裁决完成」. 🔄 is deliberately NOT added to the
+#     marker set: it also marks genuine in-progress rows (「🔄 进行中」),
+#     which MUST stay eligible;
+#   - bare text terminal prefixes with no emoji at all (已终止 / 已撤回 /
+#     已取消 / 已失效 / 已完成).
+#
+# Rule (word/prefix list, FIX-288 scope ruling): a not-completed status cell
+# is terminal when it starts with a text terminal prefix OR contains the
+# completion word 「完成」 — except ⏳-led cells, which stay pending (an
+# explicit pending marker outranks wording; ✅-led cells are completed
+# upstream and never reach this predicate).
+_TEXT_TERMINAL_PREFIXES = ("已终止", "已撤回", "已取消", "已失效", "已完成")
+_COMPLETION_WORD = "完成"
+
+
+def _status_is_terminal_word(status_cell: str) -> bool:
+    """Return True for non-✅ terminal WORDING (FIX-288 ⑦).
+
+    Terminal = the cell starts with a bare text terminal prefix
+    (:data:`_TEXT_TERMINAL_PREFIXES`) or contains the completion word
+    「完成」. ⏳-led cells are explicitly pending and are never terminal
+    here; ✅-led cells are completed upstream (:func:`_status_is_completed`)
+    and never reach this predicate. The judgement mirrors the substring
+    style of ``_status_is_completed`` (contains ✅) and errs conservative: a
+    word-terminal row is filtered from Unblocked / Recommended next but
+    stays visible in the Excluded (non-executable) bucket.
+    """
+    s = str(status_cell or "").strip()
+    if not s or s.startswith("⏳"):
+        return False
+    if s.startswith(_TEXT_TERMINAL_PREFIXES):
+        return True
+    return _COMPLETION_WORD in s
+
+
+# Status marker emojis that LEAD a plan-tracker ``状态`` cell. Mirrors the
+# markers the module already classifies (✅ completed + the active hints + 📋
+# queued). Used by :func:`_is_headerless_task_row` to tell a task data row
+# apart from any other markdown table row.
+_STATUS_CELL_MARKERS = frozenset(
+    {_COMPLETED_EMOJI} | set(_ACTIVE_STATUS_HINTS) | {"📋"}
+)
+
+
+def _status_is_candidate_eligible(status_cell: str) -> bool:
+    """Return True if the status cell permits the row to be an executable candidate.
+
+    Third-class status filter (FIX-237.2 / ADR-017 §4.4 P1-3): a not-completed
+    row whose dependencies are all satisfied may enter the unblocked /
+    recommended-next candidate lists ONLY when its status leading marker is ⏳
+    (pending/active) or the cell has no leading status marker. Rows whose
+    leading marker is terminal / non-executable (⛔ ⏸ 🔴 🚧 🛑 📋 ✅) are
+    non-candidates even when dependency-satisfied. FIX-288 ⑦: non-✅ terminal
+    wording (a :data:`_TEXT_TERMINAL_PREFIXES` prefix or a completion-word
+    form) is non-candidate too.
+
+    Completed rows (✅) are excluded upstream by :func:`_status_is_completed`
+    and never reach this predicate; the ✅ branch here is defense-in-depth.
+
+    Args:
+        status_cell: the RAW status cell text (e.g. ``"⏳ 待执行"``).
+
+    Returns:
+        True when the row may be an executable candidate, False otherwise.
+    """
+    s = status_cell.strip()
+    if not s:
+        # Empty / no status → no leading marker → eligible (the dependency
+        # analysis decides candidacy).
+        return True
+    if s.startswith("⏳"):
+        return True
+    if s.startswith(tuple(_NON_CANDIDATE_MARKERS)):
+        return False
+    if _status_is_writer_committed(s):
+        # FIX-393 defense-in-depth (mirrors the ✅ branch): writer-terminal
+        # rows are completed upstream by _status_is_completed and never
+        # reach this predicate.
+        return False
+    if _status_is_terminal_word(s):
+        # FIX-288 ⑦: non-✅ terminal wording (completion-word forms like the
+        # live 「🔄 规划段完成 + M-0 裁决完成」, bare 已终止/已撤回/... prefixes)
+        # is non-executable exactly like the emoji marker set above.
+        return False
+    return True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Priority parsing
+# ─────────────────────────────────────────────────────────────────────────────
+# The priority cell is ``**P0**`` / ``**P1**`` / ``**P2**`` (markdown bold) or
+# bare ``P0``/``P1``/``P2``, or ``—`` (no priority, used in the archived-version
+# pointer table). Lower rank number = higher priority (P0 < P1 < P2).
+_PRIORITY_RE = re.compile(r"\bP([012])\b", re.IGNORECASE)
+_NO_PRIORITY_SENTINEL = "P9"  # sorts last (lowest priority)
+
+
+def _parse_priority(cell: str) -> str:
+    """Extract a priority label (``P0`` / ``P1`` / ``P2``) from a cell.
+
+    Returns the canonical uppercase label, or :data:`_NO_PRIORITY_SENTINEL`
+    (``P9``) when the cell has no priority (``—`` or empty). ``P9`` is a sentinel
+    that sorts after every real priority so unprioritized tasks never preempt
+    real P0/P1/P2 work in :func:`_priority_sort_key`.
+    """
+    m = _PRIORITY_RE.search(cell)
+    if m:
+        return "P" + m.group(1)
+    return _NO_PRIORITY_SENTINEL
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Version parsing (for the recommended-next tie-break)
+# ─────────────────────────────────────────────────────────────────────────────
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+
+
+def _version_tuple(version_str: str) -> tuple:
+    """Parse ``"0.71.0"`` → ``(0, 71, 0)`` for sort/comparison.
+
+    Returns ``(inf, 0, 0)`` (sorts last) when the string has no parseable
+    semver — covers ``—``, ``未规划版本``, ``未定版本（设计审查后定）``, ``0.66.2（暂定）``
+    (the bare parenthetical is handled: we extract the first x.y.z token, so
+    ``0.66.2（暂定）`` → ``(0,66,2)``). The sentinel ensures non-versioned tasks
+    never preempt versioned work in the recommended-next tie-break.
+    """
+    if not version_str:
+        return (float("inf"), 0, 0)
+    m = _VERSION_RE.search(version_str)
+    if not m:
+        return (float("inf"), 0, 0)
+    return tuple(int(p) for p in m.groups())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Table-row parsing
+# ─────────────────────────────────────────────────────────────────────────────
+# The priority table header is:
+#     | 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+# Data rows look like:
+#     | **P0** | FIX-225 | plan-tracker 依赖列结构化 + 模板升级 | AUDIT-141✅ | 0.71.0 | 产品代码+治理记录... | ⏳ 待执行 |
+#     | — | FIX-082 | Runtime capability contract（0.38.0 发布链）| AUDIT-102 | 0.38.0 | 已归档至 ... | ✅ 已交付 |
+# The malformed rows at live lines 174-176 have an extra leading **P0** cell
+# (| **P0** | **P0** | FIX-222 | ...). The parser MUST be robust to this: it
+# locates columns by the HEADER row, not by hardcoded indices, and it locates
+# the ID cell as the first data cell matching the bare-ID pattern as a fallback.
+
+# Separator row: | --- | --- | ... | (possibly with : for alignment).
+_SEPARATOR_RE = re.compile(r"^\|[\s\-:|\t]+\|$")
+
+
+def _split_row(line: str) -> list:
+    """Split a markdown table row into trimmed data cells (no leading/trailing empty)."""
+    parts = [p.strip() for p in line.split("|")]
+    # parts[0] and parts[-1] are empty (the text outside the leading/trailing |).
+    if len(parts) >= 2 and parts[0] == "" and parts[-1] == "":
+        return parts[1:-1]
+    return parts
+
+
+def _strip_markdown(s: str) -> str:
+    """Strip markdown emphasis (`` ` `` and ``*``) from a cell value."""
+    return re.sub(r"[`*]", "", s).strip()
+
+
+def _is_headerless_task_row(cells: list) -> bool:
+    """True if a ``|`` row has the shape of a headerless task-table row.
+
+    FIX-251: the live plan-tracker's ``### 最近完成（本会话提交窗口）``
+    sub-section is a full 优先级|ID|事项|依赖|目标版本|闭环路径|状态 task table that
+    lacks the header row and separator row — the first ``|`` line after the
+    heading is already a data row. Such a row is recognized by carrying both:
+
+      - a bare task ID cell (``^[A-Z]+-\\d+$`` — the same first-bare-ID anchor
+        the row parser uses, so a duplicated leading priority cell does not
+        confuse the detection), and
+      - a status-semantic cell (a cell whose text begins with a plan-tracker
+        status marker emoji).
+
+    Conservative on purpose: the caller additionally gates this on the row
+    DIRECTLY following a heading (``after_heading`` — only blank lines may sit
+    between heading and table), so prose-separated tables (``需求跟踪矩阵`` and
+    the like) are never misread as headerless task tables. The
+    ``len(cells) >= 5`` sanity bound mirrors the canonical 7-col task table
+    (and its malformed variants keep ≥5 cells) while excluding small
+    non-task tables.
+    """
+    if len(cells) < 5:
+        return False
+    has_id = False
+    has_status = False
+    for c in cells:
+        cand = _strip_markdown(c)
+        if _ID_CELL_RE.match(cand):
+            has_id = True
+        elif cand.startswith(tuple(_STATUS_CELL_MARKERS)):
+            has_status = True
+    return has_id and has_status
+
+
+def _parse_dependency_cell(cell: str) -> tuple:
+    """Parse a ``依赖`` cell into ``(task_family_ids, cross_entity_ids)``.
+
+    The cell may contain:
+      - task IDs: ``FIX-162,REL-047`` (task-family, block)
+      - cross-entity refs: ``RISK-039,DEC-090`` (descriptive, never block)
+      - status markers glued to IDs: ``FIX-155✅`` (the ✅ is a dependency-state
+        hint, NOT the dependent's status — we strip it and keep the ID)
+      - REVIEW-prefixed refs: ``REVIEW-FIX-155`` (cross-entity per FIX-171;
+        REVIEW is a review record, not a task)
+      - prose / version strings: ``用户反馈4问题(1/2/3)``, ``v2设计方案``,
+        ``DEC-088, DEC-085/086/087(授权沿用)`` — the ID-token regex extracts the
+        PREFIX-NNN tokens and ignores the surrounding prose
+      - ``—`` (em-dash, no dependencies)
+
+    Returns two de-duplicated tuples preserving first-seen order:
+      - task_family_ids: PREFIX-NNN whose prefix is in _TASK_FAMILY_PREFIXES
+      - cross_entity_ids: PREFIX-NNN whose prefix is NOT task-family
+    """
+    task_family = []
+    cross_entity = []
+    seen = set()
+    for m in _ID_TOKEN_RE.finditer(cell):
+        tid = f"{m.group(1)}-{m.group(2)}"
+        if tid in seen:
+            continue
+        seen.add(tid)
+        if _is_task_family_id(tid):
+            task_family.append(tid)
+        else:
+            cross_entity.append(tid)
+    return tuple(task_family), tuple(cross_entity)
+
+
+@dataclass(frozen=True)
+class TaskDep:
+    """One task row parsed from the plan-tracker priority table.
+
+    Attributes:
+        task_id: the task ID (e.g. ``FIX-226``).
+        priority: ``P0`` / ``P1`` / ``P2`` / ``P9`` (P9 = no priority / unprioritized,
+            used by the archived-version pointer table; sorts last).
+        status: the RAW status cell text (e.g. ``"✅ 完成 (2026-06-30)"`` or
+            ``"⏳ 待执行"``). Use :func:`is_completed` to interpret.
+        dependencies: TASK-FAMILY IDs this task depends on (only these can
+            block). Cross-entity refs (RISK/DEC/REVIEW/...) are filtered out —
+            they are descriptive context, never blockers.
+        cross_entity_refs: cross-entity IDs found in the ``依赖`` cell (RISK/
+            DEC/REVIEW/EVD/...). Carried for reporting only; never blocks.
+        target_version: the ``目标版本`` cell text (e.g. ``"0.71.0"`` or ``"—"``).
+        demand_source: provenance of the DEMAND behind the row —
+            ``"user-named"`` / ``"active-defect"`` / ``"machine-signal"``
+            (parsed from an in-row ``〔用户点名〕/〔活性缺陷〕/〔机器信号〕``
+            marker, ADR-021 §2.2.2 (2)), ``"legacy"`` (no marker — 存量未标),
+            or ``"conflict"`` (set by :func:`resolve_demand_source` when the
+            triage record and the row marker disagree). Default ``"legacy"``
+            keeps every pre-FEAT-077 construction site working unchanged.
+    """
+
+    task_id: str
+    priority: str
+    status: str
+    dependencies: tuple = ()
+    cross_entity_refs: tuple = ()
+    target_version: str = ""
+    demand_source: str = DEMAND_SOURCE_LEGACY
+
+    def is_completed(self) -> bool:
+        """True if this task's status indicates completion (contains ✅)."""
+        return _status_is_completed(self.status)
+
+
+@dataclass(frozen=True)
+class BlockedTask:
+    """A task that is blocked by at least one incomplete task-family dependency.
+
+    Attributes:
+        task: the blocked :class:`TaskDep`.
+        blocking_dependencies: the task-family dependency IDs that are NOT
+            completed (these are the specific unresolved blockers, e.g.
+            ``["FIX-212", "FIX-202"]``). A dependency that is missing from the
+            table entirely (unknown ID) is also listed here — an unknown
+            task-family ID cannot be proven complete, so it blocks
+            fail-closed (matches the FIX-171 conservative default).
+    """
+
+    task: TaskDep
+    blocking_dependencies: tuple = ()
+
+
+@dataclass(frozen=True)
+class UnblockRecommendation:
+    """REQ-110 / FIX-254 — the head node of the highest-value blocked chain.
+
+    Built only when ``recommended_next`` is empty AND at least one task is
+    dependency-blocked (there is a chain to unlock). The recommendation is
+    the ROOT blocker whose resolution reopens the most downstream blocked
+    tasks — value = downstream count, tie-broken by the root's priority,
+    target version, then ID (deterministic).
+
+    Approximation note (declared semantics, FIX-258 / R0 F-3): a multi-node
+    cycle entered from DIFFERENT members splits downstream attribution per
+    member — X↔Y with D1 entering via X and D2 via Y attributes each member
+    root with itself + its own entrants, so ``downstream_count`` undercounts
+    a multi-entry cycle's true unlock scope (all members plus all
+    entrants). The pick is still a genuine cycle member and the action
+    guidance ("resolve the cycle") is correct; only the advisory count is
+    per-node approximate. Single-entry chains and non-cycle roots attribute
+    exactly (set-deduped per origin).
+
+    Attributes:
+        root_task_id: the chain head to unlock — either an in-table task ID
+            or an unknown task-family ID (a dependency with no row).
+        root_kind: why the chain is stopped — ``"non_executable_status"``
+            (in-table, dependency-satisfied, held by a terminal status
+            marker), ``"unknown_dependency"`` (task-family ID missing from
+            the table — fail-closed block), or ``"cycle"`` (the chain bottoms
+            out in a dependency cycle).
+        root_priority: the root's priority label (``P9`` for unknown IDs).
+        root_status: compact status display of the root (``""`` when unknown).
+        downstream_task_ids: the blocked task IDs transitively unlocked by
+            resolving the root, priority-ordered (may include the root itself
+            when it sits on a cycle).
+        downstream_count: ``len(downstream_task_ids)`` (cached for consumers).
+        reason: human-readable dependency reason (why this root, what to do).
+    """
+
+    root_task_id: str
+    root_kind: str
+    root_priority: str = _NO_PRIORITY_SENTINEL
+    root_status: str = ""
+    downstream_task_ids: tuple = ()
+    downstream_count: int = 0
+    reason: str = ""
+
+
+@dataclass(frozen=True)
+class PriorityReport:
+    """The full dependency-analysis result.
+
+    Attributes:
+        completed: tasks whose status is ✅.
+        blocked: tasks with at least one incomplete task-family dependency.
+        unblocked: tasks that are NOT completed AND whose ALL task-family
+            dependencies are completed (or have none). These are ready to work.
+        recommended_next: the highest-priority ``unblocked`` tasks, sorted by
+            priority (P0 > P1 > P2) then target_version (ascending). Typically
+            the single best next step is ``recommended_next[0]``.
+        total: total number of tasks parsed.
+        dependency_graph: ``{task_id: (task_family_dependency_ids, ...)}`` for
+            every parsed task. Useful for downstream tooling / visualization.
+        non_executable: tasks that are NOT completed, have ALL task-family
+            dependencies satisfied (or none), but are excluded from the
+            unblocked / recommended-next candidates by the third-class status
+            filter (leading marker ⛔/⏸/🔴/🚧/🛑/📋/✅ — FIX-237.2 / ADR-017
+            §4.4 P1-3 — or non-✅ terminal wording, FIX-288 ⑦). Reported
+            separately so filtered rows stay visible.
+        cycles: list of cycles detected in the dependency graph (each a tuple
+            of task IDs forming the cycle, e.g. ``("FIX-A","FIX-B","FIX-A")``).
+            Empty when the graph is acyclic. When non-empty, the report is still
+            produced and :func:`format_report` flags it as a WARNING (cycle
+            tolerance — FIX-237.2).
+        cycle_warning: True when the dependency graph contains at least one
+            cycle. This is a WARN flag, never an ERROR: the analysis output is
+            best-effort and is not blocked by the cycle. Downstream consumers
+            (e.g. the CLI exit code) should switch on this flag once they stop
+            treating cycles as fatal (verify_workflow.py integration).
+        unblock_recommendation: :class:`UnblockRecommendation` or None — the
+            REQ-110 / FIX-254 empty-recommendation fallback. Set only when
+            ``recommended_next`` is empty AND at least one task is blocked
+            (the head of the highest-value blocked chain + reason). None on
+            the normal (non-empty) path and when there is no chain to unlock.
+        empty_reason: structured dict or None — set whenever
+            ``recommended_next`` is empty (REQ-110 forbids a bare empty
+            list). Shape: ``{"kind": "all_blocked" | "all_non_executable" |
+            "no_active_tasks", "total", "completed", "blocked",
+            "non_executable", "message", "nearest_action"}``. None on the
+            normal path.
+        demand_source_conflicts: task IDs whose provenance sources disagree
+            (triage record vs 行内〔标注〕, FEAT-077 / ADR-021 §2.2.2 (3)) —
+            set by :func:`compute_unblocked_tasks`; rendered as a
+            DEMAND SOURCE CONFLICT disclosure banner by :func:`format_report`
+            (排序按 user-named 保守处理——数据一致性优先于排序判断).
+    """
+
+    completed: list = field(default_factory=list)
+    blocked: list = field(default_factory=list)  # list[BlockedTask]
+    unblocked: list = field(default_factory=list)  # list[TaskDep]
+    recommended_next: list = field(default_factory=list)  # list[TaskDep]
+    total: int = 0
+    dependency_graph: dict = field(default_factory=dict)
+    cycles: list = field(default_factory=list)  # list[tuple]
+    non_executable: list = field(default_factory=list)  # list[TaskDep]
+    cycle_warning: bool = False
+    unblock_recommendation: "UnblockRecommendation | None" = None
+    empty_reason: "dict | None" = None
+    demand_source_conflicts: list = field(default_factory=list)  # [task_id]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Archive-index dependency resolution (FIX-341)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Live fact (2026-09-16 tpa output): completed-and-archived dependency IDs
+# with NO hot-table row (REL-076✅ / FIX-162✅ / FIX-319✅ / FEAT-031✅ /
+# FIX-171) were conservatively judged blocked because the dependency loop
+# only consulted the hot-table status map (the FIX-171 fail-closed default).
+# FIX-341 adds a SECOND resolution layer for hot-miss dep IDs: the archive
+# index (``.governance/archive/index.md`` 「## Task 索引」 table). Resolution
+# order per dependency:
+#
+#   1. hot-table row (authoritative — ⏳/🔴/… still blocks even if a stale
+#      archive row claims completion);
+#   2. archive-index archived-completed row → satisfied;
+#   3. neither → blocking (fail-closed, FIX-171 conservative default kept).
+#
+# Purity: :func:`parse_archive_index_completed_ids` takes the index TEXT
+# (pure); :func:`read_archive_index_completed_ids` is the documented I/O
+# exception (parameterized path, like :func:`_coerce_text` / the snapshot
+# writers) and lives only on the CLI/triage orchestration layer.
+_ARCHIVE_TASK_SECTION_HEADING = "## Task 索引"
+
+# Negative-intent markers — an index 状态 cell containing one is NOT an
+# archived-completed row: release CANDIDATES (候选), conservative closures
+# without a full PASS (保守闭环), indirect closures (间接闭合), cancellations
+# (已终止/已撤回/失效), pending/queued/planning states (未开始/待执行/进行中/
+# 规划入账/暂停), and legacy rows where the 状态 column carries a priority or
+# a description. FIX-342 (review-FIX-341-312-CODE-R0 P2-1) adds the
+# negative-completion COMPOUNDS: a plain 完成 substring used to match inside
+# 未完成/待完成/尚未完成/完成条件未满足/任务完成度NN% and misjudge those cells
+# as completed. EXCEPTION: a cell that also carries the ✅ emoji (e.g. the
+# real FIX-264 row 「待执行/暂停→✅ 完成」) IS completed — the ✅ completion
+# marker outranks the stale pending prefix.
+_ARCHIVE_NON_COMPLETED_MARKERS = (
+    "候选", "保守闭环", "间接闭合", "已终止", "已撤回", "失效",
+    "未开始", "待执行", "进行中", "规划入账", "暂停",
+    "未完成", "待完成", "尚未完成", "完成条件未满足", "完成度",
+)
+# Positive completion wordings (substring match, mirroring the module's
+# completion-word doctrine in _status_is_terminal_word): 已完成/完成/实现完成/
+# 发布完成/… (the bare completion word), plus 已发布/已交付 release forms.
+_ARCHIVE_RELEASED_MARKERS = ("已发布", "已交付")
+
+
+def _archive_index_status_is_completed(status_cell: str) -> bool:
+    """True when an archive-index 状态 cell proves archived completion.
+
+    Conservative on purpose: only clear completion wordings resolve a
+    dependency. Negative-intent markers (:data:`_ARCHIVE_NON_COMPLETED_MARKERS`)
+    veto UNLESS the cell also carries ✅ — including the negative-completion
+    compounds (未完成/待完成/完成条件未满足/完成度…, FIX-342); positive
+    signals are the completion word (完成 — covers 已完成/实现完成/发布完成/…)
+    and the release forms (已发布/已交付).
+    """
+    s = _strip_markdown(str(status_cell or ""))
+    if not s:
+        return False
+    if "✅" not in s and any(m in s for m in _ARCHIVE_NON_COMPLETED_MARKERS):
+        return False
+    return (_COMPLETION_WORD in s
+            or any(m in s for m in _ARCHIVE_RELEASED_MARKERS))
+
+
+def parse_archive_index_completed_ids(archive_index_text) -> frozenset:
+    """Parse the archive-index TEXT into the set of archived-completed task IDs.
+
+    Scans ONLY the ``## Task 索引`` section (the boundary is load-bearing:
+    Decision/Risk/Evidence index rows share the ``| PREFIX-NNN | …`` row shape
+    but are NOT tasks and must never resolve). A row qualifies when its first
+    cell is a bare ``PREFIX-NNN`` ID and its second cell (状态) proves
+    completion (:func:`_archive_index_status_is_completed`). Duplicate rows
+    for the same ID (the index accumulates across rebuilds) resolve when ANY
+    row is completed.
+
+    Args:
+        archive_index_text: the ``archive/index.md`` text (str/bytes; empty /
+            None / non-index text yield an empty set — never raises).
+
+    Returns:
+        frozenset of archived-completed task IDs.
+    """
+    if archive_index_text is None:
+        return frozenset()
+    if isinstance(archive_index_text, bytes):
+        archive_index_text = archive_index_text.decode("utf-8", errors="replace")
+    text = str(archive_index_text)
+    if not text.strip():
+        return frozenset()
+    completed: set = set()
+    in_task_section = False
+    for raw_line in text.split("\n"):
+        line = raw_line.strip()
+        if line.startswith("#"):
+            in_task_section = (line == _ARCHIVE_TASK_SECTION_HEADING)
+            continue
+        if not in_task_section or not line.startswith("|"):
+            continue
+        if _SEPARATOR_RE.match(line):
+            continue
+        cells = _split_row(line)
+        if len(cells) < 2:
+            continue
+        first = _strip_markdown(cells[0])
+        if not _ID_CELL_RE.match(first):
+            continue
+        if _archive_index_status_is_completed(cells[1]):
+            completed.add(first)
+    return frozenset(completed)
+
+
+def read_archive_index_completed_ids(governance_dir) -> frozenset:
+    """FIX-341 I/O helper — read ``<governance_dir>/archive/index.md`` and
+    return its archived-completed ID set.
+
+    Documented I/O exception to the compute-purity rule (parameterized path,
+    orchestration layer only — same discipline as
+    :func:`read_last_run_state`). A missing/unreadable index yields an empty
+    set: every dependency then falls back to the fail-closed hot-table
+    behavior (never raises).
+    """
+    try:
+        path = Path(governance_dir) / "archive" / "index.md"
+        if not path.is_file():
+            return frozenset()
+        return parse_archive_index_completed_ids(
+            path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return frozenset()
+
+
+def _archive_index_mtime(governance_dir):
+    """``archive/index.md`` st_mtime, or None when absent/unreadable.
+
+    FIX-341 cache-guard input: the tpa analysis is a pure function of the
+    plan-tracker text AND the archive index, so a same-day cache written
+    before an index change must not be reused.
+    """
+    try:
+        path = Path(governance_dir) / "archive" / "index.md"
+        return path.stat().st_mtime if path.is_file() else None
+    except OSError:
+        return None
+
+
+def _triage_records_mtime(governance_dir):
+    """Max st_mtime over ``change-triage/`` and ALL its entries, or None.
+
+    FEAT-077 cache-guard input: the report is a function of the triage
+    records AND the demand-revision event streams (authority merge,
+    ADR-021 §2.2.1/§2.2.2), so a cache written before a change must not be
+    reused (stale provenance). A directory mtime alone would miss
+    APPENDS to an existing ``.demand-revisions.jsonl`` (append-only — the
+    dir entry set is unchanged, only the file content grows), hence the
+    max-sweep over the directory plus every entry. Records are immutable
+    (FIX-247); appends bump the stream file's mtime — the sweep catches
+    additions, removals and appends alike.
+    """
+    try:
+        path = Path(governance_dir) / "change-triage"
+        if not path.is_dir():
+            return None
+        latest = path.stat().st_mtime
+        for child in path.iterdir():
+            try:
+                mtime = child.stat().st_mtime
+            except OSError:
+                continue
+            if mtime > latest:
+                latest = mtime
+        return latest
+    except OSError:
+        return None
+
+
+def _resolve_row_demand_sources(tasks: list, governance_dir) -> tuple:
+    """Merge revision-event + triage-record authority into parsed rows.
+
+    FEAT-077 / ADR-021 §2.2.2 (3)（R0 修订）: the authority merge (最新修订
+    事件 > triage JSON > 行内〔标注〕 > legacy) is a PURE function
+    (:func:`resolve_demand_source`); the LOADING is the documented I/O
+    exception owned by this CLI orchestration layer — it lazily calls
+    ``change_triage.load_triage_records`` + ``load_demand_revisions``
+    (function-local imports: the compute path stays pure-stdlib with no
+    peer coupling; ``change_triage`` imports THIS module, so module-level
+    imports would be circular). Degradation: unreadable inputs fail-open
+    to the row markers (ADR §2.4 L2 tpa 联查行) — the analysis never
+    blocks.
+
+    Returns ``(tasks, revision_lag_warnings)``: the replaced task list,
+    plus one WARN string per task whose in-row〔标注〕disagrees with the
+    revision-final value while valid revision events exist (行内滞后 →
+    WARN 提示同步行内，不 FAIL——事件流才是权威，ADR §2.2.1 R0 修订).
+    """
+    try:
+        from change_triage import load_demand_revisions, load_triage_records
+        records = load_triage_records(governance_dir)
+        events = load_demand_revisions(governance_dir)
+    except Exception:
+        records = []
+        events = []
+
+    tasks_with_valid_events = set()
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        to = str(event.get("to", "") or "").strip()
+        if to in DEMAND_SOURCE_VALUES:
+            tasks_with_valid_events.add(str(event.get("task_id", "")))
+
+    resolved = []
+    lag_warnings = []
+    for task in tasks:
+        final = resolve_demand_source(
+            task.task_id, task.demand_source, records, events)
+        if (task.task_id in tasks_with_valid_events
+                and task.demand_source in DEMAND_SOURCE_VALUES
+                and task.demand_source != final):
+            lag_warnings.append(
+                "[WARN] demand_source 修订后行内标注滞后：`{0}` 行内〔标注〕"
+                "={1} → 修订终值={2}，请同步行内标注（ADR-021 §2.2.1 修订"
+                "通道——事件流为权威，不构成 conflict）".format(
+                    task.task_id, task.demand_source, final))
+        resolved.append(replace(task, demand_source=final))
+    return resolved, lag_warnings
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public API: parse
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def parse_task_dependencies(plan_tracker_text_or_path) -> list:
+    """Parse plan-tracker markdown text into a list of :class:`TaskDep`.
+
+    Accepts either the raw markdown **text** (str/bytes) or a path-like. When
+    given a path, the text is read as UTF-8 (this is the ONLY file I/O in the
+    module and it exists purely as a convenience for the common case; the CLI
+    entry in verify_workflow.py passes text directly so the compute path stays
+    I/O-free and trivially testable).
+
+    **str path/text disambiguation (FIX-252 O1):** a ``str`` is ambiguous — it
+    may be document text OR a str-form path. If the str *looks like a path*
+    (names an existing file, has a drive prefix, or ends in ``.md``/``.txt``
+    with a path separator — see :func:`_looks_like_str_path`) it is read from
+    disk; a path-like str naming a non-existent file raises
+    :class:`ValueError` (never a silent ``total 0``). Ordinary markdown text
+    stays on the text channel.
+
+    Scans every priority task table in the document — both the header-driven
+    ``| 优先级 | ID | ... |`` tables (``### 优先级一览`` and ``### 已归档版本
+    task``) and the headerless window table directly under ``### 最近完成
+    （本会话提交窗口）`` (a 7-col task table with NO header row; FIX-251).
+    Duplicate task IDs across tables are de-duplicated keeping the
+    FIRST occurrence (the ``优先级一览`` table is authoritative for active
+    tasks; the archived-version pointer table repeats FIX-082..087 only as a
+    hot-fact-source proof and would otherwise shadow the active entry — though
+    in practice the IDs do not collide across the two tables).
+
+    Robustness:
+      - Header-driven column indexing: the ID/依赖/目标版本/状态 columns are
+        located by matching the header cell text (``ID`` / ``依赖`` /
+        ``目标版本`` / ``状态``), not by hardcoded indices. This survives both
+        the 7-col priority table and the archived-pointer variant.
+      - Fallback ID detection: if header indexing fails, the ID cell is the
+        first data cell matching ``^[A-Z]+-\\d+$`` (handles the malformed
+        leading-``**P0**`` rows at live lines 174-176).
+      - Headerless window table (FIX-251): a ``|`` row that DIRECTLY follows
+        a heading and carries both a bare task ID cell and a status cell
+        enters a headerless task table whose column layout is inferred from
+        the canonical 7-col shape. Prose between the heading and the table
+        disarms this, so non-task tables (``需求跟踪矩阵`` etc.) are never
+        misread.
+      - Separator rows and non-table lines are skipped.
+
+    Args:
+        plan_tracker_text_or_path: markdown text (str/bytes) or a path to the
+            plan-tracker.md file. A path may be a Path-like object or a
+            str-form path (auto-detected by :func:`_looks_like_str_path`).
+
+    Returns:
+        List of :class:`TaskDep` in document order (de-duplicated by task_id).
+    """
+    text = _coerce_text(plan_tracker_text_or_path)
+    lines = text.split("\n")
+    tasks: list = []
+    seen_ids: set = set()
+
+    # State machine: we are "in a priority table" between a recognized header
+    # row and the next heading / blank-non-table boundary.
+    in_table = False
+    col_index: dict = {}  # name -> 0-based data-cell index
+    header_width = 0  # number of data cells declared by the header row
+    # True when the last significant line was a heading (only blank lines may
+    # have passed since). Gates the headerless task-table recognition
+    # (FIX-251): only a table that DIRECTLY follows a heading may be read as
+    # a headerless task table, so prose-separated tables (需求跟踪矩阵 etc.)
+    # are never mis-detected.
+    after_heading = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Any heading ends a table and arms the headerless recognition for
+        # the lines that follow it (FIX-251).
+        if stripped.startswith("#"):
+            in_table = False
+            col_index = {}
+            header_width = 0
+            after_heading = True
+            continue
+
+        # Blank lines are tolerated WITHIN a table (the live plan-tracker
+        # inserts a blank line between the priority table and the trailing
+        # summary rows, and again between sub-groups). A blank line does NOT
+        # end the table; only a heading or a non-blank non-table paragraph
+        # does. A blank right after a heading does NOT disarm the headerless
+        # recognition either (a headerless window table may be separated from
+        # its heading by a blank line).
+        if not stripped:
+            continue
+
+        if not stripped.startswith("|"):
+            # A non-blank line that is not a table row ends the table (it is a
+            # paragraph / prose block / fenced code boundary) and disarms the
+            # headerless recognition (the table no longer directly follows a
+            # heading).
+            in_table = False
+            col_index = {}
+            header_width = 0
+            after_heading = False
+            continue
+
+        # Separator row: stay in table, do not parse.
+        if _SEPARATOR_RE.match(stripped):
+            continue
+
+        cells = _split_row(line)
+        if not cells:
+            continue
+
+        # Header detection: first cell == "优先级" AND second cell == "ID".
+        # This is the canonical priority-table header shape and uniquely
+        # identifies the table among all plan-tracker tables (version-section
+        # tables put 任务ID/描述 first; risk/decision/evidence logs have
+        # different headers).
+        if len(cells) >= 2 and cells[0] == "优先级" and cells[1] == "ID":
+            in_table = True
+            col_index = _build_column_index(cells)
+            header_width = len(cells)
+            after_heading = False
+            continue
+
+        # Headerless task table (FIX-251): a row that DIRECTLY follows a
+        # heading and carries both a bare task ID cell and a status cell.
+        # The live ``### 最近完成（本会话提交窗口）`` sub-section is a 7-col task
+        # table WITHOUT a header row; without this branch its rows never enter
+        # ``in_table`` and the window's task IDs stay invisible to dependency
+        # analysis (change-triage reported them as unknown-dep, fail-closed).
+        # The column layout is inferred from the canonical 优先级|ID|依赖|目标版本|
+        # 状态 shape — the row parser is ID-anchored, so no header index map is
+        # needed.
+        if (not in_table and after_heading
+                and _is_headerless_task_row(cells)):
+            in_table = True
+            col_index = {}
+            header_width = 0
+            after_heading = False
+
+        if not in_table:
+            continue
+
+        task = _parse_task_row(cells, col_index, header_width)
+        if task is None:
+            continue
+        if task.task_id in seen_ids:
+            continue
+        seen_ids.add(task.task_id)
+        tasks.append(task)
+
+    return tasks
+
+
+_STR_PATH_SUFFIXES = (".md", ".txt")
+
+
+def _truncate_repr(value: str, limit: int = 120) -> str:
+    """Return a bounded ``repr`` of a str for error messages (FIX-252 R0 P2-1).
+
+    Embedding a full ``!r`` of a large mis-detected input would dump the entire
+    text into the traceback. Cap the rendered representation and append a
+    length annotation so the diagnostic stays actionable without flooding.
+    """
+    rendered = repr(value)
+    if len(rendered) <= limit:
+        return rendered
+    return rendered[:limit] + f"...<len={len(value)}>"
+
+
+def _looks_like_str_path(value: str) -> bool:
+    """Return True when a ``str`` input should be read as a path, not text.
+
+    FIX-252 O1 (a)+(b) disambiguation for :func:`_coerce_text`. A ``str`` is
+    naturally ambiguous — it may be document text OR a str-form path (e.g.
+    ``parse_task_dependencies('D:\\\\...\\\\plan-tracker.md')``), and the pre-fix
+    code returned ANY ``str`` as text, silently producing ``total 0`` for a
+    str-path caller.
+
+    A str is treated as a path when ANY of:
+      - ``Path(value).exists()`` is True (an actually-existing file — the only
+        unambiguous signal; we read its text),
+      - it has a Windows drive-letter prefix (``C:\\...`` / ``C:/...``),
+      - it ends in a document suffix (``.md``/``.txt``) AND contains a path
+        separator (``\\`` or ``/``) — covers absolute, relative and nested
+        str-form paths.
+
+    Plain document text is NOT mis-detected: everyday markdown prose frequently
+    contains ``/`` (URLs, dates, inline code) but does not *end* in ``.md``/``.txt``
+    nor carry a drive prefix, and it almost never names a real file. The rare
+    text-string that happens to end in ``.md`` is accepted as a path
+    (documented ambiguity — prefer path interpretation).
+    """
+    try:
+        if Path(value).exists():
+            return True
+    except (OSError, ValueError, OverflowError):
+        # Over-long / invalid path string (e.g. a huge prose blob) — not a path.
+        pass
+    if re.match(r"^[A-Za-z]:[\\/]", value):
+        return True
+    lowered = value.lower()
+    if lowered.endswith(_STR_PATH_SUFFIXES) and ("\\" in value or "/" in value):
+        return True
+    return False
+
+
+def _coerce_text(plan_tracker_text_or_path) -> str:
+    """Coerce the input to markdown text, disambiguating str path vs text.
+
+    A ``str`` is ambiguous: it can be document text OR a str-form path. Before
+    FIX-252 O1, ANY ``str`` was returned as text, so a caller passing a str-form
+    path (``parse_task_dependencies('D:\\\\...\\\\plan-tracker.md')``) got a
+    silent ``total 0`` — the string was parsed as doc text and no table matched
+    (the pre-fix bug). Now a str that *looks like a path*
+    (:func:`_looks_like_str_path`) is read from disk; a path-like str that does
+    NOT name an existing file raises an explicit :class:`ValueError` (never a
+    silent total 0 — approach (a)+(b) combo). Ordinary text that merely contains
+    ``/`` stays on the text channel (zero regression for the existing str-text
+    callers: verify_workflow passes ``SAMPLE_PATH.read_text(...)`` and
+    change_triage passes ``plan_tracker_text`` — both plain markdown).
+
+    **Empty / multi-line guard (FIX-252 R0 P1-1):** a real path is never empty
+    and can never contain a newline. An empty str (``Path("")`` normalizes to
+    ``Path(".")``) or any multi-line value is by definition document text and is
+    returned as text WITHOUT entering the path heuristic — closing the
+    ``open(Path(""))`` → ``open(".")`` IsADirectoryError/PermissionError gap
+    (empty plan-tracker crashing uncategorized) and the spurious ValueError on a
+    multi-line str whose first line looks like a path. This also spares real
+    document blobs from the ``exists()`` stat.
+    """
+    if isinstance(plan_tracker_text_or_path, bytes):
+        return plan_tracker_text_or_path.decode("utf-8", errors="replace")
+    if isinstance(plan_tracker_text_or_path, str):
+        value = plan_tracker_text_or_path
+        # Empty / multi-line → text channel (FIX-252 R0 P1-1), never a path.
+        if not value or "\n" in value:
+            return value
+        if _looks_like_str_path(value):
+            target = Path(value)
+            if not target.exists():
+                raise ValueError(
+                    "input is neither text with tables nor an existing path: "
+                    f"{_truncate_repr(value)} — pass a Path object or "
+                    "document text as str"
+                )
+            with open(target, "r", encoding="utf-8") as f:
+                return f.read()
+        return value
+    # Path-like: read UTF-8. This is the only file I/O in the module.
+    with open(plan_tracker_text_or_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _build_column_index(header_cells: list) -> dict:
+    """Map header cell names to their 0-based data-cell index.
+
+    Recognizes: 优先级, ID, 依赖, 目标版本, 状态. Other columns (事项, 闭环路径,
+    负责人, 审查人, ...) are irrelevant to dependency analysis and ignored.
+    """
+    idx = {}
+    for i, cell in enumerate(header_cells):
+        # Strip markdown emphasis just in case.
+        clean = _strip_markdown(cell)
+        if clean == "ID" and "id" not in idx:
+            idx["id"] = i
+        elif clean == "优先级" and "priority" not in idx:
+            idx["priority"] = i
+        elif clean == "依赖" and "deps" not in idx:
+            idx["deps"] = i
+        elif clean == "目标版本" and "version" not in idx:
+            idx["version"] = i
+        elif clean == "状态" and "status" not in idx:
+            idx["status"] = i
+    return idx
+
+
+def _parse_task_row(cells: list, col_index: dict, header_width: int = 0):
+    """Parse one priority-table data row into a TaskDep, or None if not a task.
+
+    Returns None for rows that do not yield a valid task ID (e.g. stray
+    non-table lines that slipped through, or rows where no cell is a bare ID).
+
+    **Robustness strategy — ID-anchored parsing.** The live plan-tracker has
+    two kinds of malformed rows that break naive header-index parsing:
+
+      1. Rows whose 闭环路径 (closure-path) cell contains unescaped ``|``
+         (e.g. ``| RISK-`` 行 inside FIX-176's prose). These over-split: a
+         7-column row yields 8+ cells, so a fixed ``cells[6]`` status index
+         lands inside the prose.
+      2. Rows with a duplicated leading priority cell (``| **P0** | **P0** |
+         FIX-222 | ... |`` — live lines 174-176). These shift every header
+         index by +1 and add a trailing empty cell.
+
+    Both are handled by anchoring on the **ID cell** (the first cell matching
+    ``^[A-Z]+-\\d+$``) and reading the other fields by RELATIVE offset from
+    that anchor — which is invariant to a duplicated leading cell — and by
+    reading the status from the LAST non-empty cell — which is invariant to
+    prose pipes in the middle. Specifically, with the ID at index ``k``:
+
+      - priority: cell at ``k-1`` (the cell immediately before the ID; this is
+        the ``**P0**`` cell in both the normal and duplicated-priority layouts)
+      - dependencies: cell at ``k+2`` (skip the 事项 description at ``k+1``)
+      - target version: cell at ``k+3``
+      - status: the last NON-empty cell (a trailing ``| |`` yields an empty
+        tail cell on the duplicated-priority rows; skipping empties fixes that)
+    """
+    # Locate the ID cell index (first bare-ID cell). This anchor is invariant
+    # to a duplicated leading priority cell.
+    id_idx = -1
+    task_id = ""
+    for i, c in enumerate(cells):
+        cand = _strip_markdown(c)
+        if _ID_CELL_RE.match(cand):
+            id_idx = i
+            task_id = cand
+            break
+
+    if not task_id:
+        return None
+
+    n = len(cells)
+
+    # Priority: cell immediately before the ID. Fall back to a header index or
+    # a scan if the cell before the ID is not a priority (defensive).
+    priority = _NO_PRIORITY_SENTINEL
+    if id_idx - 1 >= 0:
+        priority = _parse_priority(cells[id_idx - 1])
+    if priority == _NO_PRIORITY_SENTINEL:
+        p_idx = col_index.get("priority")
+        if p_idx is not None and p_idx < n:
+            priority = _parse_priority(cells[p_idx])
+    if priority == _NO_PRIORITY_SENTINEL:
+        for c in cells[:id_idx + 1]:
+            if _PRIORITY_RE.search(c):
+                priority = _parse_priority(c)
+                break
+
+    # Dependencies: ID+2 (skip the 事项 description at ID+1). The dependency
+    # cell is pipe-free in practice (it uses commas), so a single cell holds
+    # the whole dependency list.
+    deps_cell = ""
+    if id_idx + 2 < n:
+        deps_cell = cells[id_idx + 2]
+    task_family, cross_entity = _parse_dependency_cell(deps_cell)
+
+    # Target version: ID+3.
+    target_version = ""
+    if id_idx + 3 < n:
+        target_version = _strip_markdown(cells[id_idx + 3])
+
+    # Status: last NON-empty cell. A trailing ``| |`` on the duplicated-
+    # priority rows yields an empty tail; skipping empties recovers the real
+    # status. Prose pipes in 闭环路径 only inflate the MIDDLE cells, so the
+    # true status remains the last non-empty cell regardless.
+    status = ""
+    for c in reversed(cells):
+        if c.strip():
+            status = c
+            break
+
+    # FEAT-077 / ADR-021 §2.2.2 (2) — 行内〔需求源〕标注：扫描整行原始
+    # cells（依赖列或状态列均可携带；首个命中胜出）。中文标注不进入
+    # _ID_TOKEN_RE 的提取路径（F5），依赖解析零回归。
+    demand_source = DEMAND_SOURCE_LEGACY
+    for c in cells:
+        marker = _DEMAND_SOURCE_MARKER_RE.search(c)
+        if marker:
+            demand_source = _MARKER_TO_DEMAND_SOURCE[marker.group(1)]
+            break
+
+    return TaskDep(
+        task_id=task_id,
+        priority=priority,
+        status=status,
+        dependencies=task_family,
+        cross_entity_refs=cross_entity,
+        target_version=target_version,
+        demand_source=demand_source,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public API: compute
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _detect_cycles(graph: dict) -> list:
+    """Detect cycles in a directed graph via iterative DFS.
+
+    Args:
+        graph: ``{node: (successor, ...)}`` where an edge ``node -> successor``
+            means ``node`` depends on ``successor`` (i.e. ``successor`` must be
+            done first).
+
+    Returns:
+        List of cycles, each a tuple of node IDs tracing the cycle, e.g.
+        ``("FIX-A", "FIX-B", "FIX-A")``. Each cycle is reported once. Empty list
+        when the graph is acyclic.
+    """
+    cycles: list = []
+    # State: 0 = unvisited, 1 = on current stack (in-progress), 2 = fully done.
+    state: dict = {n: 0 for n in graph}
+    # Track the DFS path so we can extract the cycle when we re-enter a node.
+    path: list = []
+    # Iterate in sorted order for deterministic output.
+    nodes = sorted(graph.keys())
+
+    for start in nodes:
+        if state[start] != 0:
+            continue
+        # Iterative DFS with an explicit stack of (node, successor-iterator).
+        stack: list = [(start, iter(sorted(graph.get(start, ()))))]
+        state[start] = 1
+        path.append(start)
+        while stack:
+            node, succ_iter = stack[-1]
+            advanced = False
+            for succ in succ_iter:
+                if succ not in graph:
+                    # Edge to a node not in the graph (e.g. cross-entity or
+                    # missing task). Not a cycle contributor; skip.
+                    continue
+                if state[succ] == 1:
+                    # Found a back-edge: succ is on the current DFS stack.
+                    # Extract the cycle from the path: from succ's first
+                    # occurrence to the current node, then close back to succ.
+                    try:
+                        start_idx = path.index(succ)
+                    except ValueError:
+                        start_idx = 0
+                    cycle = tuple(path[start_idx:] + [succ])
+                    cycles.append(cycle)
+                    # Do not descend into succ (it is on the stack); continue
+                    # scanning remaining successors of `node`.
+                    continue
+                if state[succ] == 0:
+                    state[succ] = 1
+                    path.append(succ)
+                    stack.append((succ, iter(sorted(graph.get(succ, ())))))
+                    advanced = True
+                    break
+                # state == 2: already fully explored; skip.
+                continue
+            if not advanced:
+                # Done with `node`: pop and mark complete.
+                state[node] = 2
+                if path and path[-1] == node:
+                    path.pop()
+                stack.pop()
+    return cycles
+
+
+def _priority_sort_key(task: TaskDep) -> tuple:
+    """Sort key: priority rank → demand_source rank → version → task id.
+
+    FEAT-077 / ADR-021 §2.2.2 (4), 裁决点 D1 (DEC-289 采纳): demand_source
+    is the FIRST tie-break WITHIN a priority level (same-P: user-named >
+    active-defect > machine-signal; legacy/conflict rank with user-named),
+    and never crosses priority levels — P0/P1/P2/P9 sort lexicographically
+    first because they are zero-padded single digits ("P0" < "P1" < "P2" <
+    "P9"). Direct ``_DEMAND_RANK`` indexing is deliberate (ADR code
+    verbatim): the enum is closed and both producers (:func:`_parse_task_row`
+    row markers, :func:`resolve_demand_source` authority merge) emit only
+    valid values — a hand-built row with a garbage source fails LOUD here
+    (fail-closed spirit), never silently re-ranks.
+    """
+    return (task.priority, _DEMAND_RANK[task.demand_source],
+            _version_tuple(task.target_version), task.task_id)
+
+
+def resolve_demand_source(task_id: str, row_marker: str,
+                          triage_records, revision_events=None) -> str:
+    """Authority merge: 最新修订事件 > triage record > 行内〔标注〕 > legacy.
+
+    FEAT-077 / ADR-021 §2.2.2 (3)（R0 修订，F-P1-3 修订事件感知；纯函数
+    ——triage 记录与修订事件由 CLI 编排层 :func:`run_cli_analysis` 经
+    ``change_triage.load_triage_records`` / ``load_demand_revisions`` 注入，
+    purity 契约不破）:
+
+      - **最新修订事件（如有）权威**：存在该任务的合法修订事件（``to``
+        为三值枚举）→ 取最新（列表末位）事件的 ``to`` 为终值——record/行内
+        的旧值是历史快照，**不构成 conflict**（合法漂移通道，ADR §2.2.1
+        修订通道）；
+      - 无修订事件时：triage record for ``task_id`` carrying a VALID
+        ``demand_source`` (three-value enum) is authoritative: agreeing
+        with the row marker → that value; disagreeing with a real row
+        marker → ``"conflict"`` (数据一致性 fail-closed——conflict 仅指
+        **未声明修订**的矛盾);
+      - a record WITHOUT the key (~199 存量记录, ADR §2.2.1 向后兼容) or
+        with a non-enum value has NO authority → fail-open to the row
+        marker (ADR §2.4 L2 tpa 联查降级行);
+      - neither source → ``"legacy"``.
+
+    Args:
+        task_id: the task row's ID (matched against ``record["task_id"]``
+            / ``event["task_id"]``).
+        row_marker: the row-level demand_source as parsed by
+            :func:`_parse_task_row` (``legacy`` when the row carries no
+            〔标注〕).
+        triage_records: triage record dicts
+            (:func:`change_triage.load_triage_records` shape); None/empty
+            safe.
+        revision_events: demand-revision event dicts
+            (:func:`change_triage.load_demand_revisions` shape); ``None``
+            (default) keeps the pre-revision-channel three-source behavior
+            EXACTLY (零回归通道).
+
+    Returns:
+        One of ``user-named`` / ``active-defect`` / ``machine-signal`` /
+        ``legacy`` / ``conflict``. Never raises.
+    """
+    if revision_events:
+        latest = None
+        for event in revision_events:
+            if not isinstance(event, dict):
+                continue
+            if str(event.get("task_id", "")) != str(task_id):
+                continue
+            to = str(event.get("to", "") or "").strip()
+            if to in DEMAND_SOURCE_VALUES:
+                latest = to  # list order = append order → last wins
+        if latest is not None:
+            return latest  # 旧值=历史快照，不构成 conflict（§2.2.1 修订通道）
+    record = None
+    for candidate in triage_records or []:
+        if isinstance(candidate, dict) and str(
+                candidate.get("task_id", "")) == str(task_id):
+            record = candidate
+            break
+    record_value = str((record or {}).get("demand_source", "") or "").strip()
+    if record_value not in DEMAND_SOURCE_VALUES:
+        record_value = ""  # 无记录 / 存量无键 / 非法值 → 无权威性
+    row_value = row_marker if row_marker in DEMAND_SOURCE_VALUES else ""
+    if record_value and row_value:
+        if record_value == row_value:
+            return record_value
+        return DEMAND_SOURCE_CONFLICT
+    return record_value or row_value or DEMAND_SOURCE_LEGACY
+
+
+def demand_source_distribution(report) -> dict:
+    """Provenance distribution over every task in a :class:`PriorityReport`.
+
+    FEAT-077 / ADR-021 §2.2.2 (5): the ``format_report`` header line and the
+    change-triage snapshot (``_report_to_json`` +1 键) both consume this
+    count. ``conflict`` rows are NOT counted in the four buckets — they are
+    an error state disclosed separately via
+    ``PriorityReport.demand_source_conflicts`` and the report banner.
+    """
+    counts = {"user-named": 0, "active-defect": 0, "machine-signal": 0,
+              "legacy": 0}
+    buckets = list(getattr(report, "completed", []) or [])
+    buckets.extend(bt.task for bt in getattr(report, "blocked", []) or [])
+    buckets.extend(getattr(report, "unblocked", []) or [])
+    buckets.extend(getattr(report, "non_executable", []) or [])
+    for task in buckets:
+        source = getattr(task, "demand_source", DEMAND_SOURCE_LEGACY)
+        if source in counts:
+            counts[source] += 1
+    return counts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Empty-recommendation fallback (REQ-110 / FIX-254)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Root-cause kinds for a blocked chain (why the chain is stopped):
+_ROOT_KIND_STATUS = "non_executable_status"
+_ROOT_KIND_UNKNOWN = "unknown_dependency"
+_ROOT_KIND_CYCLE = "cycle"
+
+# Degenerate-chain guard: a blocker walk deeper than this is treated as a
+# cycle-style unresolvable chain (defensive — real governance chains are
+# single-digit deep; this only bounds recursion on adversarial input).
+_MAX_ROOT_WALK_DEPTH = 200
+
+# F-2 (FIX-258 / R0): total per-walk visit budget. The depth cap above
+# bounds the recursion STACK; this bounds the total WORK — a dense diamond
+# lattice has an exponential number of simple paths, so without a budget an
+# adversarial plan-tracker could hang the walk. Deliberately NOT a memo: a
+# visited-set memo would change cycle-vs-root classification semantics (the
+# same node reached via different branches classifies differently depending
+# on the path taken). On exhaustion the over-budget node is classified as a
+# cycle-style root and the walk stops descending; the recommendation reason
+# carries an observable truncation note. 10_000 is far above real governance
+# chain depth (single digits) and far below a 15-layer binary lattice's
+# ~65k visits.
+_MAX_ROOT_WALK_VISITS = 10_000
+
+
+def _walk_blocker_roots(origin_id: str, blocked_map: dict, task_index: dict,
+                        roots: dict) -> bool:
+    """Attribute one blocked task to the ROOT blockers of its chain (FIX-254).
+
+    Starting from ``origin_id``'s blocking dependencies, walk each in-table
+    blocker's own blockers until the walk bottoms out at a ROOT — a blocker
+    that is itself not blocked by anything actionable:
+
+      - ``unknown_dependency`` — a task-family ID with no row in the table
+        (fail-closed: it cannot be proven complete);
+      - ``non_executable_status`` — an in-table, not-completed,
+        dependency-satisfied row (its terminal status marker is what stops
+        the chain — e.g. a ⛔/⏸ row like the live FIX-155 停滞链);
+      - ``cycle`` — a blocker already on the current walk path (the chain
+        bottoms out in a dependency cycle).
+
+    Every origin reachable from a root is attributed to that root as
+    downstream (``roots[(root_id, kind)].add(origin_id)``). The per-branch
+    ``path`` set makes diamond shapes attribute to the shared root instead of
+    being misread as cycles; only a TRUE back-edge (a repeat on the SAME
+    branch) classifies as a cycle. Depth-capped for termination.
+
+    Per-walk visit budget (FIX-258 / R0 F-2): total ``_visit`` calls are
+    counted; past ``_MAX_ROOT_WALK_VISITS`` the over-budget node is
+    classified as a cycle-style root and the walk stops descending. This
+    bounds the exponential simple-path blow-up of dense diamond lattices
+    without a memo (a memo would change cycle-vs-root classification
+    semantics — see the constant's comment).
+
+    Args:
+        origin_id: the blocked task ID whose chain is walked.
+        blocked_map: ``{task_id: (blocking_dependency_ids, ...)}`` for every
+            blocked task.
+        task_index: ``{task_id: TaskDep}`` for every non-completed in-table
+            task (blocked + non-executable members).
+        roots: accumulator mutated in place — ``{(root_id, kind): set(origin)}``.
+
+    Returns:
+        True when this origin's walk exhausted the visit budget (the caller
+        annotates the recommendation reason with a truncation note); False
+        when the walk completed within budget.
+    """
+
+    visits = 0
+    budget_exhausted = False
+
+    def _visit(dep: str, path: set, depth: int) -> None:
+        nonlocal visits, budget_exhausted
+        visits += 1
+        if dep in path or depth > _MAX_ROOT_WALK_DEPTH:
+            roots.setdefault((dep, _ROOT_KIND_CYCLE), set()).add(origin_id)
+            return
+        if visits > _MAX_ROOT_WALK_VISITS:
+            # F-2 (FIX-258): total-visit budget exhausted — classify as a
+            # cycle-style root and stop descending (defensive termination on
+            # adversarial input; real governance chains are single-digit
+            # deep and never reach this branch).
+            budget_exhausted = True
+            roots.setdefault((dep, _ROOT_KIND_CYCLE), set()).add(origin_id)
+            return
+        blocker = task_index.get(dep)
+        if blocker is None:
+            roots.setdefault((dep, _ROOT_KIND_UNKNOWN), set()).add(origin_id)
+            return
+        if blocker.is_completed():
+            # Defensive: completed deps never appear in blocking_dependencies
+            # by construction; a hand-built report input cannot block via one.
+            return
+        if dep in blocked_map:
+            # In-table, itself blocked → extend the chain through its blockers.
+            extended = path | {dep}
+            for d in blocked_map[dep]:
+                _visit(d, extended, depth + 1)
+            return
+        # In-table, not completed, not blocked → dependency-satisfied stop.
+        # (On the empty-unblocked path such a row is non-executable by
+        # definition — its status marker is the chain's root cause.)
+        roots.setdefault((dep, _ROOT_KIND_STATUS), set()).add(origin_id)
+
+    for d in blocked_map.get(origin_id, ()):
+        _visit(d, {origin_id}, 0)
+    return budget_exhausted
+
+
+def _unblock_reason(root_id: str, kind: str, root_task) -> str:
+    """Human-readable dependency reason for one unblock recommendation."""
+    status = _clean_status_for_display(root_task.status) if root_task is not None else ""
+    if kind == _ROOT_KIND_UNKNOWN:
+        return (
+            f"data gap: `{root_id}` is a task-family dependency with no row in "
+            f"the plan-tracker (fail-closed — it cannot be proven complete); "
+            f"verify or record its completion to reopen the chain"
+        )
+    if kind == _ROOT_KIND_CYCLE:
+        return (
+            f"dependency cycle: `{root_id}` sits on a blocker cycle; resolve "
+            f"the cycle (re-point or complete a member) to reopen the chain"
+        )
+    return (
+        f"status stop: `{root_id}` is dependency-satisfied but held by "
+        f"terminal status '{status or 'non-executable marker'}' — re-evaluate "
+        f"or resume `{root_id}` to reopen the chain"
+    )
+
+
+def _pick_unblock_recommendation(roots: dict, task_index: dict,
+                                 dep_index: dict, truncated: bool = False):
+    """Pick the highest-value unblock recommendation from walk roots (F-9).
+
+    Value = downstream blocked-task count, tie-broken by root priority →
+    target version → ID (a deterministic total order — a root_id holds at
+    most one kind, so the sort key never ties across kinds for the same ID).
+
+    Args:
+        roots: ``{(root_id, kind): set(origin_ids)}`` accumulated by
+            :func:`_walk_blocker_roots`.
+        task_index: ``{task_id: TaskDep}`` for every non-completed in-table
+            task (blocked + non-executable members).
+        dep_index: ``{task_id: BlockedTask}`` for every blocked task.
+        truncated: True when any origin's walk exhausted the per-walk visit
+            budget (FIX-258 / R0 F-2) — appends an observable truncation
+            note to the recommendation reason.
+
+    Returns:
+        :class:`UnblockRecommendation` for the winning root, or None when
+        ``roots`` is empty (no chain to unlock).
+    """
+    if not roots:
+        return None
+
+    def _root_key(item: tuple) -> tuple:
+        (root_id, _kind), downstream = item
+        root_task = task_index.get(root_id)
+        if root_task is None:
+            return (-len(downstream), _NO_PRIORITY_SENTINEL,
+                    (float("inf"), 0, 0), root_id)
+        return (-len(downstream), root_task.priority,
+                _version_tuple(root_task.target_version), root_id)
+
+    # F-2 (FIX-258 / R0): observable truncation marker — appended to the
+    # recommendation reason whenever ANY origin's walk exhausted the
+    # per-walk visit budget (the downstream counts may then understate
+    # the true unlock scope of the picked root).
+    truncation_note = (
+        " — visit budget reached during the blocker walk; downstream "
+        "attribution may be truncated"
+        if truncated else ""
+    )
+
+    (root_id, kind), downstream_ids = min(roots.items(), key=_root_key)
+    root_task = task_index.get(root_id)
+    ordered = tuple(sorted(
+        downstream_ids,
+        key=lambda tid: _priority_sort_key(dep_index[tid].task)),
+    ) if downstream_ids else ()
+    return UnblockRecommendation(
+        root_task_id=root_id,
+        root_kind=kind,
+        root_priority=(root_task.priority if root_task is not None
+                       else _NO_PRIORITY_SENTINEL),
+        root_status=(_clean_status_for_display(root_task.status)
+                     if root_task is not None else ""),
+        downstream_task_ids=ordered,
+        downstream_count=len(ordered),
+        reason=_unblock_reason(root_id, kind, root_task) + truncation_note,
+    )
+
+
+def _build_empty_reason(blocked: list, non_executable: list,
+                        completed: list, total: int,
+                        recommendation) -> dict:
+    """Build the structured empty-recommendation reason (REQ-110 / F-9).
+
+    Three mutually exclusive kinds:
+
+      - ``all_blocked`` — at least one dependency-blocked task; the message
+        carries the held-rows clause when non-executable rows coexist, and
+        the nearest action is the picked recommendation's root;
+      - ``all_non_executable`` — no blocked chains; every active row is
+        dependency-satisfied but held by a terminal status marker;
+      - ``no_active_tasks`` — everything completed (or no rows at all).
+
+    Args:
+        blocked: dependency-blocked :class:`BlockedTask` list.
+        non_executable: dependency-satisfied held :class:`TaskDep` list.
+        completed: completed :class:`TaskDep` list.
+        total: total parsed task count.
+        recommendation: the picked :class:`UnblockRecommendation` or None —
+            its root powers the all_blocked ``nearest_action``.
+
+    Returns:
+        The structured ``empty_reason`` dict (never None on this path).
+    """
+    if blocked:
+        kind_label = "all_blocked"
+        held_clause = (
+            f"; {len(non_executable)} dependency-satisfied row(s) additionally "
+            f"held by non-executable status markers"
+        ) if non_executable else ""
+        message = (
+            f"no executable candidate: {len(blocked)} active task(s) are all "
+            f"blocked by unresolved task-family dependencies{held_clause}")
+        if recommendation is not None:
+            nearest_action = (
+                f"unblock `{recommendation.root_task_id}` "
+                f"({recommendation.root_kind}) — highest-value chain, "
+                f"{recommendation.downstream_count} downstream blocked task(s)")
+        else:  # defensive — roots are non-empty whenever blocked is
+            nearest_action = "resolve the root blockers listed under Blocked"
+    elif non_executable:
+        kind_label = "all_non_executable"
+        message = (
+            f"no executable candidate: all {len(non_executable)} active row(s) "
+            f"are dependency-satisfied but held by non-executable status "
+            f"markers (⛔/⏸/🔴/🚧/🛑/📋)")
+        top_held = sorted(non_executable, key=_priority_sort_key)[0]
+        nearest_action = (
+            f"re-evaluate `{top_held.task_id}` [{top_held.priority}] — its "
+            f"dependencies are satisfied; only its status marker holds it back")
+    else:
+        kind_label = "no_active_tasks"
+        if total:
+            message = (
+                f"no active tasks: all {total} parsed task(s) are completed — "
+                f"nothing pending, blocked or held")
+        else:
+            message = "no active tasks: plan-tracker contains no task rows"
+        nearest_action = (
+            "plan the next work batch — append rows to the 优先级一览 table")
+
+    return {
+        "kind": kind_label,
+        "total": total,
+        "completed": len(completed),
+        "blocked": len(blocked),
+        "non_executable": len(non_executable),
+        "message": message,
+        "nearest_action": nearest_action,
+    }
+
+
+def _build_empty_recommendation_fallback(blocked: list, non_executable: list,
+                                         completed: list, total: int) -> tuple:
+    """Build the REQ-110 / FIX-254 fallback for an empty ``recommended_next``.
+
+    Orchestrator (F-9, FIX-258): builds the indexes, walks every blocked
+    chain into ``roots`` (:func:`_walk_blocker_roots`), then delegates to
+    :func:`_pick_unblock_recommendation` and :func:`_build_empty_reason`.
+
+    Returns ``(unblock_recommendation, empty_reason)``:
+
+      - ``unblock_recommendation`` — :class:`UnblockRecommendation` for the
+        head of the highest-value blocked chain (value = downstream blocked
+        task count, tie-broken by root priority → version → ID), or None when
+        no task is dependency-blocked (no chain to unlock).
+      - ``empty_reason`` — structured dict with kind ``all_blocked`` /
+        ``all_non_executable`` / ``no_active_tasks`` + counts + message +
+        ``nearest_action`` (最近可行动作). Always non-None on this path.
+
+    A bare empty recommendation is forbidden (AUDIT-143 data-layer root
+    cause): the caller gets either a chain recommendation, a structured
+    reason, or both.
+
+    The blocker walk is bounded by a per-walk visit budget (FIX-258 / R0
+    F-2): when any origin's walk exhausts it, the recommendation reason
+    carries an observable truncation note ("visit budget reached …
+    downstream attribution may be truncated").
+    """
+    blocked_map = {bt.task.task_id: tuple(bt.blocking_dependencies) for bt in blocked}
+    task_index: dict = {t.task_id: t for t in non_executable}
+    for bt in blocked:
+        task_index[bt.task.task_id] = bt.task
+
+    roots: dict = {}
+    truncated = False
+    for bt in blocked:
+        truncated = (_walk_blocker_roots(bt.task.task_id, blocked_map,
+                                         task_index, roots) or truncated)
+
+    recommendation = _pick_unblock_recommendation(
+        roots, task_index, {bt.task.task_id: bt for bt in blocked}, truncated)
+    empty_reason = _build_empty_reason(
+        blocked, non_executable, completed, total, recommendation)
+    return recommendation, empty_reason
+
+
+def compute_unblocked_tasks(tasks: list, archive_completed_ids=None) -> PriorityReport:
+    """Compute the dependency-based priority report from parsed tasks.
+
+    Args:
+        tasks: list of :class:`TaskDep` (from :func:`parse_task_dependencies`).
+        archive_completed_ids: optional set of task IDs proven completed by
+            the archive index (:func:`parse_archive_index_completed_ids`,
+            read on the orchestration layer via
+            :func:`read_archive_index_completed_ids`). FIX-341: a task-family
+            dependency with NO hot-table row that appears here is satisfied
+            instead of fail-closed blocking. The hot table stays
+            authoritative (a hot ⏳/🔴 row still blocks even when the set
+            contains its ID); an ID in neither layer still blocks (FIX-171
+            conservative default kept). Omitting the parameter (or passing
+            an empty set) reproduces the pre-FIX-341 behavior exactly.
+
+    Algorithm:
+      1. Build a status lookup: ``{task_id: is_completed}``.
+      2. Build the dependency graph: ``{task_id: task_family_dependencies}``.
+      3. Detect cycles (DFS). Cycles are reported on the result but do NOT
+         infinite-loop; the rest of the analysis proceeds normally.
+      4. Classify each task:
+           - ``completed`` — status ✅.
+           - ``blocked`` — not completed AND has ≥1 task-family dependency
+             that is not provably completed (either the dep is in the table
+             with non-✅ status, or the dep is missing from the table AND
+             not proven completed by ``archive_completed_ids`` — fail-closed:
+             an unknown task-family ID cannot be proven done).
+           - ``non_executable`` — not completed, all task-family dependencies
+             are completed (or none), but the status leading marker is
+             terminal / non-executable (⛔/⏸/🔴/🚧/🛑/📋/✅) — the third-class
+             status filter (FIX-237.2 / ADR-017 §4.4 P1-3) — or the cell
+             carries non-✅ terminal wording (FIX-288 ⑦). Reported separately
+             so filtered rows stay visible.
+           - ``unblocked`` — not completed, all task-family dependencies are
+             completed (or it has none), AND the status leading marker is ⏳
+             or absent (status candidate-eligible).
+      5. ``recommended_next`` = ``unblocked`` sorted by priority then version.
+      6. ``cycle_warning`` = whether any cycle was detected (WARN, not ERROR).
+      7. **Empty-recommendation fallback (REQ-110 / FIX-254):** when
+         ``recommended_next`` is empty (the live-data norm: total>0 with
+         unblocked=0), analyze the blocked dependency graph and attach
+         ``unblock_recommendation`` (head of the highest-value blocked chain
+         + dependency reason) and/or a structured ``empty_reason``
+         (all_blocked / all_non_executable / no_active_tasks + nearest
+         actionable step). A bare empty recommendation is forbidden — it is
+         the AUDIT-143 data-layer root cause of the机械枚举 degradation.
+         The blocker walk behind the fallback is bounded by a per-walk
+         visit budget (FIX-258 / R0 F-2); on exhaustion the recommendation
+         reason notes that downstream attribution may be truncated.
+
+    Cross-entity refs (RISK/DEC/REVIEW/...) are never dependencies in the
+    graph and never block (FIX-171 precedent).
+
+    Args:
+        tasks: list of :class:`TaskDep` (from :func:`parse_task_dependencies`).
+
+    Returns:
+        A :class:`PriorityReport`.
+    """
+    status_map: dict = {t.task_id: t.is_completed() for t in tasks}
+    graph: dict = {t.task_id: tuple(t.dependencies) for t in tasks}
+    cycles = _detect_cycles(graph)
+    # FIX-341: second resolution layer for hot-miss dependency IDs. An empty
+    # / absent set keeps the loop below identical to the pre-FIX-341 behavior.
+    archive_done: frozenset = frozenset(archive_completed_ids or ())
+
+    completed: list = []
+    blocked: list = []
+    unblocked: list = []
+    non_executable: list = []
+
+    for t in tasks:
+        if t.is_completed():
+            completed.append(t)
+            continue
+        # Not completed: check task-family dependencies.
+        blocking = []
+        for dep in t.dependencies:
+            if status_map.get(dep, False):
+                # Dependency is completed → does not block.
+                continue
+            if dep not in status_map and dep in archive_done:
+                # FIX-341: the dep has NO hot-table row and the archive index
+                # proves it completed → does not block. A dep that HAS a hot
+                # row never reaches this branch: the hot table is
+                # authoritative (a hot ⏳/🔴 row still blocks even when a
+                # stale/duplicated archive row claims completion).
+                continue
+            # Dependency is either incomplete (in table, non-✅) or unknown
+            # everywhere (missing from table and archive index). Either way
+            # it blocks fail-closed.
+            blocking.append(dep)
+        if blocking:
+            blocked.append(BlockedTask(task=t, blocking_dependencies=tuple(blocking)))
+            continue
+        # Dependency-satisfied (or no deps): the third-class status gate
+        # decides executable candidacy (FIX-237.2 / ADR-017 §4.4 P1-3).
+        if not _status_is_candidate_eligible(t.status):
+            non_executable.append(t)
+            continue
+        unblocked.append(t)
+
+    recommended = sorted(unblocked, key=_priority_sort_key)
+
+    # FEAT-077 / ADR-021 §2.2.2 (3): conflict rows are surfaced on the report
+    # (rendered as a disclosure banner; the ordering judgement treats them
+    # conservatively as user-named rank — see _DEMAND_RANK).
+    demand_source_conflicts = [
+        t.task_id for t in tasks if t.demand_source == DEMAND_SOURCE_CONFLICT]
+
+    unblock_recommendation = None
+    empty_reason = None
+    if not recommended:
+        # REQ-110 / FIX-254 empty-recommendation fallback: never a bare empty
+        # list — blocked-chain unblock pick and/or a structured empty reason.
+        unblock_recommendation, empty_reason = _build_empty_recommendation_fallback(
+            blocked=blocked,
+            non_executable=non_executable,
+            completed=completed,
+            total=len(tasks),
+        )
+
+    return PriorityReport(
+        completed=completed,
+        blocked=blocked,
+        unblocked=unblocked,
+        recommended_next=recommended,
+        total=len(tasks),
+        dependency_graph=graph,
+        cycles=cycles,
+        non_executable=non_executable,
+        cycle_warning=bool(cycles),
+        unblock_recommendation=unblock_recommendation,
+        empty_reason=empty_reason,
+        demand_source_conflicts=demand_source_conflicts,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public API: format
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _clean_status_for_display(status: str) -> str:
+    """Trim a status cell to a compact display string (drop trailing detail).
+
+    Keeps the leading emoji + the first short label, dropping verbose
+    parentheticals and evidence cross-refs so the report stays scannable.
+    Falls back to the raw cell when no compact form is extracted.
+    """
+    s = status.strip()
+    if not s:
+        return s
+    # Take everything up to the first " (" or "——" or "；" detail separator.
+    for sep in (" (", "（", "——", "；", ";"):
+        idx = s.find(sep)
+        if idx > 0:
+            s = s[:idx].strip()
+    return s
+
+
+def _format_task_line(t: TaskDep) -> str:
+    """One-line summary of a task for the report.
+
+    FEAT-077 / ADR-021 §2.2.2 (5): every line carries the demand-source
+    annotation ``src={demand_source}`` (DEC-287(5) 过渡期执法：推荐/排序
+    呈现逐项标需求源，不标即违规；legacy 同样显式披露)。
+    """
+    deps = ", ".join(t.dependencies) if t.dependencies else "—"
+    cross = ", ".join(t.cross_entity_refs) if t.cross_entity_refs else ""
+    cross_str = f"  [refs: {cross}]" if cross else ""
+    version = t.target_version or "—"
+    status = _clean_status_for_display(t.status) or "—"
+    return (f"- `{t.task_id}` [{t.priority}] v={version} status={status} "
+            f"deps=[{deps}]{cross_str} src={t.demand_source}")
+
+
+def format_report(report: PriorityReport) -> str:
+    """Format a :class:`PriorityReport` as readable markdown for CLI output.
+
+    Sections:
+      1. Summary counts.
+      2. ``Recommended next`` (the highest-priority unblocked task(s)) — this is
+         the answer to "what should I work on next?". When empty, the REQ-110 /
+         FIX-254 fallback renders instead: the blocked-chain ``Unblock pick``
+         (root + reason + downstream) and/or the structured empty reason with
+         the nearest actionable step — never the pre-FIX-254 bare empty note.
+      3. ``Unblocked`` (all ready-to-work tasks, priority-ordered).
+      4. ``Excluded`` (dependency-satisfied rows filtered out by the third-class
+         status filter — ⛔/⏸/🔴/🚧/🛑/📋/✅ leading markers).
+      5. ``Blocked`` (tasks with their specific blocking dependencies).
+      6. ``Completed`` (already-done tasks — for context; truncated to 20).
+      7. ``Cycles`` — WARNING banner (not ERROR) if the dependency graph has a
+         cycle (cycle tolerance, FIX-237.2).
+
+    The output is plain markdown (no ANSI color) so it renders identically in a
+    terminal, a pipe, or a file.
+    """
+    lines: list = []
+    lines.append("# Task Priority Analysis")
+    lines.append("")
+    lines.append(
+        f"Total: **{report.total}** tasks — "
+        f"{len(report.completed)} completed, "
+        f"{len(report.unblocked)} unblocked, "
+        f"{len(report.blocked)} blocked, "
+        f"{len(report.non_executable)} non-executable."
+    )
+    # FEAT-077 / ADR-021 §2.2.2 (5) — provenance 分布行（DEC-288 M1 生效
+    # 判据半项的机检面之一：tpa 输出含 provenance 分布 + 每行 src 标注）.
+    dist = demand_source_distribution(report)
+    dist_line = (
+        f"provenance distribution: user-named:{dist['user-named']} "
+        f"active-defect:{dist['active-defect']} "
+        f"machine-signal:{dist['machine-signal']} legacy:{dist['legacy']}")
+    if report.demand_source_conflicts:
+        dist_line += (f" conflict:{len(report.demand_source_conflicts)}"
+                      "（行内标注与 triage 记录矛盾——见下方披露横幅）")
+    lines.append(dist_line)
+    lines.append("")
+
+    if report.cycles:
+        lines.append("## ⚠️ CYCLE DETECTED (WARNING)")
+        lines.append("")
+        lines.append(
+            "The dependency graph contains a cycle. The analysis below is "
+            "best-effort; the cycle should be resolved (a task should not "
+            "depend, directly or transitively, on itself). This is a WARNING "
+            "and does not block the analysis output (FIX-237.2 cycle "
+            "tolerance)."
+        )
+        lines.append("")
+        for cyc in report.cycles:
+            lines.append("- " + " → ".join(cyc))
+        lines.append("")
+
+    if report.demand_source_conflicts:
+        # FEAT-077 / ADR-021 §2.2.2 验收判据 2 — conflict 显式披露：排序已按
+        # user-named 保守处理（_DEMAND_RANK rank 0），数据一致性须人工校正
+        # （反倒挂判定件对 conflict 判 FAIL，ADR §2.2.3）。
+        lines.append("## ⚠️ DEMAND SOURCE CONFLICT (WARNING — data consistency)")
+        lines.append("")
+        lines.append(
+            "以下任务行内〔标注〕与 triage 记录 demand_source 冲突——排序按 "
+            "user-named 保守处理（ADR-021 §2.2.2/§2.4：conflict fail-closed，"
+            "数据一致性高于可用性），须人工校正后重跑分析。"
+        )
+        lines.append("")
+        for tid in report.demand_source_conflicts:
+            lines.append(f"- `{tid}`")
+        lines.append("")
+
+    lines.append("## Recommended next")
+    lines.append("")
+    if report.recommended_next:
+        top = report.recommended_next[0]
+        lines.append(f"**Top pick: `{top.task_id}` [{top.priority}]**")
+        lines.append("")
+        for t in report.recommended_next:
+            lines.append(_format_task_line(t))
+    elif report.unblock_recommendation is not None:
+        # REQ-110 / FIX-254 fallback (a): blocked-chain unblock recommendation.
+        rec = report.unblock_recommendation
+        lines.append(
+            "_No unblocked tasks — REQ-110 fallback: blocked-chain unblock "
+            "recommendation (FIX-254)._")
+        lines.append("")
+        status_clause = f" status='{rec.root_status}'" if rec.root_status else ""
+        lines.append(
+            f"**Unblock pick: `{rec.root_task_id}` [{rec.root_priority}] "
+            f"({rec.root_kind}{status_clause})**")
+        lines.append("")
+        lines.append(f"- reason: {rec.reason}")
+        if rec.downstream_task_ids:
+            shown = ", ".join(f"`{i}`" for i in rec.downstream_task_ids[:12])
+            more = (f" (+{len(rec.downstream_task_ids) - 12} more)"
+                    if len(rec.downstream_task_ids) > 12 else "")
+            lines.append(
+                f"- unlocks {rec.downstream_count} downstream blocked "
+                f"task(s): {shown}{more}")
+        if report.empty_reason:
+            lines.append(
+                f"- empty reason: {report.empty_reason.get('kind')} — "
+                f"{report.empty_reason.get('message')}")
+            lines.append(
+                f"- nearest action: {report.empty_reason.get('nearest_action')}")
+    elif report.empty_reason:
+        # REQ-110 / FIX-254 fallback (b): structured empty reason + nearest
+        # actionable step — the bare pre-FIX-254 note is forbidden.
+        er = report.empty_reason
+        lines.append(
+            "_No unblocked tasks — structured empty reason "
+            "(REQ-110 / FIX-254)._")
+        lines.append("")
+        lines.append(f"- kind: {er.get('kind')}")
+        lines.append(
+            f"- counts: total={er.get('total')} "
+            f"completed={er.get('completed')} blocked={er.get('blocked')} "
+            f"non-executable={er.get('non_executable')}")
+        lines.append(f"- {er.get('message')}")
+        lines.append(f"- nearest action: {er.get('nearest_action')}")
+    else:
+        lines.append("_No unblocked tasks. Every non-completed task is blocked "
+                     "or there are no active tasks._")
+    lines.append("")
+
+    lines.append("## Unblocked (ready to work)")
+    lines.append("")
+    if report.unblocked:
+        for t in report.unblocked:
+            lines.append(_format_task_line(t))
+    else:
+        lines.append("_None._")
+    lines.append("")
+
+    lines.append("## Excluded (non-executable status)")
+    lines.append("")
+    if report.non_executable:
+        lines.append(
+            "_Dependency-satisfied rows excluded from Unblocked / Recommended "
+            "next: their status leading marker is terminal / non-executable "
+            "(⛔/⏸/🔴/🚧/🛑/📋/✅) or their wording is terminal without an "
+            "emoji marker (FIX-237.2 / ADR-017 §4.4 P1-3 / FIX-288 ⑦) even "
+            "though their dependencies are met._"
+        )
+        lines.append("")
+        for t in report.non_executable:
+            lines.append(_format_task_line(t))
+    else:
+        lines.append("_None._")
+    lines.append("")
+
+    lines.append("## Blocked")
+    lines.append("")
+    if report.blocked:
+        for bt in report.blocked:
+            t = bt.task
+            blockers = ", ".join(bt.blocking_dependencies)
+            lines.append(
+                f"- `{t.task_id}` [{t.priority}] v={t.target_version or '—'} "
+                f"status={_clean_status_for_display(t.status) or '—'} "
+                f"blocked_by=[{blockers}]"
+            )
+    else:
+        lines.append("_None._")
+    lines.append("")
+
+    lines.append("## Completed")
+    lines.append("")
+    if report.completed:
+        # Truncate to keep the report scannable; the full list is recoverable
+        # from plan-tracker.md directly.
+        shown = report.completed[:20]
+        for t in shown:
+            lines.append(_format_task_line(t))
+        if len(report.completed) > 20:
+            lines.append(f"_...and {len(report.completed) - 20} more (see plan-tracker.md)._")
+    else:
+        lines.append("_None._")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Same-session duplicate-run suppression (FEAT-012 / G5 — 0.79.0)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Live-session fact (AUDIT-149 N-domain): one session ran
+# task-priority-analysis 7×, each invocation re-doing the full analysis and
+# appending its own RECO evidence row — a measurable evidence-log bloat
+# contributor. The analysis output is a PURE function of the plan-tracker
+# text, so a same-day run over an unchanged tracker is byte-identical to the
+# previous one and may be reused; a machine RECO-{task} row dated today
+# already closes the FIX-262 obligation for that task, so re-appending is a
+# pure duplicate.
+#
+# Both suppression decisions are PURE predicates here (values in, bool out);
+# the RECO snapshot writer, the last-run cache helpers and the CLI
+# orchestrator (:func:`run_cli_analysis`) own the explicit, parameterized
+# file I/O (documented exceptions to the compute-purity rule — see the module
+# purity contract). This consolidation is also FEAT-012's architectural
+# answer to the ArchGuard R1 main-file budget (AUDIT-150 §4): the G5 CLI
+# flow lives HERE, not in verify_workflow.py, so the engine entry stays thin.
+
+# Machine-source marker for RECO rows. Canonical home (FEAT-012 G5 moved the
+# writer here); verify_workflow.RECO_ROW_MARKER is the Check 34 consumer's
+# local mirror (kept in sync — same pattern as _TASK_FAMILY_PREFIXES being a
+# local copy of the archive.py allow-list).
+RECO_ROW_MARKER = "task-priority-analysis 机器写入完成必推荐调用快照"
+
+# A bare ISO date cell (the RECO row's date column).
+_BARE_DATE_CELL_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# The last-run cache sidecar filename (inside .governance/).
+TPA_STATE_FILENAME = "tpa-last-run.json"
+
+
+def should_reuse_cached_analysis(state, today, plan_tracker_mtime):
+    """FEAT-012 G5: True when a cached analysis from a prior run is reusable.
+
+    Reuse hit = ALL of:
+
+      - ``state`` is a dict (a missing / corrupt state file never reuses —
+        fail-open to a full re-run);
+      - ``state["date"] == today`` — the cached run is from the same
+        calendar day (a session boundary / day rollover always re-analyzes);
+      - ``state["plan_tracker_mtime"] == plan_tracker_mtime`` — the tracker
+        has not been touched since the cached run (the report is a pure
+        function of the tracker text, so an unchanged mtime ⇒ an identical
+        report);
+      - ``state["report_text"]`` is a non-empty str (the cached payload is
+        actually there).
+
+    Args:
+        state: the persisted last-run dict (``{"date", "plan_tracker_mtime",
+            "report_text"}``) or None when absent/unreadable.
+        today: ISO date string of the current run (``date.today().isoformat()``).
+        plan_tracker_mtime: the current ``plan-tracker.md`` st_mtime.
+
+    Returns:
+        True when the CLI may print the cached report instead of re-running
+        the full analysis.
+    """
+    if not isinstance(state, dict):
+        return False
+    if state.get("date") != today:
+        return False
+    if state.get("plan_tracker_mtime") != plan_tracker_mtime:
+        return False
+    report_text = state.get("report_text")
+    return isinstance(report_text, str) and bool(report_text.strip())
+
+
+def has_reco_row_today(evidence_log_text, task_id, today):
+    """FEAT-012 G5: True when a machine ``RECO-{task}`` row dated ``today``
+    already exists in the evidence log.
+
+    Duplicate detection is deliberately STRICT — a row matches only when ALL
+    of:
+
+      - the row id cell is exactly ``RECO-{task_id}`` (machine row-id
+        binding, mirroring Check 34's association rule);
+      - the description cell carries the machine-source marker
+        (:data:`RECO_ROW_MARKER`) — a legacy/manual row is never treated as
+        a machine duplicate (worst case: one extra machine row, exactly the
+        pre-FEAT-012 behavior, no breakage);
+      - a bare-date cell equal to ``today`` exists (same-day duplicate — a
+        row from another day records a genuinely new invocation and does
+        not suppress).
+
+    Args:
+        evidence_log_text: the evidence-log markdown text ("" / None safe).
+        task_id: the --evidence-task id (e.g. ``FIX-300``).
+        today: ISO date string.
+
+    Returns:
+        True when appending another RECO row would be a same-session
+        duplicate (the caller suppresses the append).
+    """
+    wanted = "RECO-{0}".format(task_id)
+    for raw in str(evidence_log_text or "").split("\n"):
+        line = raw.strip()
+        if not line.startswith("|"):
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 6 or parts[1] != wanted:
+            continue
+        desc = parts[4] if len(parts) > 4 else ""
+        if RECO_ROW_MARKER not in desc:
+            continue
+        # The machine row's date column (a bare ISO date cell after the
+        # description/fact/artifact cells).
+        if any(_BARE_DATE_CELL_RE.match(part) and part == today
+               for part in parts[5:]):
+            return True
+    return False
+
+
+def recommendation_snapshot_row_text(task_id, report, date_str):
+    """FIX-262: the machine RECO-{task} evidence row text (10 columns).
+
+    Shape mirrors review_record._evidence_row: | id | task | 治理记录 |
+    description(marker) | 事实依据(machine) | artifacts(stats) | actor |
+    date | G11 | N/A |. The stats cell carries the same figures the live
+    snapshots quote (EVD-898/899/901/903 free-text precedent).
+
+    FEAT-012 G5: moved from verify_workflow._recommendation_snapshot_row_text
+    (canonical home is now next to the writer and the duplicate detector);
+    verify_workflow keeps a thin delegating alias for existing consumers.
+    """
+    stats = "{0} tasks/{1} completed/{2} unblocked/{3} blocked/{4} non-exec".format(
+        report.total, len(report.completed), len(report.unblocked),
+        len(report.blocked), len(report.non_executable))
+    if getattr(report, "unblock_recommendation", None) is not None:
+        rec = report.unblock_recommendation
+        stats += "; Unblock pick {0} [{1}]".format(
+            rec.root_task_id, rec.root_kind)
+    if getattr(report, "empty_reason", None) is not None:
+        stats += "; empty reason {0}".format(
+            report.empty_reason.get("kind"))
+    cells = [
+        "RECO-{0}".format(task_id),
+        task_id,
+        "治理记录",
+        "{0}（trigger {1}，M7.4 step 6 / FIX-262）".format(
+            RECO_ROW_MARKER, task_id),
+        "事实依据：task-priority-analysis 输出摘要（机器写入）",
+        stats,
+        "Coordinator",
+        date_str,
+        "G11",
+        "N/A",
+    ]
+    return "| " + " | ".join(cells) + " |\n"
+
+
+def write_recommendation_snapshot(task_id, report, evidence_path):
+    """Append one machine RECO row to the evidence log (fail-closed, never
+    raises).
+
+    FEAT-012 G5: moved from verify_workflow._write_recommendation_snapshot;
+    ``evidence_path`` is REQUIRED here (the engine alias supplies the
+    rebinding-aware EVIDENCE_PATH default).
+
+    Returns ``{"row_id", "written": True}`` or ``{"error": ...}`` when the
+    task id is malformed (nothing is written in that case).
+    """
+    if not _ID_CELL_RE.match(str(task_id or "")):
+        return {"error": "task id must match PREFIX-NNN (e.g. FIX-262)"}
+    path = Path(evidence_path)
+    row = recommendation_snapshot_row_text(
+        task_id, report, date.today().isoformat())
+    try:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write("\n" + row)
+    except OSError as exc:
+        return {"error": "cannot append recommendation snapshot row: {0}".format(exc)}
+    return {"row_id": "RECO-{0}".format(task_id), "written": True}
+
+
+def read_last_run_state(governance_dir):
+    """FEAT-012 G5: read the tpa last-run cache; None when missing/corrupt.
+
+    Advisory cache — never raises; a missing/corrupt state fails open to a
+    full re-run (see :func:`should_reuse_cached_analysis`).
+    """
+    try:
+        data = json.loads(
+            (Path(governance_dir) / TPA_STATE_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_last_run_state(governance_dir, state):
+    """FEAT-012 G5: persist the tpa last-run cache (advisory, never raises)."""
+    try:
+        (Path(governance_dir) / TPA_STATE_FILENAME).write_text(
+            json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    except (OSError, ValueError):
+        pass
+
+
+def _read_evidence_log_text(evidence_path):
+    """Read the evidence log text ("" when absent/unreadable; never raises)."""
+    try:
+        path = Path(evidence_path)
+        return path.read_text(encoding="utf-8") if path.is_file() else ""
+    except (IOError, OSError):
+        return ""
+
+
+def run_cli_analysis(tracker_path, governance_dir, evidence_path,
+                     evidence_task=None, force=False, strict=False):
+    """FEAT-012 G5 CLI orchestration — run / reuse / suppress, return exit code.
+
+    Full flow (delegated from verify_workflow.cmd_task_priority_analysis —
+    the engine entry is argparse glue only, keeping the ArchGuard R1
+    main-file budget honest):
+
+      1. Missing tracker → stderr message, return 2.
+      2. **Duplicate-closure check** — ``--evidence-task T`` with a machine
+         ``RECO-T`` row already dated today appends nothing (pure duplicate,
+         FEAT-012 G5) unless ``force``.
+      3. **Cached-analysis reuse** — a prior run TODAY over an UNCHANGED
+         tracker (mtime match) prints 「复用上次分析（--force 重跑）」 plus the
+         cached report instead of re-analyzing. Reuse is skipped when a
+         first-time evidence append needs a live report object, and under
+         ``strict`` (the strict exit code reads ``report.cycles``).
+         FIRST-TIME closures are never suppressed (FIX-262 / REQ-108
+         obligation preserved — suppression targets the repeat, not the
+         first run).
+      4. Full run → parse + compute + format + print + cache the report.
+      5. Evidence append (first-time path) via
+         :func:`write_recommendation_snapshot`.
+      6. ``strict`` + cycle → return 1 (FIX-237.3); default 0.
+
+    Args:
+        tracker_path: path to plan-tracker.md.
+        governance_dir: the .governance directory (state cache home).
+        evidence_path: path to evidence-log.md.
+        evidence_task: optional ``--evidence-task`` task id.
+        force: ``--force`` bypass (re-run + re-append).
+        strict: ``--strict`` cycle-fail-closed mode (disables reuse).
+
+    Returns:
+        The CLI exit code (0 / 1 strict-cycle / 2 input-or-parse error).
+    """
+    tracker_path = Path(tracker_path)
+    if not tracker_path.exists():
+        print(f"task-priority-analysis: plan-tracker.md not found at {tracker_path}",
+              file=sys.stderr)
+        return 2
+    today = date.today().isoformat()
+    try:
+        tracker_mtime = tracker_path.stat().st_mtime
+        tracker_text = tracker_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"task-priority-analysis: cannot read {tracker_path}: {exc}",
+              file=sys.stderr)
+        return 2
+
+    # G5 (1) — duplicate-closure: a machine RECO-{task} row dated today
+    # already satisfies the FIX-262 obligation for this task; appending
+    # another is a pure duplicate (suppressed unless --force).
+    duplicate_reco = bool(evidence_task) and not force and has_reco_row_today(
+        _read_evidence_log_text(evidence_path), evidence_task, today)
+
+    # G5 (2) — cached-analysis reuse: a prior run TODAY over an UNCHANGED
+    # plan-tracker yields a byte-identical report. Reuse is deliberately
+    # skipped when the run needs a live report object (a first-time
+    # --evidence-task append builds its row from the report) and under
+    # --strict (the strict exit code reads report.cycles).
+    needs_live_report = (bool(evidence_task) and not duplicate_reco) or strict
+    state = None if (force or needs_live_report) else read_last_run_state(
+        governance_dir)
+    reuse = should_reuse_cached_analysis(state, today, tracker_mtime)
+    # FIX-341 cache guard: the report is a pure function of the plan-tracker
+    # text AND the archive index, so a cached analysis written before an
+    # index change must not be reused. Old caches (no recorded index mtime)
+    # fail this check whenever an index file exists — one extra full run,
+    # never a stale report.
+    if reuse:
+        reuse = (state.get("archive_index_mtime")
+                 == _archive_index_mtime(governance_dir))
+    if reuse:
+        # FEAT-077: the report is also a function of the triage records
+        # (demand_source authority merge) — a cache written before a triage
+        # record appeared must not be reused (stale provenance). Old caches
+        # without the key fail this check whenever a change-triage dir
+        # exists — one extra full run, never a stale report (FIX-341
+        # upgrade pattern).
+        reuse = (state.get("triage_records_mtime")
+                 == _triage_records_mtime(governance_dir))
+
+    report = None
+    if reuse:
+        print("task-priority-analysis: 复用上次分析（--force 重跑）")
+        print(state["report_text"])
+        # FEAT-077 修订通道：行内滞后 WARN 随缓存一起重放——复用路径不得
+        # 静默吞掉警告（WARN 起步，不得静默）。
+        for warning in state.get("revision_lag_warnings", []) or []:
+            print(warning)
+    else:
+        try:
+            resolved_tasks, revision_lag_warnings = (
+                _resolve_row_demand_sources(
+                    parse_task_dependencies(tracker_text), governance_dir))
+            report = compute_unblocked_tasks(
+                resolved_tasks,
+                archive_completed_ids=read_archive_index_completed_ids(
+                    governance_dir))
+            report_text = format_report(report)
+        except Exception as exc:  # parse failure surface — entry stays thin
+            print(f"task-priority-analysis: parse error: {exc}", file=sys.stderr)
+            return 2
+        print(report_text)
+        for warning in revision_lag_warnings:
+            print(warning)
+        write_last_run_state(governance_dir, {
+            "date": today, "plan_tracker_mtime": tracker_mtime,
+            "archive_index_mtime": _archive_index_mtime(governance_dir),
+            "triage_records_mtime": _triage_records_mtime(governance_dir),
+            "revision_lag_warnings": revision_lag_warnings,
+            "report_text": report_text})
+
+    # FIX-262 / REQ-108: machine snapshot row for the completion-recommendation
+    # closure. Without --evidence-task the CLI behavior is unchanged. A
+    # same-day duplicate RECO row is suppressed (FEAT-012 G5).
+    if evidence_task:
+        if duplicate_reco:
+            print(f"[OK] recommendation snapshot row RECO-{evidence_task} already "
+                  f"recorded today ({today}) — 复用上次分析（--force 重跑），"
+                  f"不重复追加 (FEAT-012 G5)")
+        else:
+            summary = write_recommendation_snapshot(evidence_task, report,
+                                                    evidence_path)
+            if summary.get("error"):
+                print(f"task-priority-analysis: --evidence-task: {summary['error']}",
+                      file=sys.stderr)
+                return 2
+            print(f"[OK] recommendation snapshot row {summary['row_id']} appended "
+                  f"to {evidence_path} (FIX-262 / M7.4 step 6)")
+    # Cycle tolerance (FIX-237.3): default exit 0 + WARN banner; `--strict`
+    # restores the previous fail-closed exit 1 on a cycle. (Reuse never
+    # coexists with --strict — see needs_live_report — so report is live
+    # whenever strict is set; the None guard is defense-in-depth.)
+    if strict and report is not None and report.cycles:
+        return 1
+    return 0
+
+
+__all__ = [
+    "TaskDep",
+    "BlockedTask",
+    "UnblockRecommendation",
+    "PriorityReport",
+    "DEMAND_SOURCE_VALUES",
+    "DEMAND_SOURCE_LEGACY",
+    "DEMAND_SOURCE_CONFLICT",
+    "parse_task_dependencies",
+    "compute_unblocked_tasks",
+    "format_report",
+    "resolve_demand_source",
+    "demand_source_distribution",
+    "parse_archive_index_completed_ids",
+    "read_archive_index_completed_ids",
+    "should_reuse_cached_analysis",
+    "has_reco_row_today",
+    "recommendation_snapshot_row_text",
+    "write_recommendation_snapshot",
+    "read_last_run_state",
+    "write_last_run_state",
+    "run_cli_analysis",
+    "RECO_ROW_MARKER",
+    "TPA_STATE_FILENAME",
+]

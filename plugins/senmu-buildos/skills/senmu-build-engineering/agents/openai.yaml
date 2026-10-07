@@ -1,0 +1,4 @@
+interface:
+  display_name: "Senmu Build Software Engineering"
+  short_description: "System understanding, design rationale, contracts and tests"
+  default_prompt: "Use $senmu-build-engineering to investigate or resolve the requested engineering decision, grounding it in system behavior, applicable design reasons and proportionate evidence."

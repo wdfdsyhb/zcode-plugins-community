@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Fail when a public source tree contains private project-state boundaries."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+# Private owners that must never appear in a distributable tree. `maintainer` is
+# this workspace's own private root; the `governance/*` and `evidence/*` entries
+# are the owners the product prescribes for governed projects. Keep both: a
+# private tree can be laid out either way.
+FORBIDDEN_PREFIXES = (
+    Path(".senmu-buildos"),
+    Path("maintainer"),
+    Path("governance/tasks"),
+    Path("governance/logs"),
+    Path("evidence/releases"),
+    Path("evidence/reviews"),
+)
+# A private workspace is identified by its maintenance policy or, on layouts
+# that predate the product/maintainer split, by the authority marker.
+PRIVATE_ROOT_MARKERS = (
+    Path("maintainer/workspace.json"),
+    Path(".senmu-buildos/config.json"),
+)
+TEXT_SUFFIXES = {".md", ".json", ".yaml", ".yml", ".py", ".js", ".sh", ".env", ".txt"}
+SENSITIVE_SUFFIXES = {".log", ".sqlite", ".sqlite3", ".db", ".pem", ".key"}
+ABSOLUTE_PRIVATE_PATH = re.compile(
+    r"(?:/(?:Users|home)/[\w .@+-]+/|[A-Za-z]:[\\/]+Users[\\/]+[\w .@+-]+[\\/])"
+)
+HIGH_CONFIDENCE_SECRET = re.compile(r"(?:AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,})")
+
+
+def sensitive_path(path: Path) -> bool:
+    return path.name == ".env" or path.name.startswith(".env.") or path.suffix.lower() in SENSITIVE_SUFFIXES
+
+
+def tracked_files(root: Path) -> list[Path]:
+    result = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode == 0:
+        return sorted(
+            relative
+            for item in result.stdout.split(b"\0")
+            if item
+            for relative in (Path(item.decode("utf-8")),)
+            if (root / relative).is_file()
+        )
+    return sorted(path.relative_to(root) for path in root.rglob("*") if path.is_file() and ".git" not in path.parts)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--deny-term", action="append", default=[])
+    args = parser.parse_args()
+    root = args.root.expanduser().resolve()
+    if any((root / marker).is_file() for marker in PRIVATE_ROOT_MARKERS):
+        raise SystemExit(
+            "[ERROR] 公开源码面校验针对可分发产品目录；"
+            "当前目录是内部权威库，含私有项目配置。请先分离产品与私有数据，再运行包、Python、"
+            "publication 和 Hook 检查，公开面检查留到投影生成后执行。"
+        )
+    errors = []
+    files = tracked_files(root)
+    for relative in files:
+        if any(relative == prefix or prefix in relative.parents for prefix in FORBIDDEN_PREFIXES):
+            errors.append(f"禁止公开的内部 owner：{relative.as_posix()}")
+            continue
+        if sensitive_path(relative):
+            errors.append(f"禁止公开的敏感文件类型：{relative.as_posix()}")
+            continue
+        path = root / relative
+        if path.suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if ABSOLUTE_PRIVATE_PATH.search(text):
+            errors.append(f"包含本机绝对路径：{relative.as_posix()}")
+        if HIGH_CONFIDENCE_SECRET.search(text):
+            errors.append(f"包含高置信度凭据形态：{relative.as_posix()}")
+        for term in args.deny_term:
+            if term and term in text:
+                errors.append(f"包含私有实例标识 {term!r}：{relative.as_posix()}")
+    if errors:
+        raise SystemExit("[ERROR] 公开源码面校验失败：\n" + "\n".join(errors))
+    print(f"[OK] public source surface is clean: {len(files)} tracked files")
+
+
+if __name__ == "__main__":
+    main()

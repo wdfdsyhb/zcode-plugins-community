@@ -1,0 +1,637 @@
+<!-- clarity-generated -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clarity previews</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f9; --card: #ffffff; --border: #e3e6ee; --text: #20263a; --muted: #6b7386;
+    --accent: #4656d8; --chip-done-bg: #dcf2e6; --chip-done-tx: #14683c;
+    --chip-active-bg: #fbeacb; --chip-active-tx: #8f5a08;
+    --chip-pending-bg: #eceef4; --chip-pending-tx: #5c6478;
+    --chip-skipped-bg: #f9e0e3; --chip-skipped-tx: #a02a3c;
+    --chip-given-bg: #dde8fd; --chip-given-tx: #274fa8;
+    --vp-bg: #fbfcfe; --shadow: 0 1px 2px rgba(22,28,45,.06);
+  }
+  html[data-theme="dark"] {
+    --bg: #0c1017; --card: #141a26; --border: #262e40; --text: #d7dcea; --muted: #8b94ab;
+    --accent: #8fa1ff; --chip-done-bg: #173427; --chip-done-tx: #6fd6a2;
+    --chip-active-bg: #3a2f14; --chip-active-tx: #e7bb62;
+    --chip-pending-bg: #1d2434; --chip-pending-tx: #8b94ab;
+    --chip-skipped-bg: #3d2230; --chip-skipped-tx: #ef9db0;
+    --chip-given-bg: #1c2a4d; --chip-given-tx: #9db6f5;
+    --vp-bg: #10151f; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.55; }
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px;
+            padding: 10px 20px; background: color-mix(in srgb, var(--card) 88%, transparent);
+            backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  .topbar .brand { font-weight: 650; font-size: 14.5px; letter-spacing: .01em; }
+  .topbar .crumb { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .spacer { flex: 1; }
+  .flowbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chip { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+  .chip.done { background: var(--chip-done-bg); color: var(--chip-done-tx); }
+  .chip.active { background: var(--chip-active-bg); color: var(--chip-active-tx); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--chip-active-tx) 45%, transparent); }
+  .chip.pending { background: var(--chip-pending-bg); color: var(--chip-pending-tx); }
+  .chip.skipped { background: var(--chip-skipped-bg); color: var(--chip-skipped-tx); }
+  .chip.given { background: var(--chip-given-bg); color: var(--chip-given-tx); }
+  .theme-btn { border: 1px solid var(--border); background: var(--card); color: var(--text);
+               border-radius: 8px; width: 32px; height: 32px; font-size: 15px; cursor: pointer; flex-shrink: 0; }
+  .theme-btn:hover { border-color: var(--accent); }
+  .layout { display: flex; min-height: calc(100vh - 53px); }
+  aside.nav { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px 12px;
+              position: sticky; top: 53px; height: calc(100vh - 53px); overflow: auto; }
+  aside.nav h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 8px 6px; }
+  aside.nav a { display: block; padding: 6px 8px; border-radius: 7px; color: var(--text);
+                text-decoration: none; font-size: 13px; border-left: 2px solid transparent; }
+  aside.nav a:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  aside.nav a.active { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  aside.nav .sub { color: var(--muted); font-size: 11px; display: block; }
+  aside.nav a.back { color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+  .topbar .crumb a { color: var(--muted); text-decoration: none; }
+  .topbar .crumb a:hover { color: var(--accent); }
+  main.content { flex: 1; padding: 26px 30px 70px; max-width: 1160px; margin: 0 auto; min-width: 0; }
+  .ck-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+             margin-bottom: 30px; box-shadow: var(--shadow); overflow: hidden;
+             scroll-margin-top: 70px; } /* anchor jumps land clear of the sticky topbar */
+  .ck-head { padding: 15px 20px 11px; display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .ck-head .titles { flex: 1; min-width: 220px; }
+  .ck-head h2 { margin: 0; font-size: 16.5px; }
+  .ck-head .caption { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+  .ck-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 999px; font-weight: 650;
+           background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .path { color: var(--muted); font-size: 11.5px; font-family: ui-monospace, monospace; }
+  .btn { font-size: 12px; padding: 4px 11px; border: 1px solid var(--border); border-radius: 7px;
+         background: var(--card); color: var(--text); cursor: pointer; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .ck-viewport { position: relative; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+                background: var(--vp-bg); height: 460px; overflow: hidden; touch-action: none;
+                user-select: none; -webkit-user-select: none; cursor: grab; }
+  .ck-viewport.dragging { cursor: grabbing; }
+  .ck-viewport.fullscreen { position: fixed; inset: 0; z-index: 100; height: 100vh !important;
+                            border-radius: 0; box-shadow: none; }
+  .ck-resizer { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; cursor: ns-resize; z-index: 6;
+                display: flex; align-items: center; justify-content: center; gap: 8px;
+                background: color-mix(in srgb, var(--card) 70%, transparent);
+                border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent); }
+  .ck-resizer .ck-grip { width: 44px; height: 3px; border-radius: 2px;
+                         background: color-mix(in srgb, var(--muted) 40%, transparent); }
+  .ck-resizer:hover .ck-grip, .ck-resizer:active .ck-grip { background: var(--accent); }
+  .ck-resizer .ck-hint { font-size: 10.5px; color: var(--muted); pointer-events: none; }
+  .ck-stage { transform-origin: 0 0; position: absolute; top: 0; left: 0; will-change: transform; }
+  .ck-stage svg { display: block; max-width: none !important; }
+  .ck-vp-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; align-items: center;
+                    background: color-mix(in srgb, var(--card) 92%, transparent); border: 1px solid var(--border);
+                    border-radius: 9px; padding: 3px 5px; box-shadow: var(--shadow); z-index: 5; }
+  .ck-vp-controls button { min-width: 27px; height: 27px; border: none; border-radius: 6px; background: transparent;
+                           color: var(--muted); font-size: 14px; cursor: pointer; }
+  .ck-vp-controls button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .ck-vp-controls button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .ck-zoom-pct { font-size: 11px; color: var(--muted); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+  .ck-error { margin: 14px 20px; padding: 12px 14px; border-radius: 9px; font-size: 12.5px;
+              background: var(--chip-skipped-bg); color: var(--chip-skipped-tx);
+              border: 1px solid color-mix(in srgb, var(--chip-skipped-tx) 35%, transparent);
+              white-space: pre-wrap; font-family: ui-monospace, monospace; }
+  .ck-source { border-top: 0; }
+  .ck-source summary { cursor: pointer; padding: 10px 20px; font-size: 12.5px; color: var(--muted); user-select: none; }
+  .ck-source summary:hover { color: var(--accent); }
+  .ck-src-wrap { margin: 0 20px 6px; }
+  .ck-src { display: block; width: 100%; min-height: 120px; max-height: 46vh; padding: 14px 16px;
+            background: color-mix(in srgb, var(--text) 92%, black);
+            color: color-mix(in srgb, var(--bg) 85%, white); border: none; border-radius: 9px;
+            resize: vertical; outline: none;
+            font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; tab-size: 2; white-space: pre; }
+  .ck-src:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .ck-source .ck-actions { margin: 8px 20px 16px; display: flex; gap: 8px; align-items: center; }
+  .ck-source .ck-actions .note { color: var(--muted); font-size: 11.5px; }
+  .section-title { font-size: 14px; color: var(--muted); font-weight: 600; margin: 26px 0 4px; }
+  .dirbox { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; margin-bottom: 22px; box-shadow: var(--shadow); }
+  .dirbox h2 { margin: 0 0 4px; font-size: 16px; }
+  .dirbox h2 a { color: var(--text); text-decoration: none; }
+  .dirbox h2 a:hover { color: var(--accent); }
+  .dirbox .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .dirbox ul { margin: 0; padding: 0; list-style: none; }
+  .dirbox li { padding: 4px 0; font-size: 13.5px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .dirbox li .file { color: var(--muted); font-size: 11.5px; font-family: ui-monospace, monospace; }
+  .proto-list li a { color: var(--accent); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 18px; }
+  .ck-boot-error { margin: 14px; padding: 10px 14px; border-radius: 9px; background: var(--chip-skipped-bg); color: var(--chip-skipped-tx); font-size: 13px; }
+  @media (max-width: 880px) { aside.nav { display: none; } main.content { padding: 18px 14px 60px; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">ClarityKit</span>
+  <span class="crumb">all previews</span>
+  <span class="spacer"></span>
+  <div class="flowbar" title="direction: done — framed in one interview round; three non-goals accepted
+requirements: done
+behavior: done — save-bookmark YAML tier; search light tier
+architecture: done — local-first SQLite chosen over cloud-API; ADR-001 drafted
+data: done
+ui: done — save-bookmark prototype approved after one revision round
+commission: done — ledger signed; snapshot-fetch risk accepted with a probe"><span class="chip done">direction · done</span><span class="chip done">requirements · done</span><span class="chip done">behavior · done</span><span class="chip done">architecture · done</span><span class="chip done">data · done</span><span class="chip done">ui · done</span><span class="chip done">commission · done</span></div>
+  <button id="theme-toggle" class="theme-btn" title="toggle light / dark theme">☾</button>
+</div>
+<div class="layout">
+<aside class="nav"><h3>requirements</h3>
+<a href="requirements/clarity-preview.html">requirements<span class="sub">2 diagram(s)</span></a>
+<h3>behaviors</h3>
+<a href="behaviors/save-bookmark/clarity-preview.html">behaviors/save-bookmark<span class="sub">3 diagram(s)</span></a>
+<a href="behaviors/search/clarity-preview.html">behaviors/search<span class="sub">1 diagram(s)</span></a>
+<h3>architecture</h3>
+<a href="architecture/clarity-preview.html">architecture<span class="sub">4 diagram(s)</span></a>
+<h3>data</h3>
+<a href="data/clarity-preview.html">data<span class="sub">2 diagram(s)</span></a><h3>prototypes</h3>
+<a href="prototypes/save-bookmark/index.html" target="_blank" rel="noopener">prototypes/save-bookmark/index.html</a></aside>
+<main class="content">
+  <div class="dirbox">
+    <h2><a href="requirements/clarity-preview.html">requirements</a></h2>
+    <div class="sub">2 diagram(s)</div>
+    <ul>
+    <li><span>Requirement scope · reading list</span><span class="file">requirements/brief.md</span><span class="file">— capability areas of the v1 scope — the table of contents of this brief</span></li>
+    <li><span>Story priorities · value vs effort</span><span class="file">requirements/brief.md</span><span class="file">— two axes dominated this trade-off — user value and build effort</span></li>
+    </ul>
+  </div>
+  <div class="dirbox">
+    <h2>behaviors</h2>
+    <div class="sub">2 behavior module(s)</div>
+    <ul>
+    <li><a href="behaviors/save-bookmark/clarity-preview.html">behaviors/save-bookmark</a><span class="file">3 diagram(s)</span><span class="badge">save-bookmark</span></li>
+    <li><a href="behaviors/search/clarity-preview.html">behaviors/search</a><span class="file">1 diagram(s)</span><span class="badge">search</span></li>
+    </ul>
+  </div>
+  <div class="dirbox">
+    <h2><a href="architecture/clarity-preview.html">architecture</a></h2>
+    <div class="sub">4 diagram(s)</div>
+    <ul>
+    <li><span class="badge">A · local SQLite</span><span>Candidate A · layered architecture</span><span class="file">architecture/comparison.md</span><span class="file">— everything local; sync is a background guest</span></li>
+    <li><span class="badge">A · local SQLite</span><span>Candidate A · save-then-sync critical flow</span><span class="file">architecture/comparison.md</span><span class="file">— the riskiest scenario — saving while offline, syncing later</span></li>
+    <li><span class="badge">B · cloud API</span><span>Candidate B · layered architecture</span><span class="file">architecture/comparison.md</span><span class="file">— the cloud owns truth; offline is a cache discipline</span></li>
+    <li><span>System context · reading list</span><span class="file">architecture/context.mmd</span><span class="file">— the system and its externals — one box, drawn before any candidate</span></li>
+    </ul>
+  </div>
+  <div class="dirbox">
+    <h2><a href="data/clarity-preview.html">data</a></h2>
+    <div class="sub">2 diagram(s)</div>
+    <ul>
+    <li><span>Reading list · conceptual entities</span><span class="file">data/concept-entities.mmd</span><span class="file">— what the system remembers, in the user's language — no fields; the user reviews THIS</span></li>
+    <li><span>Reading list · storage ER</span><span class="file">data/er-storage.mmd</span><span class="file">— field-level, derived from contracts.yaml — implementation-facing</span></li>
+    </ul>
+  </div>
+<div class="dirbox"><h2>Prototypes &amp; pages</h2>
+     <ul class="proto-list"><li><a href="prototypes/save-bookmark/index.html" target="_blank" rel="noopener">prototypes/save-bookmark/index.html</a></li></ul></div>
+<footer>generated 2026-08-25T19:06:35.388Z · mermaid v11.16.1</footer>
+</main>
+</div>
+<script>window.__CK = { cdn: "https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.esm.min.mjs" };</script>
+<script type="module">
+// ClarityKit preview client — embedded VERBATIM into generated pages by preview.mjs.
+// Browser-only (module script); guarded so importing it under Node is a no-op.
+// Syntax-checked by tests/test-preview-js.mjs via `node --check`.
+//
+// Responsibilities: theme management (re-render, not CSS filters), explicit mermaid
+// render queue with per-card error fallbacks, per-card SVG pan/zoom, drag-to-resize
+// bottom bar, editable source with live re-render (temporary, refresh reverts),
+// source copy, sidebar nav.
+//
+// Known-good choices (do not regress):
+//   - ZOOM VIA width/height ATTRIBUTES, never CSS transform scale: mermaid nodes
+//     carry CSS drop-shadow filters, and browsers rasterize filtered subtrees at
+//     layout size — CSS-scaled diagrams blur no matter what. Setting the svg's
+//     width/height (viewBox unchanged) forces a crisp vector re-render at any size.
+//   - MEASURE VIA viewBox (normalized if missing): getBBox() on the root svg lies
+//     for several diagram types (mindmap, quadrantChart) — fits came out small and
+//     off-center.
+//   - THEME SWITCHING re-renders all diagrams and RESTORES each card's transform
+//     (initialize alone cannot restyle existing SVGs; a naive re-render would throw
+//     away the user's zoom/pan).
+if (typeof document === 'undefined') {
+  // Not a browser — nothing to do (this file is data when embedded).
+} else {
+
+const CK = window.__CK ?? { cdn: '' };
+const $ = (sel, el = document) => el.querySelector(sel);
+const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+
+// ---------- theme palettes (mermaid 'base' themeVariables) ----------
+const PALETTES = {
+  light: {
+    background: '#ffffff',
+    primaryColor: '#e5ebff', primaryBorderColor: '#7186f0', primaryTextColor: '#1d2433',
+    secondaryColor: '#dcf2e9', secondaryBorderColor: '#3fa184', secondaryTextColor: '#173129',
+    tertiaryColor: '#fbeecd', tertiaryBorderColor: '#d2a53c', tertiaryTextColor: '#3a2f14',
+    lineColor: '#7e87a0', textColor: '#252c3d', mainBkg: '#e5ebff', edgeLabelBackground: '#ffffff',
+    nodeBorder: '#7186f0', nodeTextColor: '#1d2433',
+    clusterBkg: '#f2f4fb', clusterBorder: '#c2c9e0', titleColor: '#252c3d',
+    actorBkg: '#e5ebff', actorBorder: '#7186f0', actorTextColor: '#1d2433',
+    actorLineColor: '#b4bccf', signalColor: '#3c4458', signalTextColor: '#3c4458',
+    noteBkgColor: '#fbeecd', noteBorderColor: '#d2a53c', noteTextColor: '#3a2f14',
+    activationBkgColor: '#dcf2e9', activationBorderColor: '#3fa184',
+    labelBoxBkgColor: '#f6d8de', labelBoxBorderColor: '#c25b6c', labelTextColor: '#3c1a21',
+    loopTextColor: '#3c4458',
+    rowOdd: '#f6f8ff', rowEven: '#edf1fc',
+  },
+  dark: {
+    background: '#10151f',
+    primaryColor: '#1e2a47', primaryBorderColor: '#6b86e8', primaryTextColor: '#dfe5f7',
+    secondaryColor: '#173830', secondaryBorderColor: '#3fa184', secondaryTextColor: '#cdeee1',
+    tertiaryColor: '#3a3018', tertiaryBorderColor: '#c79a37', tertiaryTextColor: '#f2e5c4',
+    lineColor: '#828dae', textColor: '#d3daeb', mainBkg: '#1e2a47', edgeLabelBackground: '#10151f',
+    nodeBorder: '#6b86e8', nodeTextColor: '#dfe5f7',
+    clusterBkg: '#161d2d', clusterBorder: '#2d3a57', titleColor: '#d3daeb',
+    actorBkg: '#1e2a47', actorBorder: '#6b86e8', actorTextColor: '#dfe5f7',
+    actorLineColor: '#454f68', signalColor: '#b7c0d6', signalTextColor: '#b7c0d6',
+    noteBkgColor: '#3a3018', noteBorderColor: '#c79a37', noteTextColor: '#f2e5c4',
+    activationBkgColor: '#173830', activationBorderColor: '#3fa184',
+    labelBoxBkgColor: '#3d2230', labelBoxBorderColor: '#c25b6c', labelTextColor: '#f2d4dc',
+    loopTextColor: '#b7c0d6',
+    rowOdd: '#182034', rowEven: '#1c2540',
+  },
+};
+
+// ---------- theme ----------
+const themeBtn = $('#theme-toggle');
+function storedTheme() {
+  try {
+    const t = localStorage.getItem('ck-theme');
+    if (t === 'light' || t === 'dark') return t;
+  } catch {}
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+let currentTheme = storedTheme();
+
+// ---------- cards ----------
+// A `.ck-card` without a `.ck-src` (e.g. the static "generated machine views"
+// link card) is not a diagram card — skip it. This must be null-safe: a crash
+// here runs at module top level and kills the WHOLE client (no theme button,
+// no renders) — that regression shipped once; the DOM test covers it.
+const cards = $$('.ck-card').map((el, i) => {
+  const srcEl = $('.ck-src', el);
+  return {
+    el,
+    renderId: `ck-mmd-${i}`,
+    renderSeq: 0,        // fresh id per render (see renderCard)
+    original: srcEl?.value ?? srcEl?.textContent ?? '',
+    target: $('.ck-stage', el),
+    viewportEl: $('.ck-viewport', el),
+    zoomPct: $('.ck-zoom-pct', el),
+    errorBox: $('.ck-error', el),
+    details: $('.ck-source', el),
+    srcEl,
+    vp: null,
+    base: null,         // { w, h } intrinsic content size (viewBox), set after render
+    renderedOnce: false,
+    userHeight: null,   // set when the user drags the resize bar
+    fsPrev: null,       // transform to restore when leaving fullscreen
+    editTimer: null,
+  };
+}).filter((c) => c.srcEl);
+const cardByEl = new Map(cards.map((c) => [c.el, c]));
+const codeOf = (card) => (card.srcEl?.value ?? card.original);
+
+// ---------- pan/zoom viewport ----------
+const MIN_SCALE = 0.15, MAX_SCALE = 10;
+// Small diagrams upscale to fill the viewport (capped so text stays sane); large
+// ones scale down. Insets keep content clear of the floating controls (top) and
+// the resize/hint bar (bottom).
+const FIT_MAX = 2.2;
+const INSET_TOP = 48, INSET_BOTTOM = 34, INSET_SIDE = 16;
+
+function makeViewport(rootEl, card) {
+  const stage = $('.ck-stage', rootEl);
+  const svgEl = () => $('svg', stage);
+  const state = { scale: 1, tx: 0, ty: 0 };
+  const clamp = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+  const apply = () => {
+    const svg = svgEl();
+    if (svg && card.base) {
+      // zoom by attribute — a true vector re-render at the new size, never blurry
+      svg.setAttribute('width', String(card.base.w * state.scale));
+      svg.setAttribute('height', String(card.base.h * state.scale));
+    }
+    stage.style.transform = `translate(${state.tx}px, ${state.ty}px)`;
+    if (card.zoomPct) card.zoomPct.textContent = `${Math.round(state.scale * 100)}%`;
+  };
+
+  const fit = () => {
+    if (!card.base) return;
+    const availW = rootEl.clientWidth - INSET_SIDE * 2;
+    const availH = rootEl.clientHeight - INSET_TOP - INSET_BOTTOM;
+    state.scale = clamp(Math.min(availW / card.base.w, availH / card.base.h, FIT_MAX));
+    const dw = card.base.w * state.scale, dh = card.base.h * state.scale;
+    state.tx = (rootEl.clientWidth - dw) / 2;
+    state.ty = INSET_TOP + (availH - dh) / 2;
+    apply();
+  };
+  const zoomAt = (px, py, factor) => {
+    const ns = clamp(state.scale * factor);
+    const k = ns / state.scale;
+    state.tx = px - k * (px - state.tx);
+    state.ty = py - k * (py - state.ty);
+    state.scale = ns;
+    apply();
+  };
+  const center = () => ({ x: rootEl.clientWidth / 2, y: rootEl.clientHeight / 2 });
+
+  rootEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const r = rootEl.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.00125));
+  }, { passive: false });
+
+  // pointer drag + pinch (Pointer Events unify mouse/touch)
+  const pointers = new Map();
+  let lastPinch = null;
+  rootEl.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.ck-vp-controls') || e.target.closest('.ck-resizer')) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    rootEl.setPointerCapture(e.pointerId);
+    rootEl.classList.add('dragging');
+  });
+  rootEl.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    const prev = pointers.get(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) {
+      state.tx += e.clientX - prev.x;
+      state.ty += e.clientY - prev.y;
+      apply();
+    } else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (lastPinch) {
+        const r = rootEl.getBoundingClientRect();
+        zoomAt(mid.x - r.left, mid.y - r.top, dist / lastPinch);
+      }
+      lastPinch = dist;
+    }
+  });
+  const releasePointer = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) lastPinch = null;
+    if (!pointers.size) rootEl.classList.remove('dragging');
+  };
+  rootEl.addEventListener('pointerup', releasePointer);
+  rootEl.addEventListener('pointercancel', releasePointer);
+
+  rootEl.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.ck-vp-controls') || e.target.closest('.ck-resizer')) return;
+    fit();
+  });
+
+  const controls = $('.ck-vp-controls', rootEl);
+  if (controls) {
+    $('.ck-zin', controls)?.addEventListener('click', () => { const c = center(); zoomAt(c.x, c.y, 1.25); });
+    $('.ck-zout', controls)?.addEventListener('click', () => { const c = center(); zoomAt(c.x, c.y, 1 / 1.25); });
+    $('.ck-zfit', controls)?.addEventListener('click', fit);
+    $('.ck-full', controls)?.addEventListener('click', () => toggleFullscreen(card));
+  }
+
+  // bottom bar: hint text that doubles as the drag-to-resize handle
+  const resizer = $('.ck-resizer', rootEl);
+  if (resizer) {
+    resizer.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      resizer.setPointerCapture(e.pointerId);
+      const startH = rootEl.clientHeight;
+      const startY = e.clientY;
+      const move = (ev) => {
+        const h = Math.min(Math.max(startH + (ev.clientY - startY), 220), Math.round(window.innerHeight * 0.92));
+        card.userHeight = h;
+        rootEl.style.height = `${h}px`;
+      };
+      const up = () => {
+        resizer.removeEventListener('pointermove', move);
+        resizer.removeEventListener('pointerup', up);
+      };
+      resizer.addEventListener('pointermove', move);
+      resizer.addEventListener('pointerup', up);
+    });
+  }
+
+  return { fit, apply, state };
+}
+
+function toggleFullscreen(card) {
+  const vp = card.viewportEl;
+  const on = !vp.classList.contains('fullscreen');
+  if (on) {
+    card.fsPrev = { ...card.vp.state };
+    vp.classList.add('fullscreen');
+    card.vp.fit();
+  } else {
+    vp.classList.remove('fullscreen');
+    if (card.fsPrev) { Object.assign(card.vp.state, card.fsPrev); card.vp.apply(); }
+    else card.vp.fit();
+  }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const vp = $('.ck-viewport.fullscreen');
+  if (vp) {
+    const card = cards.find((c) => c.viewportEl === vp);
+    if (card) toggleFullscreen(card);
+  }
+});
+
+cards.forEach((c) => { c.vp = makeViewport(c.viewportEl, c); });
+
+// ---------- render ----------
+let mermaidMod = null;
+async function ensureMermaid() {
+  if (!mermaidMod) mermaidMod = CK.mermaid ?? (await import(CK.cdn)).default;
+  return mermaidMod;
+}
+function setError(card, err) {
+  if (!err) {
+    card.errorBox.hidden = true;
+    card.errorBox.textContent = '';
+    return;
+  }
+  card.errorBox.hidden = false;
+  card.errorBox.textContent = String(err?.message ?? err).split('\n').slice(0, 6).join('\n');
+  if (card.details) card.details.open = true;
+}
+// Normalize the freshly rendered svg: ensure a viewBox (getBBox lies for several
+// diagram types — mindmap, quadrantChart — so fit/sizing uses the viewBox), record
+// intrinsic size, clear mermaid's sizing styles.
+function adoptSvg(card) {
+  const svg = $('svg', card.target);
+  if (!svg) return null;
+  let vb = svg.viewBox?.baseVal;
+  if (!vb || !vb.width || !vb.height) {
+    const w = parseFloat(svg.getAttribute('width')) || 800;
+    const h = parseFloat(svg.getAttribute('height')) || 600;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    vb = svg.viewBox?.baseVal;
+    if (!vb || !vb.width || !vb.height) {
+      // no viewBox API (or empty): parse the attribute string directly
+      const parts = (svg.getAttribute('viewBox') ?? '0 0 800 600').split(/[\s,]+/).map(Number);
+      card.base = { w: parts[2] || 800, h: parts[3] || 600 };
+      svg.removeAttribute('style');
+      svg.style.maxWidth = 'none';
+      return svg;
+    }
+  }
+  svg.removeAttribute('style');
+  svg.style.maxWidth = 'none';
+  card.base = { w: vb.width, h: vb.height };
+  return svg;
+}
+// Viewport height follows the diagram (clamped); a user-set height always wins.
+function sizeViewport(card) {
+  if (card.userHeight) { card.viewportEl.style.height = `${card.userHeight}px`; return; }
+  if (!card.base) return;
+  const availW = card.viewportEl.clientWidth - INSET_SIDE * 2;
+  const s0 = Math.min(availW / card.base.w, FIT_MAX);
+  const h = Math.min(Math.max(card.base.h * s0 + INSET_TOP + INSET_BOTTOM, 300), Math.round(window.innerHeight * 0.7));
+  card.viewportEl.style.height = `${h}px`;
+}
+async function renderCard(card, m, theme, { keepTransform = false } = {}) {
+  const keep = keepTransform && card.renderedOnce && card.vp ? { ...card.vp.state } : null;
+  try {
+    // fresh id per render: mermaid's cleanup of a previous svg with the SAME id
+    // (already inserted into our DOM) is fragile across versions — never reuse ids
+    const { svg } = await m.render(`${card.renderId}-r${++card.renderSeq}`, codeOf(card));
+    card.target.innerHTML = svg;
+    setError(card, null);
+    adoptSvg(card);
+    sizeViewport(card);
+    if (keep) { Object.assign(card.vp.state, keep); card.vp.apply(); }
+    else card.vp.fit();
+    card.renderedOnce = true;
+  } catch (err) {
+    card.target.innerHTML = '';
+    setError(card, err);
+  }
+}
+async function renderAll(theme) {
+  const m = await ensureMermaid();
+  m.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: 'base',
+    themeVariables: PALETTES[theme],
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+    fontSize: 14,
+    htmlLabels: false,
+    flowchart: { useMaxWidth: false },
+    class: { useMaxWidth: false },
+    state: { useMaxWidth: false },
+    sequence: { useMaxWidth: false },
+    er: { useMaxWidth: false },
+    journey: { useMaxWidth: false },
+    mindmap: { useMaxWidth: false },
+    quadrantChart: { useMaxWidth: false },
+  });
+  for (const card of cards) await renderCard(card, m, theme, { keepTransform: true });
+}
+
+// ---------- theme application ----------
+const glyph = () => (currentTheme === 'dark' ? '☀' : '☾');
+async function applyTheme(theme, { rerender = true } = {}) {
+  currentTheme = theme;
+  document.documentElement.dataset.theme = theme;
+  if (themeBtn) themeBtn.textContent = glyph();
+  try { localStorage.setItem('ck-theme', theme); } catch {}
+  if (rerender && cards.length) await renderAll(theme);
+}
+themeBtn?.addEventListener('click', () => {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+});
+
+// ---------- editable source: live re-render (temporary — refresh reverts) ----------
+// Event delegation: one document-level dispatcher, immune to per-element wiring
+// order — buttons work no matter when/where they were created.
+async function reInitMermaid(m) {
+  m.initialize({
+    startOnLoad: false, securityLevel: 'strict', theme: 'base',
+    themeVariables: PALETTES[currentTheme],
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+    fontSize: 14,
+    htmlLabels: false,
+    flowchart: { useMaxWidth: false },
+    class: { useMaxWidth: false },
+    state: { useMaxWidth: false },
+    sequence: { useMaxWidth: false },
+    er: { useMaxWidth: false },
+    journey: { useMaxWidth: false },
+    mindmap: { useMaxWidth: false },
+    quadrantChart: { useMaxWidth: false },
+  });
+  return m;
+}
+document.addEventListener('input', (e) => {
+  const ta = e.target;
+  if (!ta.classList?.contains('ck-src') || ta.tagName !== 'TEXTAREA') return;
+  const card = cards.find((c) => c.srcEl === ta);
+  if (!card) return;
+  clearTimeout(card.editTimer);
+  card.editTimer = setTimeout(async () => {
+    try {
+      const m = await reInitMermaid(await ensureMermaid());
+      await renderCard(card, m, currentTheme); // content changed size → refit
+    } catch (err) { setError(card, err); }
+  }, 600);
+});
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest?.('.ck-revert, .ck-copy');
+  if (!btn) return;
+  const cardEl = btn.closest('.ck-card');
+  const card = cardByEl.get(cardEl);
+  if (!card) return;
+  try {
+    if (btn.classList.contains('ck-revert')) {
+      card.srcEl.value = card.original;
+      const m = await reInitMermaid(await ensureMermaid());
+      await renderCard(card, m, currentTheme);
+    } else {
+      try {
+        await navigator.clipboard.writeText(codeOf(card));
+        btn.textContent = 'copied';
+      } catch {
+        btn.textContent = 'copy failed';
+      }
+      setTimeout(() => { btn.textContent = 'copy source'; }, 1200);
+    }
+  } catch (err) { setError(card, err); }
+});
+
+// ---------- sidebar active-section highlight ----------
+const navLinks = $$('.ck-nav a[href^="#"]');
+if ('IntersectionObserver' in window && navLinks.length) {
+  const byId = new Map(navLinks.map((a) => [a.getAttribute('href').slice(1), a]));
+  const obs = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      if (en.isIntersecting) {
+        navLinks.forEach((a) => a.classList.remove('active'));
+        byId.get(en.target.id)?.classList.add('active');
+      }
+    }
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  cards.forEach((c) => obs.observe(c.el));
+}
+
+// ---------- boot ----------
+document.documentElement.dataset.theme = currentTheme;
+if (themeBtn) themeBtn.textContent = glyph();
+if (cards.length) renderAll(currentTheme).catch((err) => {
+  document.body.insertAdjacentHTML('afterbegin',
+    `<div class="ck-boot-error">mermaid failed to load from ${CK.cdn} — ${String(err?.message ?? err)}</div>`);
+});
+
+}
+
+</script>
+</body>
+</html>

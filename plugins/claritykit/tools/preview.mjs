@@ -1,0 +1,534 @@
+#!/usr/bin/env node
+// preview.mjs [root]
+// Build (or update) an accumulating ClarityKit preview site under <root>:
+//   - every directory containing Mermaid diagrams (.mmd files or ```mermaid blocks
+//     in .md files) gets its own clarity-preview.html page for ITS diagrams
+//   - other .html files (e.g. UI prototypes) are linked from the index
+//   - <root>/index.html lists everything, newest first — re-runs add/update pages,
+//     nothing disappears between reviews
+//   - when <root>/flow.yaml exists, the index shows flow progress chips
+//
+// Pages are single self-contained HTML files with a shared inline client
+// (tools/lib/client-src.mjs, embedded verbatim): light/dark themes (diagrams
+// RE-RENDERED per theme via mermaid 'base' themeVariables), curated colors,
+// per-diagram SVG pan/zoom, collapsible source with copy, render-error boxes.
+//
+// Diagram metadata: `%% title:` / `%% caption:` / `%% group:` directives inside
+// the diagram source (stripped before render); for md blocks without a title,
+// the nearest preceding markdown heading is used.
+// Server lifecycle is NOT this tool's job — see tools/server.mjs.
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import YAML from 'yaml';
+import { FLOW_STEPS, FLOW_ORDERS } from './lib/flow.mjs';
+
+const args = process.argv.slice(2);
+const root = path.resolve(args.find((a) => !a.startsWith('--')) ?? '.');
+if (args.includes('--serve')) {
+  console.error('preview.mjs no longer serves; use `node tools/server.mjs start <root>`');
+  process.exit(2);
+}
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const PAGE_NAME = 'clarity-preview.html';
+const INDEX_NAME = 'index.html';
+// Every file this tool generates carries this marker in its first line. It powers
+// self-healing: marked files not regenerated in the current run are stale fragments
+// (e.g. from a previous wrong-root invocation) and are deleted; marked files are
+// never mistaken for prototypes.
+const MARKER = '<!-- clarity-generated -->';
+const isGenerated = (p) => {
+  if (path.basename(p) === PAGE_NAME) return true; // ours by name convention (covers pre-marker runs)
+  try { return fs.readFileSync(p, 'utf8').slice(0, 200).includes(MARKER); }
+  catch { return false; }
+};
+
+// Pin the CDN mermaid version to the locally installed one (tools/package.json),
+// so preview rendering matches what tools/check.mjs validates.
+let mermaidVersion = '11';
+try {
+  mermaidVersion = JSON.parse(fs.readFileSync(path.join(HERE, 'node_modules/mermaid/package.json'), 'utf8')).version;
+} catch { /* fall back to major pin */ }
+const CDN = `https://cdn.jsdelivr.net/npm/mermaid@${mermaidVersion}/dist/mermaid.esm.min.mjs`;
+
+const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next']);
+
+function* walk(d) {
+  for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+    if (SKIP.has(entry.name)) continue;
+    const p = path.join(d, entry.name);
+    if (entry.isDirectory()) yield* walk(p);
+    else yield p;
+  }
+}
+
+const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const rel = (p) => path.relative(root, p);
+
+// Extract %% directives (title/caption/group) from mermaid source; returns
+// { meta, code } with directive lines stripped from the code.
+function extractMeta(code) {
+  const meta = {};
+  const kept = [];
+  for (const line of code.split('\n')) {
+    const m = line.match(/^\s*%%\s*(title|caption|group)\s*:\s*(.+?)\s*$/);
+    if (m) meta[m[1]] = m[2];
+    else kept.push(line);
+  }
+  return { meta, code: kept.join('\n').trim() };
+}
+
+// Nearest preceding markdown heading above character offset `pos` in `text`.
+function nearestHeading(text, pos) {
+  const before = text.slice(0, pos);
+  const headings = [...before.matchAll(/^#{1,6}\s+(.+?)\s*$/gm)];
+  return headings.length ? headings[headings.length - 1][1] : null;
+}
+
+// --- flow chips + ordering (index, when <root>/flow.yaml exists) ---
+// Returns { chips, order } — chips for the topbar, order = flow-step ids arranged
+// per the chosen middle order (drives page/bucket ordering on the index).
+function readFlow() {
+  const file = path.join(root, 'flow.yaml');
+  if (!fs.existsSync(file)) return null;
+  try {
+    const doc = YAML.parse(fs.readFileSync(file, 'utf8'));
+    const steps = doc?.steps;
+    if (!steps) return null;
+    // single source of truth: the step table lives in lib/flow.mjs (ui before
+    // commission, middle order per flow.order) — never hardcode it here again
+    const arranged = FLOW_ORDERS[doc?.flow?.order] ?? FLOW_STEPS;
+    return {
+      chips: arranged.filter((id) => steps[id]).map((id) => ({ id, status: steps[id].status ?? 'pending', note: steps[id].note ?? '' })),
+      order: arranged,
+    };
+  } catch { return null; }
+}
+
+// --- collect ---
+// byDir: dirAbs -> [{ title, caption, group, code, src, mtime }]
+const byDir = new Map();
+const prototypes = []; // html files not generated by us
+for (const p of walk(root)) {
+  const push = (entry) => {
+    const list = byDir.get(path.dirname(p)) ?? [];
+    list.push(entry);
+    byDir.set(path.dirname(p), list);
+  };
+  if (p.endsWith('.mmd')) {
+    const raw = fs.readFileSync(p, 'utf8');
+    const { meta, code } = extractMeta(raw);
+    push({
+      title: meta.title ?? path.basename(p, '.mmd'),
+      caption: meta.caption ?? null,
+      group: meta.group ?? null,
+      code, src: rel(p), mtime: fs.statSync(p).mtimeMs,
+    });
+  } else if (p.endsWith('.md')) {
+    const text = fs.readFileSync(p, 'utf8');
+    const re = /```mermaid\s*\n([\s\S]*?)```/g;
+    let m, i = 0;
+    while ((m = re.exec(text))) {
+      i++;
+      const { meta, code } = extractMeta(m[1].trim());
+      push({
+        title: meta.title ?? nearestHeading(text, m.index) ?? `${path.basename(p, '.md')} · diagram ${i}`,
+        caption: meta.caption ?? null,
+        group: meta.group ?? null,
+        code, src: rel(p), mtime: fs.statSync(p).mtimeMs,
+      });
+    }
+  } else if (p.endsWith('.html') && !isGenerated(p)) {
+    prototypes.push(p);
+  }
+}
+
+// --- shared shell ---
+const clientSrc = fs.readFileSync(path.join(HERE, 'lib', 'client-src.mjs'), 'utf8');
+const CSS = `
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f9; --card: #ffffff; --border: #e3e6ee; --text: #20263a; --muted: #6b7386;
+    --accent: #4656d8; --chip-done-bg: #dcf2e6; --chip-done-tx: #14683c;
+    --chip-active-bg: #fbeacb; --chip-active-tx: #8f5a08;
+    --chip-pending-bg: #eceef4; --chip-pending-tx: #5c6478;
+    --chip-skipped-bg: #f9e0e3; --chip-skipped-tx: #a02a3c;
+    --chip-given-bg: #dde8fd; --chip-given-tx: #274fa8;
+    --vp-bg: #fbfcfe; --shadow: 0 1px 2px rgba(22,28,45,.06);
+  }
+  html[data-theme="dark"] {
+    --bg: #0c1017; --card: #141a26; --border: #262e40; --text: #d7dcea; --muted: #8b94ab;
+    --accent: #8fa1ff; --chip-done-bg: #173427; --chip-done-tx: #6fd6a2;
+    --chip-active-bg: #3a2f14; --chip-active-tx: #e7bb62;
+    --chip-pending-bg: #1d2434; --chip-pending-tx: #8b94ab;
+    --chip-skipped-bg: #3d2230; --chip-skipped-tx: #ef9db0;
+    --chip-given-bg: #1c2a4d; --chip-given-tx: #9db6f5;
+    --vp-bg: #10151f; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.55; }
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px;
+            padding: 10px 20px; background: color-mix(in srgb, var(--card) 88%, transparent);
+            backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  .topbar .brand { font-weight: 650; font-size: 14.5px; letter-spacing: .01em; }
+  .topbar .crumb { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar .spacer { flex: 1; }
+  .flowbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chip { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+  .chip.done { background: var(--chip-done-bg); color: var(--chip-done-tx); }
+  .chip.active { background: var(--chip-active-bg); color: var(--chip-active-tx); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--chip-active-tx) 45%, transparent); }
+  .chip.pending { background: var(--chip-pending-bg); color: var(--chip-pending-tx); }
+  .chip.skipped { background: var(--chip-skipped-bg); color: var(--chip-skipped-tx); }
+  .chip.given { background: var(--chip-given-bg); color: var(--chip-given-tx); }
+  .theme-btn { border: 1px solid var(--border); background: var(--card); color: var(--text);
+               border-radius: 8px; width: 32px; height: 32px; font-size: 15px; cursor: pointer; flex-shrink: 0; }
+  .theme-btn:hover { border-color: var(--accent); }
+  .layout { display: flex; min-height: calc(100vh - 53px); }
+  aside.nav { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px 12px;
+              position: sticky; top: 53px; height: calc(100vh - 53px); overflow: auto; }
+  aside.nav h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 8px 6px; }
+  aside.nav a { display: block; padding: 6px 8px; border-radius: 7px; color: var(--text);
+                text-decoration: none; font-size: 13px; border-left: 2px solid transparent; }
+  aside.nav a:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  aside.nav a.active { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+  aside.nav .sub { color: var(--muted); font-size: 11px; display: block; }
+  aside.nav a.back { color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+  .topbar .crumb a { color: var(--muted); text-decoration: none; }
+  .topbar .crumb a:hover { color: var(--accent); }
+  main.content { flex: 1; padding: 26px 30px 70px; max-width: 1160px; margin: 0 auto; min-width: 0; }
+  .ck-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+             margin-bottom: 30px; box-shadow: var(--shadow); overflow: hidden;
+             scroll-margin-top: 70px; } /* anchor jumps land clear of the sticky topbar */
+  .ck-head { padding: 15px 20px 11px; display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .ck-head .titles { flex: 1; min-width: 220px; }
+  .ck-head h2 { margin: 0; font-size: 16.5px; }
+  .ck-head .caption { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+  .ck-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 999px; font-weight: 650;
+           background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .path { color: var(--muted); font-size: 11.5px; font-family: ui-monospace, monospace; }
+  .btn { font-size: 12px; padding: 4px 11px; border: 1px solid var(--border); border-radius: 7px;
+         background: var(--card); color: var(--text); cursor: pointer; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .ck-viewport { position: relative; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+                background: var(--vp-bg); height: 460px; overflow: hidden; touch-action: none;
+                user-select: none; -webkit-user-select: none; cursor: grab; }
+  .ck-viewport.dragging { cursor: grabbing; }
+  .ck-viewport.fullscreen { position: fixed; inset: 0; z-index: 100; height: 100vh !important;
+                            border-radius: 0; box-shadow: none; }
+  .ck-resizer { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; cursor: ns-resize; z-index: 6;
+                display: flex; align-items: center; justify-content: center; gap: 8px;
+                background: color-mix(in srgb, var(--card) 70%, transparent);
+                border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent); }
+  .ck-resizer .ck-grip { width: 44px; height: 3px; border-radius: 2px;
+                         background: color-mix(in srgb, var(--muted) 40%, transparent); }
+  .ck-resizer:hover .ck-grip, .ck-resizer:active .ck-grip { background: var(--accent); }
+  .ck-resizer .ck-hint { font-size: 10.5px; color: var(--muted); pointer-events: none; }
+  .ck-stage { transform-origin: 0 0; position: absolute; top: 0; left: 0; will-change: transform; }
+  .ck-stage svg { display: block; max-width: none !important; }
+  .ck-vp-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; align-items: center;
+                    background: color-mix(in srgb, var(--card) 92%, transparent); border: 1px solid var(--border);
+                    border-radius: 9px; padding: 3px 5px; box-shadow: var(--shadow); z-index: 5; }
+  .ck-vp-controls button { min-width: 27px; height: 27px; border: none; border-radius: 6px; background: transparent;
+                           color: var(--muted); font-size: 14px; cursor: pointer; }
+  .ck-vp-controls button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .ck-vp-controls button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .ck-zoom-pct { font-size: 11px; color: var(--muted); min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+  .ck-error { margin: 14px 20px; padding: 12px 14px; border-radius: 9px; font-size: 12.5px;
+              background: var(--chip-skipped-bg); color: var(--chip-skipped-tx);
+              border: 1px solid color-mix(in srgb, var(--chip-skipped-tx) 35%, transparent);
+              white-space: pre-wrap; font-family: ui-monospace, monospace; }
+  .ck-source { border-top: 0; }
+  .ck-source summary { cursor: pointer; padding: 10px 20px; font-size: 12.5px; color: var(--muted); user-select: none; }
+  .ck-source summary:hover { color: var(--accent); }
+  .ck-src-wrap { margin: 0 20px 6px; }
+  .ck-src { display: block; width: 100%; min-height: 120px; max-height: 46vh; padding: 14px 16px;
+            background: color-mix(in srgb, var(--text) 92%, black);
+            color: color-mix(in srgb, var(--bg) 85%, white); border: none; border-radius: 9px;
+            resize: vertical; outline: none;
+            font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; tab-size: 2; white-space: pre; }
+  .ck-src:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .ck-source .ck-actions { margin: 8px 20px 16px; display: flex; gap: 8px; align-items: center; }
+  .ck-source .ck-actions .note { color: var(--muted); font-size: 11.5px; }
+  .section-title { font-size: 14px; color: var(--muted); font-weight: 600; margin: 26px 0 4px; }
+  .dirbox { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; margin-bottom: 22px; box-shadow: var(--shadow); }
+  .dirbox h2 { margin: 0 0 4px; font-size: 16px; }
+  .dirbox h2 a { color: var(--text); text-decoration: none; }
+  .dirbox h2 a:hover { color: var(--accent); }
+  .dirbox .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .dirbox ul { margin: 0; padding: 0; list-style: none; }
+  .dirbox li { padding: 4px 0; font-size: 13.5px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .dirbox li .file { color: var(--muted); font-size: 11.5px; font-family: ui-monospace, monospace; }
+  .proto-list li a { color: var(--accent); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 18px; }
+  .ck-boot-error { margin: 14px; padding: 10px 14px; border-radius: 9px; background: var(--chip-skipped-bg); color: var(--chip-skipped-tx); font-size: 13px; }
+  @media (max-width: 880px) { aside.nav { display: none; } main.content { padding: 18px 14px 60px; } }
+`;
+
+function shell({ title, crumb, flow, navHtml, mainHtml, extraFooter = '' }) {
+  const flowHtml = flow
+    ? `<div class="flowbar" title="${escapeHtml(flow.map((s) => `${s.id}: ${s.status}${s.note ? ` — ${s.note}` : ''}`).join('\n'))}">${
+        flow.map((s) => `<span class="chip ${escapeHtml(s.status)}">${escapeHtml(s.id)} · ${escapeHtml(s.status)}</span>`).join('')
+      }</div>`
+    : '';
+  return `${MARKER}
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(title)}</title>
+<style>${CSS}</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">ClarityKit</span>
+  <span class="crumb">${escapeHtml(crumb)}</span>
+  <span class="spacer"></span>
+  ${flowHtml}
+  <button id="theme-toggle" class="theme-btn" title="toggle light / dark theme">☾</button>
+</div>
+<div class="layout">
+${navHtml ? `<aside class="nav">${navHtml}</aside>` : ''}
+<main class="content">
+${mainHtml}
+${extraFooter ? `<footer>${escapeHtml(extraFooter)}</footer>` : ''}
+</main>
+</div>
+<script>window.__CK = { cdn: ${JSON.stringify(CDN)} };</script>
+<script type="module">
+${clientSrc}
+</script>
+</body>
+</html>`;
+}
+
+// --- diagram card ---
+const card = (d, i) => `
+<article class="ck-card" id="d${i}">
+  <div class="ck-head">
+    <div class="titles">
+      <h2>${escapeHtml(d.title)}</h2>
+      ${d.caption ? `<p class="caption">${escapeHtml(d.caption)}</p>` : ''}
+    </div>
+    <div class="ck-meta">
+      ${d.group ? `<span class="badge">${escapeHtml(d.group)}</span>` : ''}
+      <span class="path">${escapeHtml(d.src)}</span>
+      <button class="btn ck-copy" data-card="${i}">copy source</button>
+    </div>
+  </div>
+  <div class="ck-viewport">
+    <div class="ck-stage"></div>
+    <div class="ck-vp-controls">
+      <button class="ck-zout" title="zoom out">−</button>
+      <span class="ck-zoom-pct">100%</span>
+      <button class="ck-zin" title="zoom in">+</button>
+      <button class="ck-zfit" title="fit to view">⌂</button>
+      <button class="ck-full" title="fullscreen (Esc to exit)">⤢</button>
+    </div>
+    <div class="ck-error" hidden></div>
+    <div class="ck-resizer" title="drag to resize the view">
+      <span class="ck-grip"></span>
+      <span class="ck-hint">wheel: zoom · drag: pan · double-click: reset · drag this bar: resize</span>
+    </div>
+  </div>
+  <details class="ck-source">
+    <summary>mermaid source — editable (live re-render, temporary)</summary>
+    <div class="ck-src-wrap">
+      <textarea class="ck-src" spellcheck="false" data-card="${i}">${escapeHtml(d.code)}</textarea>
+    </div>
+    <div class="ck-actions">
+      <button class="btn ck-revert" data-card="${i}">revert edits</button>
+      <span class="note">edits render live and disappear on refresh — the source files are unchanged</span>
+    </div>
+  </details>
+</article>`;
+
+// Group diagrams: insertion order of first appearance of each group; ungrouped last.
+function groupDiagrams(diagrams) {
+  const groups = new Map();
+  const ungrouped = [];
+  for (const d of diagrams) {
+    if (d.group) {
+      if (!groups.has(d.group)) groups.set(d.group, []);
+      groups.get(d.group).push(d);
+    } else ungrouped.push(d);
+  }
+  if (ungrouped.length) groups.set('', ungrouped);
+  return groups;
+}
+
+// --- page ordering: flow order first (behavior vs architecture per flow.yaml),
+//     then fixed tails, then unknown dirs by recency. behaviors/* pages merge into
+//     one section on the index. ---
+const flow = readFlow();
+const STEP_TO_BUCKET = { direction: 'direction', requirements: 'requirements', behavior: 'behaviors', architecture: 'architecture', data: 'data' };
+const bucketOf = (relDir) => {
+  const first = relDir.split(path.sep)[0] === 'features' || relDir.split(path.sep)[0] === 'behaviors'
+    ? 'behaviors' : relDir.split(path.sep)[0];
+  return first;
+};
+const orderedBuckets = [
+  ...(flow?.order ?? FLOW_STEPS)
+    .map((s) => STEP_TO_BUCKET[s]).filter(Boolean),
+  'prototypes', 'acceptance',
+];
+const sectionOf = (p) => {
+  const b = bucketOf(p.dir);
+  const idx = orderedBuckets.indexOf(b);
+  return idx === -1 ? orderedBuckets.length : idx; // unknown dirs sort after known
+};
+
+// --- generated-diagrams/ sub-pages: machine views nest under their parent module.
+// They get their own page (two-step navigation from the module page) but never
+// their own index/nav card — a module and its generated views are not two modules.
+// Orphan generated-diagrams dirs (no parent page) stay standalone as a fallback.
+const GEN_DIR = 'generated-diagrams';
+const genSubs = new Map(); // parentDirAbs -> { dirAbs, diagrams }
+for (const dirAbs of [...byDir.keys()]) {
+  if (path.basename(dirAbs) !== GEN_DIR) continue;
+  const parent = path.dirname(dirAbs);
+  if (!byDir.has(parent)) continue;
+  genSubs.set(parent, { dirAbs, diagrams: byDir.get(dirAbs) });
+  byDir.delete(dirAbs);
+}
+
+// --- per-directory pages ---
+const generated = new Set(); // absolute paths we write this run — for stale-fragment cleanup
+const pages = [];
+let globalIdx = 0;
+// Card anchor ids come from globalIdx (cumulative across pages), but groups
+// reorder diagrams — so record the actual id per diagram entry and use it for
+// the nav hrefs. Deriving hrefs from a per-directory index breaks every page
+// after the first (href #d1 pointing at nothing — URL changes, no scroll).
+const navIdOf = new WeakMap();
+const renderCards = (diagrams) => {
+  const groups = groupDiagrams(diagrams);
+  return [...groups.entries()].map(([group, list]) => {
+    const secs = list.map((d) => {
+      const i = globalIdx++;
+      navIdOf.set(d, `d${i}`);
+      return card(d, i);
+    }).join('\n');
+    return group
+      ? `<h3 class="section-title">◆ ${escapeHtml(group)}</h3>\n${secs}`
+      : secs;
+  }).join('\n');
+};
+for (const [dirAbs, diagrams] of byDir) {
+  const relDir = rel(dirAbs) || '.';
+  const cards = renderCards(diagrams);
+  const gen = genSubs.get(dirAbs);
+  const genHref = gen ? path.join(path.basename(gen.dirAbs), PAGE_NAME) : null;
+  const genCard = gen ? `\n<article class="ck-card">
+  <div class="ck-head">
+    <div class="titles"><h2>generated machine views</h2>
+    <p class="caption">mechanical renders of behavior.yaml — completeness baseline + derivation view; never hand-edit</p></div>
+    <div class="ck-meta"><a class="btn" href="${escapeHtml(genHref)}">open ${gen.diagrams.length} machine view(s) →</a></div>
+  </div>
+</article>` : '';
+  const backHref = path.relative(dirAbs, path.join(root, INDEX_NAME));
+  const navHtml = `<a class="back" href="${escapeHtml(backHref)}">← all previews</a>
+<h3>diagrams</h3>
+${diagrams
+    .map((d) => `<a href="#${navIdOf.get(d)}">${escapeHtml(d.title)}${d.group ? `<span class="sub">${escapeHtml(d.group)}</span>` : `<span class="sub">${escapeHtml(d.src)}</span>`}</a>`)
+    .join('\n')}${gen ? `\n<h3>generated</h3>\n<a href="${escapeHtml(genHref)}">generated-diagrams<span class="sub">${gen.diagrams.length} machine view(s)</span></a>` : ''}`;
+  const html = shell({
+    title: `${relDir} — clarity preview`,
+    crumb: relDir,
+    flow: null, // flow chips live on the index (one place, no duplication)
+    navHtml,
+    mainHtml: cards + genCard,
+    extraFooter: `generated ${new Date().toISOString()} · mermaid v${mermaidVersion}`,
+  });
+  const pagePath = path.join(dirAbs, PAGE_NAME);
+  fs.writeFileSync(pagePath, html);
+  generated.add(pagePath);
+  pages.push({ dir: relDir, dirAbs, diagrams });
+}
+
+// --- the nested generated-diagrams pages themselves (reachable from the module
+//     page, never listed as standalone modules) ---
+for (const [parentAbs, gen] of genSubs) {
+  const relGen = rel(gen.dirAbs);
+  const cards = renderCards(gen.diagrams);
+  const backHref = path.relative(gen.dirAbs, path.join(parentAbs, PAGE_NAME));
+  const navHtml = `<a class="back" href="${escapeHtml(backHref)}">← ${escapeHtml(rel(parentAbs) || '.')}</a>
+<h3>machine views</h3>
+${gen.diagrams
+    .map((d) => `<a href="#${navIdOf.get(d)}">${escapeHtml(d.title)}<span class="sub">${escapeHtml(d.src)}</span></a>`)
+    .join('\n')}`;
+  const html = shell({
+    title: `${relGen} — clarity preview`,
+    crumb: `${rel(parentAbs) || '.'} · ${GEN_DIR}`,
+    flow: null,
+    navHtml,
+    mainHtml: cards,
+    extraFooter: `generated ${new Date().toISOString()} · mermaid v${mermaidVersion}`,
+  });
+  const pagePath = path.join(gen.dirAbs, PAGE_NAME);
+  fs.writeFileSync(pagePath, html);
+  generated.add(pagePath); // NOT pushed to `pages`: no index/nav card of its own
+}
+
+// --- index: sections in flow order; behaviors/* merge into one box ---
+pages.sort((a, b) => sectionOf(a) - sectionOf(b)
+  || Math.max(...b.diagrams.map((d) => d.mtime)) - Math.max(...a.diagrams.map((d) => d.mtime)));
+const sections = [];
+for (const p of pages) {
+  const last = sections[sections.length - 1];
+  if (last && last.bucket === bucketOf(p.dir)) last.pages.push(p);
+  else sections.push({ bucket: bucketOf(p.dir), pages: [p] });
+}
+const dirbox = (sec) => {
+  if (sec.bucket === 'behaviors') {
+    return `  <div class="dirbox">
+    <h2>behaviors</h2>
+    <div class="sub">${sec.pages.length} behavior module(s)</div>
+    <ul>
+    ${sec.pages.map((p) => `<li><a href="${escapeHtml(path.join(p.dir, PAGE_NAME))}">${escapeHtml(p.dir)}</a><span class="file">${p.diagrams.length} diagram(s)</span>${p.diagrams[0]?.group ? `<span class="badge">${escapeHtml(p.diagrams[0].group)}</span>` : ''}</li>`).join('\n    ')}
+    </ul>
+  </div>`;
+  }
+  return sec.pages.map((p) => `  <div class="dirbox">
+    <h2><a href="${escapeHtml(path.join(p.dir, PAGE_NAME))}">${escapeHtml(p.dir)}</a></h2>
+    <div class="sub">${p.diagrams.length} diagram(s)</div>
+    <ul>
+    ${p.diagrams.map((d) => `<li>${d.group ? `<span class="badge">${escapeHtml(d.group)}</span>` : ''}<span>${escapeHtml(d.title)}</span><span class="file">${escapeHtml(d.src)}</span>${d.caption ? `<span class="file">— ${escapeHtml(d.caption)}</span>` : ''}</li>`).join('\n    ')}
+    </ul>
+  </div>`).join('\n');
+};
+const protoSection = prototypes.length
+  ? `<div class="dirbox"><h2>Prototypes &amp; pages</h2>
+     <ul class="proto-list">${prototypes.map((p) => `<li><a href="${escapeHtml(rel(p))}" target="_blank" rel="noopener">${escapeHtml(rel(p))}</a></li>`).join('')}</ul></div>`
+  : '';
+const mainHtml = `${sections.map(dirbox).join('\n')}
+${protoSection}`;
+const navHtml = `${sections.map((sec) => `<h3>${escapeHtml(sec.bucket)}</h3>\n${sec.pages.map((p) => `<a href="${escapeHtml(path.join(p.dir, PAGE_NAME))}">${escapeHtml(p.dir)}<span class="sub">${p.diagrams.length} diagram(s)</span></a>`).join('\n')}`).join('\n')}${prototypes.length ? `<h3>prototypes</h3>\n${prototypes.map((p) => `<a href="${escapeHtml(rel(p))}" target="_blank" rel="noopener">${escapeHtml(rel(p))}</a>`).join('\n')}` : ''}`;
+const indexHtml = shell({
+  title: 'clarity previews',
+  crumb: 'all previews',
+  flow: flow?.chips,
+  navHtml,
+  mainHtml,
+  extraFooter: `generated ${new Date().toISOString()} · mermaid v${mermaidVersion}`,
+});
+const indexPath = path.join(root, INDEX_NAME);
+fs.writeFileSync(indexPath, indexHtml);
+generated.add(indexPath);
+
+// --- self-healing: delete stale generated files not regenerated this run ---
+// (fragments left by previous wrong-root/older runs; real content is never marked)
+let pruned = 0;
+for (const p of walk(root)) {
+  if (p.endsWith('.html') && !generated.has(p) && isGenerated(p)) {
+    fs.unlinkSync(p);
+    pruned++;
+  }
+}
+
+const diagramCount = [...byDir.values()].reduce((n, l) => n + l.length, 0)
+  + [...genSubs.values()].reduce((n, g) => n + g.diagrams.length, 0);
+console.log(`${pages.length} preview page(s)${genSubs.size ? ` (+${genSubs.size} generated-views sub-page(s))` : ''}, ${diagramCount} diagram(s), ${prototypes.length} prototype/page link(s), mermaid pinned at v${mermaidVersion}${flow ? ' · flow chips on' : ''}${pruned ? ` · pruned ${pruned} stale fragment(s)` : ''}`);

@@ -1,0 +1,23 @@
+{
+  "name": "ai-ui-aesthetics",
+  "version": "1.0.0",
+  "description": "前端美学增强插件。Skill（教 AI 写漂亮 UI：设计 Token、排版层级、留白、丝滑动效）+ MCP（设计调研：抓参考站、扫图取色、配色建议）。零依赖、框架无关，可跨 Agent Harness（含 DeepSeek Harness）使用。",
+  "author": {
+    "name": "Jaye2610",
+    "url": "https://github.com/Jaye2610"
+  },
+  "license": "MIT",
+  "skills": "skills",
+  "mcpServers": {
+    "ai-ui-aesthetics-design-research": {
+      "command": "python",
+      "args": [
+        "${ZCODE_PLUGIN_ROOT}/mcp-server/launch_mcp.py"
+      ]
+    }
+  },
+  "description_i18n": {
+    "en": "前端美学增强插件。Skill（教 AI 写漂亮 UI：设计 Token、排版层级、留白、丝滑动效）+ MCP（设计调研：抓参考站、扫图取色、配色建议）。零依赖、框架无关，可跨 Agent Harness（含 DeepSeek Harness）使用。",
+    "zh-CN": "前端美学技能:教 AI 设计精致、有层次、一致性的 UI"
+  }
+}

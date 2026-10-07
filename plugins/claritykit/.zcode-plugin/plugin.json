@@ -1,0 +1,26 @@
+{
+  "name": "claritykit",
+  "version": "2.1.0",
+  "description": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+  "author": {
+    "name": "maxi3777",
+    "url": "https://github.com/maxi3777"
+  },
+  "homepage": "https://github.com/maxi3777/claritykit#readme",
+  "repository": "https://github.com/maxi3777/claritykit",
+  "license": "MIT",
+  "keywords": [
+    "specification",
+    "clarification",
+    "agent-skills",
+    "design-flow",
+    "mermaid",
+    "diagrams",
+    "prototype"
+  ],
+  "skills": "skills",
+  "description_i18n": {
+    "en": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+    "zh-CN": "需求澄清工具:通过问答与 Mermaid 图理清应用创建过程"
+  }
+}

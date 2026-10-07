@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# bin/clarity — thin shim so plugin systems that add bin/ to PATH (Claude Code)
+# expose the real CLI in tools/. Resolves its own location; works via symlink.
+SOURCE="$0"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+exec "$DIR/../tools/clarity" "$@"

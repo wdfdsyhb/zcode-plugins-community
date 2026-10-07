@@ -1,0 +1,21 @@
+{
+  "description": "Token Meter: show the floating tokens/sec + cache-hit window whenever a ZCode session starts. The window itself is a separate process; this hook only ensures it is running (and respects the AutoStart=false setting saved from the window's right-click menu).",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "process",
+            "command": "wscript.exe",
+            "args": [
+              "//nologo",
+              "${CLAUDE_PLUGIN_ROOT}\\scripts\\start-hidden.vbs",
+              "ensure"
+            ],
+            "timeoutMs": 20000
+          }
+        ]
+      }
+    ]
+  }
+}

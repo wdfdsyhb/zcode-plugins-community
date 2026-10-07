@@ -1,0 +1,37 @@
+%% title: Reading list · storage ER
+%% caption: field-level, derived from contracts.yaml — implementation-facing
+erDiagram
+  USERS ||--o{ BOOKMARKS : "owns"
+  TAGS ||--o{ BOOKMARK_TAGS : "applies"
+  BOOKMARKS ||--o{ BOOKMARK_TAGS : "has"
+  BOOKMARKS ||--o| SNAPSHOTS : "has"
+  BOOKMARKS ||--o{ SYNC_LOG : "produces"
+  BOOKMARKS {
+    text id PK
+    text url
+    text title
+    text created_at
+  }
+  TAGS {
+    text id PK
+    text name
+  }
+  BOOKMARK_TAGS {
+    text bookmark_id FK
+    text tag_id FK
+  }
+  SNAPSHOTS {
+    text bookmark_id FK
+    text content
+    text fetched_at
+  }
+  SYNC_LOG {
+    text id PK
+    text bookmark_id FK
+    text status
+    text attempted_at
+  }
+  USERS {
+    text id PK
+    text display_name
+  }

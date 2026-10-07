@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>save-bookmark · grayscale prototype</title>
+<style>
+  /* grayscale throwaway prototype — layout/interaction real, visuals absent */
+  body { font-family: system-ui, sans-serif; max-width: 560px; margin: 24px auto; padding: 0 16px;
+         background: #fff; color: #111; line-height: 1.5; }
+  fieldset { border: 1px solid #999; margin-bottom: 14px; }
+  legend { font-size: 12px; color: #555; padding: 0 6px; }
+  input[type=text] { width: 100%; padding: 7px 9px; margin: 4px 0 10px; border: 1px solid #777; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+  button { padding: 6px 14px; border: 1px solid #555; background: #f2f2f2; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: #ddd; font-weight: 600; }
+  .badge { display: inline-block; font-size: 12px; border: 1px solid #666; border-radius: 999px; padding: 1px 10px; }
+  .panel { border: 1px dashed #888; padding: 10px 12px; margin-top: 16px; font-size: 13px; }
+  .panel h3 { margin: 0 0 6px; font-size: 13px; }
+  .hint { color: #666; font-size: 12px; }
+  #dev label { display: block; margin: 3px 0; }
+</style>
+</head>
+<body>
+<h2 style="font-size:17px">保存书签 · 灰度原型</h2>
+<p class="hint">状态镜像 <code>features/save-bookmark/behavior.yaml</code>（状态名一致）。失败/离线路径由开发面板触发。</p>
+
+<fieldset id="form">
+  <legend>页面信息</legend>
+  <label>URL<br><input type="text" id="url" value="https://example.com/subways"></label>
+  <label>标题（可编辑）<br><input type="text" id="title" value="城市下水道百年史"></label>
+  <label>标签（逗号分隔）<br><input type="text" id="tags" value="sewers, infrastructure"></label>
+  <button class="primary" id="save">保存网页（SAVE）</button>
+  <button id="edit" hidden>编辑信息（EDIT）</button>
+  <button id="confirm" hidden>确认（CONFIRM）</button>
+  <button id="cancel" hidden>取消（CANCEL）</button>
+  <button id="retry" hidden>重试（RETRY）</button>
+</fieldset>
+
+<p>当前状态：<span class="badge" id="state">空闲</span>　
+   <span class="hint" id="statemsg"></span></p>
+
+<div class="panel" id="dev">
+  <h3>开发面板（模拟演员结果）</h3>
+  <label><input type="checkbox" id="sim-offline"> 模拟离线（网络恢复 = 取消勾选）</label>
+  <label><input type="checkbox" id="sim-fail"> 模拟同步服务失败</label>
+  <span class="hint">retryCount 达到上限（2）后重试按钮禁用 —— 守卫 can_retry 可演示。</span>
+</div>
+
+<script>
+  // mirrors behavior.yaml 1:1 (state names identical to the machine contract)
+  const LABEL = { idle:'空闲', editing_viewing:'查看', editing_modifying:'修改',
+                  syncing:'同步中', sync_failed:'同步失败', pending_sync:'待同步', saved:'已保存' };
+  let state = 'idle', retryCount = 0;
+  const $ = (id) => document.getElementById(id);
+  const show = (ids) => { for (const b of ['save','edit','confirm','cancel','retry']) $(b).hidden = !ids.includes(b); };
+  function render(msg) {
+    $('state').textContent = LABEL[state] ?? state;
+    $('statemsg').textContent = msg ?? '';
+    $('save').hidden = state !== 'idle';
+    $('edit').hidden = !(state === 'editing_viewing');
+    $('confirm').hidden = !(state === 'editing_viewing' || state === 'editing_modifying');
+    $('cancel').hidden = !(state === 'editing_modifying' || state === 'syncing' || state === 'sync_failed');
+    $('retry').hidden = state !== 'sync_failed';
+    $('retry').disabled = retryCount >= 2;            // guard: can_retry
+    $('confirm').disabled = false;
+  }
+  function startSync() {
+    state = 'syncing'; render('正在推送到对端…');
+    setTimeout(() => {                                 // actor: sync_service
+      if ($('sim-offline').checked || $('sim-fail').checked) {
+        state = 'sync_failed'; retryCount++;
+        render('同步出错（' + ($('sim-offline').checked ? '网络不可用' : '对端拒绝') + '）');
+      } else { state = 'saved'; render('已同步到所有设备'); }
+    }, 700);
+  }
+  $('save').onclick = () => { state = 'editing_viewing'; render('已抓取元数据，可编辑后确认'); };
+  $('edit').onclick = () => { state = 'editing_modifying'; render('修改标题或标签中…'); };
+  $('confirm').onclick = () => {
+    if (state === 'editing_modifying') { state = 'editing_viewing'; render('修改已暂存'); }
+    else startSync();
+  };
+  $('cancel').onclick = () => { state = 'pending_sync'; render('已取消操作；书签保留并进入同步队列'); };
+  $('retry').onclick = startSync;
+  $('sim-offline').onchange = (e) => {
+    if (!e.target.checked && state === 'pending_sync') startSync();  // NETWORK_BACK [is_online]
+  };
+  render();
+</script>
+</body>
+</html>

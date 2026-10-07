@@ -1,0 +1,35 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ai-ui-aesthetics",
+  "description": "Frontend aesthetics plugin for AI coding agents: a skill that teaches AI to design polished, hierarchical, consistent UI, plus an MCP server for design research (reference-site scraping, image palette extraction, color advice).",
+  "owner": {
+    "name": "jaye"
+  },
+  "plugins": [
+    {
+      "name": "ai-ui-aesthetics",
+      "source": "./",
+      "description": "Frontend aesthetics enhancement plugin. Skill (design tokens, typographic hierarchy, whitespace, smooth motion) + MCP (design research: reference sites, image color extraction, palette advice). Zero-dependency and framework-agnostic.",
+      "description_i18n": {
+        "en": "Frontend aesthetics enhancement plugin. Skill (design tokens, typographic hierarchy, whitespace, smooth motion) + MCP (design research: reference sites, image color extraction, palette advice). Zero-dependency and framework-agnostic.",
+        "zh-CN": "前端美学增强插件。Skill（设计 Token、排版层级、留白、丝滑动效）+ MCP（设计调研：抓参考站、扫图取色、配色建议）。零依赖、框架无关。"
+      },
+      "version": "1.0.0",
+      "author": {
+        "name": "jaye"
+      },
+      "category": "design",
+      "keywords": [
+        "ui",
+        "design",
+        "aesthetics",
+        "design-tokens",
+        "frontend",
+        "mcp",
+        "skill"
+      ],
+      "homepage": "https://github.com/Jaye2610/ai-ui-aesthetics",
+      "license": "MIT"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+machine:
+  id: save-bookmark
+  initial: idle
+  context:
+    retryCount: { type: number, initial: 0, description: Consecutive failed sync attempts }
+events:
+  SAVE: { source: user, description: User saves the current page, label: 保存网页 }
+  EDIT: { source: user, description: User starts editing title or tags, label: 编辑信息 }
+  CONFIRM: { source: user, description: User confirms the edited info, label: 确认 }
+  CANCEL: { source: user, description: User cancels the operation, label: 取消 }
+  RETRY: { source: user, description: User requests another sync attempt, label: 重试 }
+  NETWORK_BACK: { source: system, description: Connectivity is restored, label: 网络恢复 }
+guards:
+  can_retry: { description: retryCount is below the limit, label: 允许重试 }
+  is_online: { description: device currently has connectivity, label: 在线 }
+actions:
+  record_meta: { description: Store title/url/tags locally }
+  increment_retry: { description: Increase retryCount by one }
+  queue_sync: { description: Enqueue the item for background sync }
+actors:
+  sync_service: { type: service, description: Pushes the bookmark to the sync peer }
+states:
+  idle:
+    label: 空闲
+    description: Nothing being saved
+    on:
+      SAVE: { target: editing, actions: [ record_meta ] }
+  editing:
+    label: 编辑中
+    description: Title/tags editable before commit
+    type: compound
+    initial: viewing
+    states:
+      viewing:
+        label: 查看
+        description: Showing fetched metadata
+        on:
+          EDIT: { target: modifying }
+          CONFIRM: { target: syncing }
+      modifying:
+        label: 修改
+        description: Fields being changed
+        on:
+          CONFIRM: { target: viewing }
+          CANCEL: { target: idle }
+  syncing:
+    label: 同步中
+    description: Pushing to the sync peer
+    invoke:
+      src: sync_service
+      onDone: { target: saved }
+      onError: { target: sync_failed, actions: [ increment_retry ] }
+    on:
+      CANCEL: { target: pending_sync, actions: [ queue_sync ] }
+  sync_failed:
+    label: 同步失败
+    description: Peer unreachable or rejected
+    on:
+      RETRY: { target: syncing, guard: can_retry }
+      CANCEL: { target: pending_sync, actions: [ queue_sync ] }
+  pending_sync:
+    label: 待同步
+    description: Saved locally, waiting for connectivity
+    on:
+      NETWORK_BACK: { target: syncing, guard: is_online }
+  saved:
+    type: final
+    label: 已保存
+    description: Saved and synced everywhere

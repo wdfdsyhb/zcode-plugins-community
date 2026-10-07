@@ -1,0 +1,14 @@
+{
+  "name": "zcode-tokline",
+  "version": "0.1.0",
+  "description": "每轮注入「完整显示规则 + 最新速率行」,模型在回复末尾原样引用。⏱ 本轮/轮均 tok/s。零第三方依赖,纯本地读 usage 数据库。",
+  "author": {
+    "name": "nengong-ai",
+    "url": "https://github.com/nengong-ai"
+  },
+  "license": "MIT",
+  "description_i18n": {
+    "en": "每轮注入「完整显示规则 + 最新速率行」,模型在回复末尾原样引用。⏱ 本轮/轮均 tok/s。零第三方依赖,纯本地读 usage 数据库。",
+    "zh-CN": "每轮回复末尾注入速率行:首字/本轮/轮均 tok/s,零依赖"
+  }
+}

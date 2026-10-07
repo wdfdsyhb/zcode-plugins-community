@@ -1,0 +1,106 @@
+# Release Authorization and Production Truth Protocol
+
+Use this protocol for formal delivery, deployment, production launch, hotfix, rollback, and other external-environment changes. It separates plan, candidate, authority, execution, and production truth so code completion, passing preflight, or a Tag cannot be misreported as live.
+
+## 1. Four Objects
+
+| Object | Question | Typical owner |
+| --- | --- | --- |
+| Version and Release Plan | What will release, with which scope/gates? | `delivery/RELEASE_PLAN.md` |
+| Release Candidate | Which unambiguous revision/artifact awaits approval? | Git commit, CI/artifact store, Artifact Manifest |
+| Release Record | What did one release attempt actually do and produce? | `evidence/releases/` or release system |
+| Production Truth | What is actually running now? | Platform, version endpoint, health, user-visible flow |
+
+A plan is not a candidate; a candidate is not authority; deployment completion is not verified release; a record cannot overwrite target-environment truth.
+
+## 2. State Model
+
+| State | Meaning |
+| --- | --- |
+| `planned` | Scope planned; no unambiguous candidate |
+| `candidate` | Revision, version and candidate artifact are locked; this state alone grants no authority |
+| `preflight_passed` | Applicable pre-release checks passed; bind any existing batch authority to the current candidate before external action |
+| `authorized` | User explicitly authorized this scope/environment |
+| `deploying` | Target environment is changing |
+| `deployed_unverified` | Deployment action ended; production evidence incomplete |
+| `released` | Target identity, health, and affected core flow verified |
+| `failed` | Attempt failed/partial; current state requires reconciliation |
+| `rolled_back` | Rollback action and resulting production truth verified |
+| `cancelled` | Candidate explicitly stopped |
+| `superseded` | Later version replaces it; history retained |
+
+Workflow state describes progress and evidence; authorization separately defines permitted actions. A transition neither grants permission nor revokes a still-valid scoped approval. A previously authorized batch can continue when the verified candidate remains within its approved scope, environment and effects; otherwise resolve the specific missing authority.
+
+Advance only as far as evidence. If external change is uncertain, use `deployed_unverified` or `failed`; never guess old, successful, or rolled back.
+
+## 3. Authorization Boundary
+
+An implementation/fix request leaves the development batch `in_progress`; it does not seal, integrate, run full candidate gates, or prepare release. “Send for testing,” “close this batch,” “prepare release,” or “generate a candidate” permits local/CI freeze, integration, preflight, and reversible preparation only—not production change.
+
+Explicit authority must cover formal Tag/push/release page/artifact distribution, remote upload, deployment/migration, service restart, traffic/domain/config/production-data change, public notification, listing, content publication, or remote rollback-resource cleanup. Authorized local development builds/checks and read-only production diagnosis do not require release intent; use the requested access path and preserve its read-only boundary.
+
+Valid authority identifies target release unit, environment, and allowed action; high risk should also identify candidate/version, service scope, window, and rollback. Before external execution, bind it to the current verified candidate and bounded release session. Authority may name an exact candidate or a defined batch to release after checks; it is not a permanent pass. No release intent means no release authority; past releases, credentials, executable scripts, or a plan containing “release” are insufficient.
+
+Natural language combines with registered project facts. If the project has one current unit, one default production environment, and one standard release entrypoint, “release the latest version” or “release this fix batch” authorizes that entrypoint's configured ordinary version commit, immutable Tag, existing remote sync, platform Release, artifact, deployment, production verification, and Release Record. It does not cover first-time remote resources, extra paid services, irreversible migrations, unplanned data/artifact deletion, cross-project action, or undeclared environments.
+
+With multiple units/environments, unclear inclusion, or extra high-risk effects, ask only for the choice that changes the outcome. Delivery then decides merge/version/Tag order. Do not force a nontechnical user to authorize commit, Tag, push, and deploy one by one.
+
+Before execution, identify local Git, remote, hosting platform, and deployment target separately. Without a remote, complete a local version only; do not create a repository. A user-authorized technical layer does not imply outer layers. Under standard-release authority, the declared entrypoint determines which existing remote, Tag, platform Release, and deployment layers apply.
+
+Release authorization may cover project-declared retention and managed cleanup after production identity, health, and affected flow pass. A user-provided retention count/cadence becomes preferred policy. If it loses a verified rollback point, violates compliance, or deletes evidence, explain and obtain risk acceptance. Authority never extends to undeclared repositories, other projects, volumes, databases, Git history, or global caches. Remote registry cleanup needs explicit plan/authority coverage and the sole release entrypoint.
+
+Recover authorized failures within the project retry budget only after reconciling uncertain external effects. A changed revision/artifact invalidates its review and test evidence: recheck the change and required gates, then bind the new identity. Reconfirm when authority named only the old candidate or the change exceeds authorized scope, environment, cost, migration, destruction, or rollback boundaries. Existing batch-level release authority remains valid within those boundaries. Ambiguous production truth pauses dependent actions for read-only reconciliation; it is not permission to retry blindly.
+
+“Do not release” or “not yet” is a durable release constraint written to the existing task/release owner, scoped by default to unit/environment and optionally line/batch. Session change, commit, integration, preflight, or failed attempt does not remove it. A hotfix exception binds one exact commit/rollback point and does not lift other restrictions.
+
+## 4. Candidate and Artifact Identity
+
+Lock release unit, version, source revision/baseline; artifact ID/hash/platform/build entry/build environment; config/schema/migration versions and compatibility; included/excluded scope and coupled units; quality evidence, gaps, risks, and rollback candidate.
+
+A formal Tag represents a verified formal release, points immutably to the frozen commit, and is associated by the Release Record with environment/channel evidence. Pre-deployment candidates use commit, candidate number, and Artifact Manifest. Creating/pushing a formal Tag is a release action and needs authority.
+
+Use [Artifact Manifest](../assets/delivery-governance/ARTIFACT_MANIFEST.template.json) when needed. When an artifact store already preserves provenance/hash/platform, record its query entrypoint rather than duplicate it.
+
+## 5. Release Record
+
+Every release or rollback attempt has a new `release_id` linking authorization time/source/scope; unit, environment, version, commit, Tag, artifact hash; start/end, entrypoint, operator, actual actions; backup/migration/config/service/traffic changes; each gate, health, identity, and core-flow result/evidence; failure point, partial success, production state, rollback decision, and remaining work.
+
+It is append-only fact; never rewrite a failed attempt silently. Use [Release Record](../assets/delivery-governance/RELEASE_RECORD.template.md) or retain an equivalent external object ID/link.
+
+## 6. Determine Production Truth
+
+Use a sufficient combination for the release unit:
+
+- actual platform deployment, image digest, package version, or static revision;
+- public version endpoint, build metadata, or equivalent runtime identity;
+- health/readiness, dependency connections, startup logs, error rate;
+- affected user-visible core flow or business API;
+- actual migration, queue, schedule, cache, and external-integration state.
+
+Local tests, candidate docs, Git Tag, green CI, successful upload, one health endpoint, or deployment exit 0 cannot alone prove `released`. On conflict, remain unverified and investigate the target; docs never override runtime.
+
+When auditing or repairing status checks, separate document consistency from release eligibility. Validate the claim's unit, environment, candidate/artifact identity and evidence rather than requiring fixed success wording. An existing production release and an unreleased hotfix candidate may coexist, even with the same version number. A truthful candidate document may pass consistency checks without qualifying as a verified release. Never require a future `released` claim to build or test that candidate. Repair an erroneous check in its existing owner under change authority; do not bypass it or manufacture a success sentence. Regression fixtures should accept truthful pending state for document consistency, reject unsupported release claims, and accept a release only with the required identity, health and affected-flow evidence.
+
+## 7. Failure, Partial Deployment, and Rollback
+
+- After interruption, inventory every affected service, configuration, data, and traffic state before continuing or rolling back.
+- Rollback addresses code/artifact, configuration, schema/data, and external effects separately. Redeploying an old image is not full rollback after an irreversible migration.
+- A backup supports rollback only when identity, integrity, retention location, and restore entrypoint are verified. Material data change needs a restore exercise or equivalent evidence.
+- Verify target version, health, and affected flow after rollback before `rolled_back`.
+- Preserve failed records, incident evidence, and original `release_id`; a new attempt gets a new ID.
+
+## 8. Boundaries with Other States
+
+- Product `accepted` does not authorize release.
+- Engineering provides quality evidence; Delivery decides whether release gates are met.
+- Workflow Run Manifest owns internal production-run facts; Release Record owns launch attempts.
+- Task state links these objects without copying release bodies.
+- Hooks do not read credentials, execute releases, or grant authority from session phase.
+
+## 9. Closeout
+
+Ensure state does not exceed evidence/authority; revision, version, Tag, artifact, config, and environment correspond; the Release Record reconstructs every external action, check, failure, and rollback; target identity and affected flow are verified; and unreleased, unverified, failed, and rolled back remain distinct.
+
+## Existing Remote Push Scope
+
+An explicit push request can cover an existing destination of known visibility, including a public remote. Verify destination, content and configured CI/deployment side effects against that authority. New public targets, visibility changes, force pushes or production side effects need a concrete decision only when uncovered. Preserve the project's internal-source → redacted public-projection entrypoint; push authority never bypasses that boundary or permits publishing private source directly.

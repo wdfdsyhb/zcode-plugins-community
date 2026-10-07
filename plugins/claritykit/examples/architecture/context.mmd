@@ -1,0 +1,14 @@
+%% title: System context · reading list
+%% caption: the system and its externals — one box, drawn before any candidate
+flowchart TB
+  U1(("读者（笔记本）"))
+  U2(("读者（手机）"))
+  Sys(["阅读清单应用"])
+  Ext1{{"同步对端服务"}}
+  Ext2{{"网页抓取器"}}
+  U1 -->|"保存、搜索、阅读"| Sys
+  U2 -->|"保存、搜索、阅读"| Sys
+  Sys -->|"推送/拉取变更"| Ext1
+  Ext1 -->|"对端变更"| Sys
+  Sys -->|"抓取文章正文"| Ext2
+  Ext2 -->|"正文快照"| Sys

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Senmu Build Product Management"
+  short_description: "Requirements, product specifications, and acceptance"
+  default_prompt: "Use $senmu-build-product to clarify the requested product decision and acceptance, recording only the durable conclusions this task needs."

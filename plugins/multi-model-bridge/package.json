@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "multi-model-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "ZCode plugin: multi-model collaboration — delegate capability gaps (image/vision understanding now) to an external model."
+}

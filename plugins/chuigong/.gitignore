@@ -1,0 +1,10 @@
+# Chuigong runtime artifacts (sdd ledgers, grill-me memos) are written
+# into projects where tasks run — keep them out of this repo too.
+.chuigong/
+
+# Backups
+*.bak
+
+# OS cruft
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+{
+  "name": "adopt",
+  "version": "0.1.0",
+  "description": "Brownfield onboarding — audits existing project artifacts for template format compliance (not just existence), classifies gaps by impact, and produces a numbered migration plan. Run this when joining an in-progress project or upgrading from an older template version. Distinct from /project-stage-detect (which checks what exists) — this checks whether what exists will actually work with the templat",
+  "author": {
+    "name": "HunLuanZhiZhu",
+    "url": "https://github.com/HunLuanZhiZhu"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "Brownfield onboarding — audits existing project artifacts for template format compliance (not just existence), classifies gaps by impact, and produces a numbered migration plan. Run this when joining an in-progress project or upgrading from an older template version. Distinct from /project-stage-detect (which checks what exists) — this checks whether what exists will actually work with the templat",
+    "zh-CN": "游戏工作室多 agent 框架:50+ agents + 70+ skills + 守护 hooks"
+  }
+}

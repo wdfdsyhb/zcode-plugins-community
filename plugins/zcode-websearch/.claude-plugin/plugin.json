@@ -1,0 +1,14 @@
+{
+  "name": "zcode-websearch",
+  "version": "0.1.0",
+  "description": "Tavily web search for ZCode: returns only links and short summaries. MCP server + skill.",
+  "author": {
+    "name": "Yoahoug",
+    "url": "https://github.com/Yoahoug"
+  },
+  "license": "MIT",
+  "description_i18n": {
+    "en": "Tavily web search for ZCode: returns only links and short summaries. MCP server + skill.",
+    "zh-CN": "Tavily 联网搜索:只回链接与短摘要(MCP+技能)"
+  }
+}

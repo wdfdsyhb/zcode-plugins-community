@@ -1,0 +1,20 @@
+machine:
+  id: bad
+  initial: idle
+events:
+  GO: { source: user, description: go }
+states:
+  idle:
+    on:
+      GO:
+        - { target: busy }
+        - { target: bored }
+  busy:
+    invoke:
+      src: worker
+      onDone: { target: done }
+  orphan:
+    on:
+      GO: { target: idle }
+  done:
+    type: final

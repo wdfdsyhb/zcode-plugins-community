@@ -1,0 +1,80 @@
+name: Release Senmu BuildOS
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Verify release identity
+        run: python3 scripts/bump_version.py --check --tag "$GITHUB_REF_NAME"
+
+      - name: Validate user release notes
+        run: python3 scripts/extract_release_notes.py --version "${GITHUB_REF_NAME#v}" >/dev/null
+
+      - name: Validate GitHub product surface
+        run: python3 scripts/manage_github_product_surface.py
+
+      - name: Validate package
+        run: python3 scripts/validate_package.py
+
+      - name: Validate public source boundary
+        run: python3 scripts/validate_public_surface.py
+
+      - name: Run Python tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Run Hook tests
+        run: node --test tests/hooks/*.test.js
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release already exists; source snapshots are provided by GitHub for the verified tag."
+          else
+            python3 scripts/extract_release_notes.py \
+              --version "${GITHUB_REF_NAME#v}" \
+              > "$RUNNER_TEMP/release-notes.md"
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GH_REPO" \
+              --verify-tag \
+              --title "Senmu BuildOS ${GITHUB_REF_NAME}" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi

@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""Plan or generate a public source projection from an explicit allowlist."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import shutil
+import tempfile
+from pathlib import Path
+
+
+MARKER = ".senmu-public-projection.json"
+ABSOLUTE_PRIVATE_PATH = re.compile(
+    r"(?:/(?:Users|home)/[\w .@+-]+/|[A-Za-z]:[\\/]+Users[\\/]+[\w .@+-]+[\\/])"
+)
+SENSITIVE_SUFFIXES = {".log", ".sqlite", ".sqlite3", ".db", ".pem", ".key"}
+HIGH_CONFIDENCE_SECRET = re.compile(r"(?:AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,})")
+
+
+def relative_path(raw: str, label: str) -> Path:
+    path = Path(raw)
+    if path.is_absolute() or ".." in path.parts or path == Path("."):
+        raise ValueError(f"{label} 必须是项目内非空相对路径：{raw}")
+    return path
+
+
+def load_manifest(path: Path) -> dict[str, object]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("schema_version") != "1.0":
+        raise ValueError("manifest.schema_version 必须为 1.0")
+    includes = data.get("include")
+    if not isinstance(includes, list) or not includes:
+        raise ValueError("manifest.include 必须是非空数组")
+    data["include"] = [relative_path(str(item), "include") for item in includes]
+    excludes = data.get("exclude", [])
+    if not isinstance(excludes, list):
+        raise ValueError("manifest.exclude 必须是数组")
+    data["exclude"] = [relative_path(str(item), "exclude") for item in excludes]
+    deny_terms = data.get("deny_terms", [])
+    if not isinstance(deny_terms, list) or any(not isinstance(item, str) or not item for item in deny_terms):
+        raise ValueError("manifest.deny_terms 必须是非空字符串数组")
+    return data
+
+
+def is_excluded(path: Path, excludes: list[Path]) -> bool:
+    return any(path == excluded or excluded in path.parents for excluded in excludes)
+
+
+def sensitive_path(path: Path) -> bool:
+    return path.name == ".env" or path.name.startswith(".env.") or path.suffix.lower() in SENSITIVE_SUFFIXES
+
+
+def collect_files(source: Path, includes: list[Path], excludes: list[Path]) -> list[Path]:
+    files: set[Path] = set()
+    for included in includes:
+        candidate = source / included
+        # Check the selected root and its parents, not only yielded descendants.
+        for part in (candidate, *candidate.parents):
+            if part == source:
+                break
+            if part.is_symlink():
+                raise ValueError(f"公开投影拒绝符号链接：{part.relative_to(source)}")
+        if not candidate.resolve().is_relative_to(source.resolve()):
+            raise ValueError(f"公开白名单路径越出源根：{included.as_posix()}")
+        if not candidate.exists():
+            raise ValueError(f"公开白名单路径不存在：{included.as_posix()}")
+        candidates = [candidate] if candidate.is_file() else candidate.rglob("*")
+        for path in candidates:
+            if path.is_symlink():
+                raise ValueError(f"公开投影拒绝符号链接：{path.relative_to(source)}")
+            if not path.is_file():
+                continue
+            relative = path.relative_to(source)
+            if ".git" in relative.parts or "__pycache__" in relative.parts or is_excluded(relative, excludes):
+                continue
+            if sensitive_path(relative):
+                raise ValueError(f"公开投影拒绝敏感文件类型：{relative.as_posix()}")
+            files.add(relative)
+    return sorted(files)
+
+
+def scan_file(path: Path, relative: Path, deny_terms: list[str]) -> list[str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    errors = []
+    if ABSOLUTE_PRIVATE_PATH.search(text):
+        errors.append(f"{relative.as_posix()}: 包含本机绝对路径")
+    if HIGH_CONFIDENCE_SECRET.search(text):
+        errors.append(f"{relative.as_posix()}: 包含高置信度凭据形态")
+    for term in deny_terms:
+        if term in text:
+            errors.append(f"{relative.as_posix()}: 包含私有实例标识 {term!r}")
+    return errors
+
+
+def manifest_digest(manifest_path: Path) -> str:
+    return hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+
+def projection_digest(source: Path, files: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for relative in files:
+        encoded = relative.as_posix().encode("utf-8")
+        content = (source / relative).read_bytes()
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def apply_projection(source: Path, target: Path, files: list[Path], manifest_sha256: str, projection_sha256: str) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    existing = {path.name for path in target.iterdir()}
+    if existing - {".git", MARKER} and not (target / MARKER).is_file():
+        raise ValueError("目标目录非空且没有公开投影标记，拒绝覆盖")
+
+    with tempfile.TemporaryDirectory(prefix="senmu-public-projection-") as temporary:
+        staging = Path(temporary)
+        for relative in files:
+            destination = staging / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source / relative, destination)
+        marker = {
+            "schema_version": "1.0",
+            "projection_mode": "generated_only",
+            "manifest_sha256": manifest_sha256,
+            "projection_sha256": projection_sha256,
+        }
+        (staging / MARKER).write_text(json.dumps(marker, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        for path in target.iterdir():
+            if path.name == ".git":
+                continue
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        for path in staging.iterdir():
+            destination = target / path.name
+            if path.is_dir():
+                shutil.copytree(path, destination)
+            else:
+                shutil.copy2(path, destination)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--target", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--apply", action="store_true", help="通过检查后同步目标；默认只输出计划")
+    parser.add_argument("--verbose", action="store_true", help="展开全部投影文件；默认只输出数量与摘要")
+    args = parser.parse_args()
+
+    source = args.source.expanduser().resolve()
+    target = args.target.expanduser().resolve()
+    manifest_path = args.manifest.expanduser().resolve()
+    if not source.is_dir() or not manifest_path.is_file():
+        raise SystemExit("[ERROR] source 必须是目录且 manifest 必须存在")
+    if target == source or source in target.parents or target in source.parents:
+        raise SystemExit("[ERROR] 公开投影目标与私有权威根不得重叠")
+
+    try:
+        manifest = load_manifest(manifest_path)
+        files = collect_files(source, manifest["include"], manifest["exclude"])
+        errors = []
+        for relative in files:
+            errors.extend(scan_file(source / relative, relative, manifest["deny_terms"]))
+        if errors:
+            raise ValueError("公开投影隐私门禁失败：\n" + "\n".join(errors))
+        digest = manifest_digest(manifest_path)
+        surface_digest = projection_digest(source, files)
+        if args.apply:
+            apply_projection(source, target, files, digest, surface_digest)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"[ERROR] {exc}") from exc
+
+    report = {
+        "mode": "apply" if args.apply else "plan",
+        "file_count": len(files),
+        "manifest_sha256": digest,
+        "projection_sha256": surface_digest,
+    }
+    if args.verbose:
+        report["files"] = [path.as_posix() for path in files]
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

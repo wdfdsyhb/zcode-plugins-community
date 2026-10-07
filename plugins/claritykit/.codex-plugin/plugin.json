@@ -1,0 +1,6 @@
+{
+  "name": "claritykit",
+  "version": "2.1.0",
+  "description": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+  "skills": "./skills/"
+}

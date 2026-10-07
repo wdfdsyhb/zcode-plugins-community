@@ -1,0 +1,14 @@
+{
+  "name": "zcode-repo-wiki",
+  "version": "0.1.0",
+  "description": "Local-only repo wiki for ZCode: an agent reads your code and writes a paged wiki with file-level evidence.",
+  "author": {
+    "name": "Acfufu",
+    "url": "https://github.com/Acfufu"
+  },
+  "license": "MIT",
+  "description_i18n": {
+    "en": "Local-only repo wiki for ZCode: an agent reads your code and writes a paged wiki with file-level evidence.",
+    "zh-CN": "本地仓库 wiki:agent 读代码写分页 wiki,文件级证据+一次构建单页概览"
+  }
+}

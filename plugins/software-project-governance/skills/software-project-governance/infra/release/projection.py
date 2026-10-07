@@ -1,0 +1,719 @@
+"""Deterministic artifact projection check/write engine."""
+
+from copy import deepcopy
+from dataclasses import dataclass
+import ast
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shutil
+import tempfile
+from typing import Dict, Iterable, List, Optional
+import uuid
+
+from .model import CheckResult
+
+
+@dataclass(frozen=True)
+class PlannedWrite:
+    relative_path: str
+    content: bytes
+    kind: str
+
+
+#: The e2e fixture workspace root, repo-relative. Declared once: the
+#: legacy-snapshot registry names FIXTURE-relative paths while the mirror
+#: census walks canonical-relative sources, so the two namespaces are
+#: translated through this prefix instead of being compared by accident.
+FIXTURE_PREFIX = "project/e2e-test-project/"
+
+#: FIX-381: fields every ``approved_backports`` ledger entry must carry.
+#: Mirrors the registry policy block's ``ledger.required_fields`` — the guard
+#: and the declared institution name the same contract (no second shape
+#: source).
+BACKPORT_LEDGER_REQUIRED_FIELDS = ("fix_id", "source_fix", "approved",
+                                   "anchor_symbol", "marker", "reason",
+                                   "dual_run", "coupling_reviewed")
+
+#: FIX-381: policy sections a declared ``legacy_snapshot_backport_policy``
+#: must fill — the action-bearing five. Informative keys (decision_basis,
+#: snapshot_inventory, guard_semantics_review) are not enforced.
+BACKPORT_POLICY_REQUIRED_SECTIONS = ("trigger", "ledger", "dual_run_contract",
+                                     "coupling_check", "replay_path")
+
+
+def _projection_matches(write: PlannedWrite, current: bytes) -> bool:
+    if write.kind == "byte_copy":
+        return current == write.content
+    return current.replace(b"\r\n", b"\n") == write.content.replace(b"\r\n", b"\n")
+
+
+def _inventory_value(source: Path, symbol: str) -> tuple[str, int, set[str]]:
+    try:
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    except (OSError, SyntaxError) as exc:
+        raise ValueError(f"cannot parse validation inventory source `{source}`: {exc}") from exc
+    assignments = []
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if any(isinstance(target, ast.Name) and target.id == symbol for target in node.targets):
+            assignments.append(node.value)
+    if not assignments:
+        raise ValueError(f"validation inventory symbol is missing: {symbol}")
+    value = assignments[-1]
+    if isinstance(value, ast.Dict):
+        members = set()
+        for item in value.values:
+            if not isinstance(item, (ast.List, ast.Tuple)):
+                raise ValueError(f"inventory `{symbol}` dictionary values must be literal string sequences")
+            for element in item.elts:
+                if not isinstance(element, ast.Constant) or not isinstance(element.value, str):
+                    raise ValueError(f"inventory `{symbol}` contains a non-literal member")
+                members.add(element.value)
+        return "dict", len(value.keys), members
+    if isinstance(value, (ast.List, ast.Tuple)):
+        members = set()
+        for element in value.elts:
+            if not isinstance(element, ast.Constant) or not isinstance(element.value, str):
+                raise ValueError(f"inventory `{symbol}` contains a non-literal member")
+            members.add(element.value)
+        return "sequence", len(value.elts), members
+    raise ValueError(f"inventory `{symbol}` must be a literal dict/list/tuple assignment")
+
+
+def _safe_repo_path(root: Path, raw: object, *, must_exist: bool = False) -> Path:
+    if not isinstance(raw, str) or not raw or "\\" in raw:
+        raise ValueError("projection paths must be non-empty repo-relative POSIX paths")
+    pure = PurePosixPath(raw)
+    if pure.is_absolute() or ".." in pure.parts:
+        raise ValueError(f"unsafe projection path `{raw}`")
+    path = root.joinpath(*pure.parts)
+    cursor = root
+    for part in pure.parts:
+        cursor = cursor / part
+        if cursor.exists() and cursor.is_symlink():
+            raise ValueError(f"projection path traverses symlink `{raw}`")
+    if must_exist and not path.is_file():
+        raise ValueError(f"projection source is missing `{raw}`")
+    return path
+
+
+def _skill_version(path: Path) -> str:
+    match = re.search(r"^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$", path.read_text(encoding="utf-8"), re.MULTILINE)
+    if not match:
+        raise ValueError("authoritative SKILL.md frontmatter version is missing")
+    return match.group(1)
+
+
+def _json_pointer_set(payload: object, pointer: str, value: object) -> object:
+    if not isinstance(pointer, str) or not pointer.startswith("/"):
+        raise ValueError(f"invalid JSON pointer `{pointer}`")
+    parts = [part.replace("~1", "/").replace("~0", "~") for part in pointer[1:].split("/")]
+    current = payload
+    for part in parts[:-1]:
+        if isinstance(current, list):
+            current = current[int(part)]
+        elif isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            raise ValueError(f"JSON pointer `{pointer}` does not resolve")
+    leaf = parts[-1]
+    if isinstance(current, list):
+        current[int(leaf)] = value
+    elif isinstance(current, dict) and leaf in current:
+        current[leaf] = value
+    else:
+        raise ValueError(f"JSON pointer `{pointer}` does not resolve")
+    return payload
+
+
+def build_projection_plan(root: Path, config_path: Optional[Path] = None) -> tuple[str, List[PlannedWrite]]:
+    root = root.resolve()
+    config_path = config_path or root / "skills/software-project-governance/core/version-projections.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    manifest_path = root / "skills/software-project-governance/core/manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    contract = manifest.get("release_projection_contract")
+    if not isinstance(contract, dict):
+        raise ValueError("canonical manifest release_projection_contract is required")
+    if config.get("schema_version") != 1:
+        raise ValueError("unsupported projection schema major")
+    projections = config.get("projections")
+    inventories = config.get("validation_inventories")
+    if not isinstance(projections, list) or not projections:
+        raise ValueError("projection registry must contain projections")
+    required_ids = contract.get("projection_ids")
+    required_kinds = contract.get("projection_kinds")
+    required_inventories = contract.get("validation_inventories")
+    if not isinstance(required_ids, list) or not required_ids or not all(isinstance(item, str) for item in required_ids):
+        raise ValueError("manifest projection_ids must be a non-empty string list")
+    if not isinstance(required_kinds, list) or not required_kinds:
+        raise ValueError("manifest projection_kinds must be a non-empty list")
+    if not isinstance(required_inventories, list) or not required_inventories:
+        raise ValueError("manifest validation_inventories must be a non-empty list")
+    projection_ids = [item.get("id") for item in projections if isinstance(item, dict)]
+    if len(projection_ids) != len(projections) or len(set(projection_ids)) != len(projection_ids):
+        raise ValueError("projection IDs must be present and unique")
+    if set(required_ids) != set(projection_ids):
+        raise ValueError(
+            f"projection ID contract mismatch: required={sorted(set(required_ids))}, "
+            f"registry={sorted(set(projection_ids))}"
+        )
+    kinds = {item.get("kind") for item in projections}
+    if set(required_kinds) != kinds:
+        raise ValueError(f"projection kind contract mismatch: required={sorted(required_kinds)}, registry={sorted(kinds)}")
+    if not isinstance(inventories, list):
+        raise ValueError("validation inventory declarations are required")
+    inventory_contract = {
+        (item.get("id"), item.get("source"), item.get("symbol"))
+        for item in required_inventories if isinstance(item, dict)
+    }
+    inventory_registry = {
+        (item.get("id"), item.get("source"), item.get("symbol"))
+        for item in inventories if isinstance(item, dict)
+    }
+    if len(inventory_contract) != len(required_inventories) or inventory_contract != inventory_registry:
+        raise ValueError("validation inventory contract mismatch")
+    contract_by_id = {item["id"]: item for item in required_inventories}
+    for inventory in inventories:
+        inventory_id = inventory.get("id")
+        source = _safe_repo_path(root, inventory.get("source"), must_exist=True)
+        symbol = inventory.get("symbol")
+        contract_item = contract_by_id[inventory_id]
+        value_type, count, members = _inventory_value(source, symbol)
+        if value_type != contract_item.get("value_type"):
+            raise ValueError(f"validation inventory type mismatch: {inventory_id}")
+        minimum = contract_item.get("min_entries")
+        if not isinstance(minimum, int) or minimum < 1 or count < minimum:
+            raise ValueError(f"validation inventory `{inventory_id}` has {count} entries, requires at least {minimum}")
+        required_members = contract_item.get("required_members")
+        if not isinstance(required_members, list) or not required_members:
+            raise ValueError(f"validation inventory required_members missing: {inventory_id}")
+        missing_members = sorted(set(required_members) - members)
+        if missing_members:
+            raise ValueError(f"validation inventory `{inventory_id}` missing members: {missing_members}")
+        if contract_item.get("member_match") == "exact" and members != set(required_members):
+            raise ValueError(f"validation inventory `{inventory_id}` has undeclared or missing members")
+    authority = config.get("authority", {})
+    if authority.get("kind") != "skill_frontmatter_version":
+        raise ValueError("SKILL frontmatter must remain the projection authority")
+    authority_path = _safe_repo_path(root, authority.get("path"), must_exist=True)
+    version = _skill_version(authority_path)
+
+    # FIX-366: two-pass plan. Pass 1 resolves every in-memory projection
+    # (structured_json / transformed_text) against the on-disk state FIRST;
+    # pass 2 lets a byte_copy whose source is another projection's target in
+    # the SAME batch consume the resolved content instead of the stale disk
+    # bytes. The single-pass order previously pinned the old version into the
+    # mirror, so every write failed post-validation and rolled back — the plan
+    # could never converge.
+    resolved: Dict[Path, bytes] = {}
+    for item in projections:
+        if not isinstance(item, dict):
+            raise ValueError("projection entries must be objects")
+        kind = item.get("kind")
+        if kind not in ("structured_json", "transformed_text"):
+            continue
+        target = _safe_repo_path(root, item.get("target"), must_exist=True)
+        if kind == "structured_json":
+            payload = json.loads(target.read_text(encoding="utf-8"))
+            payload = _json_pointer_set(deepcopy(payload), item.get("pointer"), version)
+            content = (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        else:
+            # read_bytes().decode (NOT read_text): keep the file's native
+            # newlines so a byte_copy mirroring this target stays byte-identical
+            # (universal-newline translation here silently LF-normalized the
+            # resolved content and broke exact byte_copy matching).
+            text = target.read_bytes().decode("utf-8")
+            pattern = item.get("pattern")
+            if not isinstance(pattern, str):
+                raise ValueError("transformed_text requires a pattern")
+            replacement = str(item.get("replacement", "{version}")).replace("{version}", version)
+            transformed, count = re.subn(pattern, replacement, text, count=int(item.get("count", 1)), flags=re.MULTILINE)
+            if count != int(item.get("count", 1)):
+                raise ValueError(f"projection pattern count mismatch for `{item.get('target')}`")
+            content = transformed.encode("utf-8")
+        resolved[target] = content
+
+    writes: Dict[str, tuple[bytes, str]] = {}
+    for item in projections:
+        if not isinstance(item, dict):
+            raise ValueError("projection entries must be objects")
+        kind = item.get("kind")
+        target_rel = item.get("target")
+        target = _safe_repo_path(root, target_rel, must_exist=True)
+        if target_rel in writes:
+            raise ValueError(f"conflicting projection target `{target_rel}`")
+        if kind == "byte_copy":
+            source = _safe_repo_path(root, item.get("source"), must_exist=True)
+            if source == target:
+                raise ValueError("byte projection source and target must differ")
+            # review-FIX-366 F-2: chain byte_copy (source = another byte_copy
+            # target) reads disk as-is by design — no current registry chain;
+            # resolved only carries in-memory projection targets.
+            content = resolved[source] if source in resolved else source.read_bytes()
+        elif kind == "structured_json":
+            content = resolved[target]
+        elif kind == "transformed_text":
+            content = resolved[target]
+        else:
+            raise ValueError(f"unsupported projection kind `{kind}`")
+        writes[target_rel] = (content, kind)
+    return version, [PlannedWrite(path, writes[path][0], writes[path][1]) for path in sorted(writes)]
+
+
+def check_legacy_snapshots(root: Path, config_path: Optional[Path] = None) -> dict:
+    """FEAT-040 / FEAT-038 P2-4: guard DECLARED legacy snapshots.
+
+    A "legacy snapshot" is a fixture artefact that deliberately does NOT track
+    its canonical counterpart. Declaring one is a real decision (see the
+    ``declared_legacy_snapshots`` reasons in ``version-projections.json``), so
+    the declaration must be falsifiable — otherwise it silently turns into an
+    implied parity debt (exactly the complaint that produced FEAT-038 P2-4):
+
+    * a declared path that is **missing** ⇒ FAIL (the declaration points at
+      nothing);
+    * a declared path that has **converged** with its canonical file ⇒ FAIL —
+      the reason for the exemption is gone, so the path must be promoted to a
+      real ``byte_copy`` projection and the declaration deleted;
+    * a declaration without ``path`` / ``canonical`` / non-empty ``reason``
+      and ``scope`` ⇒ FAIL (an unexplained exemption is not auditable).
+
+    FIX-381 adds the controlled-backport face (the registry's
+    ``legacy_snapshot_backport_policy`` + per-snapshot ``approved_backports``
+    ledgers — declared snapshots plus controlled backports instead of
+    single-sourcing). Both are validated when present:
+
+    * a policy block that is not an object, or that lacks a non-empty
+      ``trigger`` / ``ledger`` / ``dual_run_contract`` / ``coupling_check`` /
+      ``replay_path`` section ⇒ FAIL (a declared institution with hollow
+      sections is not auditable);
+    * a backport ledger entry without its required fields (fix_id,
+      source_fix, approved, anchor_symbol, marker, reason, dual_run,
+      coupling_reviewed) ⇒ FAIL;
+    * a ledger entry whose ``anchor_symbol`` no longer resolves in the copy
+      text, or whose ``marker`` (the provenance fragment the patch itself
+      leaves behind) is gone from the copy ⇒ FAIL — a stale ledger is a
+      failure, not a memory.
+
+    Converged-red semantics (FIX-381 review, conclusion on record in the
+    policy block): the trigger stays WHOLE-FILE byte equality — a controlled
+    backport making one region match canonical is expected and does NOT fire
+    (a genuinely divergent snapshot keeps its other divergent lines). What
+    the review refined is the converged DISPOSITION: for a backport-bearing
+    snapshot the message now names the two legitimate exits (replay the
+    ledger then re-declare, or promote and retire the ledger) instead of a
+    bare promote instruction.
+
+    Returns ``{"pass", "issues", "declared", "checked", "converged",
+    "missing", "scope", "census", "backport_ledger"}``. An absent/empty block
+    is legitimate: it means this tree has no declared divergences
+    (``checked`` = 0, ``pass`` = True). ``census`` and ``backport_ledger``
+    always carry the same keys (zeroed when the registry is unreadable), so a
+    caller can render them unconditionally.
+    """
+    root = Path(root).resolve()
+    config_path = config_path or root / "skills/software-project-governance/core/version-projections.json"
+    issues: list[str] = []
+    declared: list[dict] = []
+    converged: list[str] = []
+    missing: list[str] = []
+    empty_census = {"inventory": 0, "identical": 0, "divergent": 0,
+                    "absent": 0, "declared": 0, "undeclared_in_scope": [],
+                    "undeclared_out_of_scope": 0}
+    empty_ledger = {"policy_declared": False, "ledger_entries": 0,
+                    "anchors_resolved": 0}
+
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"pass": False,
+                "issues": [f"legacy-snapshot registry unreadable: {exc}"],
+                "declared": [], "checked": 0, "converged": [], "missing": [],
+                "scope": [], "census": dict(empty_census),
+                "backport_ledger": dict(empty_ledger)}
+
+    entries = config.get("declared_legacy_snapshots", [])
+    if not isinstance(entries, list):
+        return {"pass": False, "issues": ["declared_legacy_snapshots must be a list"],
+                "declared": [], "checked": 0, "converged": [], "missing": [],
+                "scope": [], "census": dict(empty_census),
+                "backport_ledger": dict(empty_ledger)}
+    scopes = tuple(config.get("declared_legacy_snapshot_scope") or ())
+
+    # FIX-381: the controlled-backport institution is validated when declared
+    # — a policy block with hollow sections would be prose, not a policy.
+    ledger_face = {"policy_declared": False, "ledger_entries": 0,
+                   "anchors_resolved": 0}
+    policy = config.get("legacy_snapshot_backport_policy")
+    if policy is not None:
+        if not isinstance(policy, dict):
+            issues.append("legacy_snapshot_backport_policy must be an object")
+        else:
+            ledger_face["policy_declared"] = True
+            hollow = sorted(section for section in BACKPORT_POLICY_REQUIRED_SECTIONS
+                            if not policy.get(section))
+            if hollow:
+                issues.append(
+                    "legacy_snapshot_backport_policy is hollow — missing "
+                    f"required sections {hollow} (a declared institution with "
+                    "empty sections is not auditable)")
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            issues.append("declared_legacy_snapshots entry must be an object")
+            continue
+        identifier = entry.get("id") or entry.get("path") or "<unnamed>"
+        path_rel, canon_rel = entry.get("path"), entry.get("canonical")
+        if not isinstance(path_rel, str) or not isinstance(canon_rel, str) \
+                or not entry.get("reason") or not entry.get("scope"):
+            issues.append(
+                f"legacy snapshot {identifier!r} needs path + canonical + "
+                "non-empty reason + scope (an unexplained exemption is not "
+                "auditable)")
+            continue
+        try:
+            path = _safe_repo_path(root, path_rel)
+            canon = _safe_repo_path(root, canon_rel)
+        except ValueError as exc:
+            issues.append(f"legacy snapshot {identifier!r}: {exc}")
+            continue
+        if not path.is_file():
+            missing.append(path_rel)
+            issues.append(
+                f"legacy snapshot {identifier!r} is missing: {path_rel} — the "
+                "declaration points at nothing")
+            continue
+        if canon.is_file() and path.read_bytes() == canon.read_bytes():
+            converged.append(path_rel)
+            if entry.get("approved_backports"):
+                issues.append(
+                    f"legacy snapshot {identifier!r} has CONVERGED with "
+                    f"{canon_rel} — the exemption is stale: replay the "
+                    "approved_backports ledger onto the fresh copy and "
+                    "re-declare, or (if canonical evolution absorbed the "
+                    "backports) promote it to a byte_copy projection, delete "
+                    "this declaration and retire the ledger")
+            else:
+                issues.append(
+                    f"legacy snapshot {identifier!r} has CONVERGED with "
+                    f"{canon_rel} — the exemption is stale: promote it to a "
+                    "byte_copy projection and delete this declaration")
+            continue
+        ledger = entry.get("approved_backports")
+        if ledger is not None:
+            if not isinstance(ledger, list) or not ledger:
+                issues.append(
+                    f"legacy snapshot {identifier!r} approved_backports must "
+                    "be a non-empty list when present")
+            else:
+                copy_text = path.read_text(encoding="utf-8", errors="replace")
+                for item in ledger:
+                    if not isinstance(item, dict):
+                        issues.append(
+                            f"legacy snapshot {identifier!r} backport ledger "
+                            "entry must be an object")
+                        continue
+                    ledger_face["ledger_entries"] += 1
+                    fix_label = str(item.get("fix_id") or "<unlabelled>")
+                    missing_fields = sorted(
+                        field for field in BACKPORT_LEDGER_REQUIRED_FIELDS
+                        if not str(item.get(field) or "").strip())
+                    if missing_fields:
+                        issues.append(
+                            f"legacy snapshot {identifier!r} backport ledger "
+                            f"entry {fix_label!r} is hollow — missing "
+                            f"{missing_fields}")
+                        continue
+                    anchor_ok = item["anchor_symbol"] in copy_text
+                    marker_ok = item["marker"] in copy_text
+                    if anchor_ok and marker_ok:
+                        ledger_face["anchors_resolved"] += 1
+                    if not anchor_ok:
+                        issues.append(
+                            f"legacy snapshot {identifier!r} backport ledger "
+                            f"entry {fix_label!r} anchor "
+                            f"{item['anchor_symbol']!r} no longer resolves in "
+                            "the copy — stale ledger")
+                    if not marker_ok:
+                        issues.append(
+                            f"legacy snapshot {identifier!r} backport ledger "
+                            f"entry {fix_label!r} marker {item['marker']!r} "
+                            "not found in the copy — the recorded patch is "
+                            "not present")
+        declared.append({"id": identifier, "path": path_rel,
+                         "canonical": canon_rel, "scope": entry.get("scope")})
+
+    return {
+        "pass": not issues,
+        "issues": issues,
+        "declared": declared,
+        "checked": len(entries),
+        "converged": converged,
+        "missing": missing,
+        "scope": list(scopes),
+        "census": _legacy_census(root, config, declared, scopes),
+        "backport_ledger": ledger_face,
+    }
+
+
+def _legacy_census(root: Path, config: dict, declared: list,
+                   scopes: tuple = ()) -> dict:
+    """Disclose the WIDER fixture divergence instead of silently absorbing it.
+
+    The fixture mirror is much larger than the declared set: most mirror
+    targets are simply absent from the fixture tree, and a second group
+    diverges outside the declared scope. Neither is fixed here (both need
+    fixture-behaviour decisions), so both are COUNTED and reported — a
+    disclosure the projection report carries, not a claim of completeness.
+    """
+    fixture_root = root / "project/e2e-test-project"
+    planned = {item.get("target") for item in (config.get("projections") or [])
+               if isinstance(item, dict)}
+    # Declared paths and projection targets are WORKSPACE-relative (they name
+    # the fixture file); the census walks CANONICAL-relative mirror sources.
+    # Translate once, explicitly — comparing the two namespaces directly was
+    # the first cut's bug.
+    def _canonical(relative):
+        return (relative[len(FIXTURE_PREFIX):]
+                if isinstance(relative, str) and relative.startswith(FIXTURE_PREFIX)
+                else None)
+
+    projected = {value for value in map(_canonical, planned) if value}
+    declared_paths = {value for value in
+                      map(_canonical, (item["path"] for item in declared))
+                      if value}
+    census = {"inventory": 0, "identical": 0, "divergent": 0, "absent": 0,
+              "declared": len(declared_paths), "undeclared_in_scope": [],
+              "undeclared_out_of_scope": 0}
+    if not fixture_root.is_dir():
+        return census
+    try:
+        inventory = _mirror_inventory(root)
+    except Exception:  # noqa: BLE001 - census is diagnostic, never fatal
+        return census
+    for rel in inventory:
+        census["inventory"] += 1
+        fixture = fixture_root / rel
+        if rel in projected:
+            continue
+        if not fixture.is_file():
+            census["absent"] += 1
+            continue
+        if fixture.read_bytes() == (root / rel).read_bytes():
+            census["identical"] += 1
+            continue
+        census["divergent"] += 1
+        if rel in declared_paths:
+            continue
+        if scopes and rel.startswith(scopes):
+            census["undeclared_in_scope"].append(rel)
+        else:
+            census["undeclared_out_of_scope"] += 1
+    census["undeclared_in_scope"].sort()
+    return census
+
+
+def _mirror_inventory(root: Path) -> list:
+    """The fixture-mirror source inventory (``PROJECTION_SYNC_PATTERNS``).
+
+    Resolved by AST from ``verify_workflow.py`` — the same authority the
+    manifest's ``fixture-mirror-patterns`` inventory names — without importing
+    the engine (ArchGuard R2: no new reverse edges from ``release/``).
+    """
+    import ast
+    engine = root / "skills/software-project-governance/infra/verify_workflow.py"
+    tree = ast.parse(engine.read_text(encoding="utf-8"), filename=str(engine))
+    values = None
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name)
+                and target.id == "PROJECTION_SYNC_PATTERNS"
+                for target in node.targets):
+            values = node.value
+    if not isinstance(values, ast.Tuple):
+        raise ValueError("PROJECTION_SYNC_PATTERNS is not a literal tuple")
+    patterns = [element.value for element in values.elts
+                if isinstance(element, ast.Constant)
+                and isinstance(element.value, str)]
+    files = set()
+    for pattern in patterns:
+        for path in root.glob(pattern):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(root).as_posix()
+            if "__pycache__" in rel or rel.endswith(".pyc"):
+                continue
+            files.add(rel)
+    return sorted(files)
+
+
+def check_projections(root: Path, config_path: Optional[Path] = None) -> CheckResult:
+    try:
+        version, plan = build_projection_plan(root, config_path)
+    except (OSError, ValueError, TypeError, KeyError, IndexError, json.JSONDecodeError, re.error) as exc:
+        return CheckResult("BLOCKED", [str(exc)])
+    issues = []
+    for write in plan:
+        path = _safe_repo_path(root.resolve(), write.relative_path, must_exist=True)
+        current = path.read_bytes()
+        if not _projection_matches(write, current):
+            issues.append(f"projection drift: {write.relative_path}")
+    # FEAT-040: declared legacy snapshots are part of the same contract — an
+    # exemption is only honest while it is still true (and still needed).
+    legacy = check_legacy_snapshots(root, config_path)
+    issues.extend(f"legacy snapshot: {issue}" for issue in legacy["issues"])
+    return CheckResult(
+        "FAIL" if issues else "PASS",
+        issues,
+        {"source_version": version, "projections_checked": len(plan),
+         "declared_legacy_snapshots": len(legacy["declared"]),
+         "legacy_snapshot_check": legacy},
+    )
+
+
+def _journal_dir(root: Path) -> Path:
+    """FIX-409 (RISK-061 root fix): the rollback journal directory.
+
+    ``tempfile.mkdtemp`` created this with mode 0o700 — under a
+    UAC-filtered token every file staged inside inherited a deny-read
+    security descriptor, and ``os.replace`` then carried that damaged SD
+    onto the projection target (the RISK-061 damage class: two e2e
+    projection faces made unreadable plus undeletable ``spg-projection-*``
+    journal litter, reproduced in-session 2026-09-29).  A uuid-named
+    default-mode mkdir keeps the collision safety without the 0700
+    origin; the chmod is best-effort (hostile sandboxes may deny it —
+    the write-then-probe in ``write_projections`` is the hard backstop).
+    """
+    path = root / f"spg-projection-{uuid.uuid4().hex[:12]}"
+    path.mkdir()
+    try:
+        os.chmod(path, 0o755)
+    except OSError:
+        pass
+    return path
+
+
+def _probe_readable(path) -> bool:
+    """FIX-409: the write-then-probe readability oracle (isolated as a
+    module attribute so tests can fault-inject denial without patching
+    the global ``os.access``)."""
+    return os.access(path, os.R_OK)
+
+
+def write_projections(
+    root: Path,
+    config_path: Optional[Path] = None,
+    *,
+    replace=os.replace,
+) -> CheckResult:
+    root = root.resolve()
+    try:
+        version, plan = build_projection_plan(root, config_path)
+        for write in plan:
+            _safe_repo_path(root, write.relative_path, must_exist=True)
+    except (OSError, ValueError, TypeError, KeyError, IndexError, json.JSONDecodeError, re.error) as exc:
+        return CheckResult("BLOCKED", [str(exc)])
+
+    changed = [
+        write for write in plan
+        if not _projection_matches(write, (root / write.relative_path).read_bytes())
+    ]
+    if not changed:
+        return CheckResult("PASS", facts={"source_version": version, "written": 0})
+
+    journal_dir = _journal_dir(root)
+    journal = {"version": version, "entries": []}
+    staged: Dict[str, Path] = {}
+    cleanup_journal = False
+    try:
+        for index, write in enumerate(changed):
+            target = _safe_repo_path(root, write.relative_path, must_exist=True)
+            backup = journal_dir / f"{index}.backup"
+            staged_path = journal_dir / f"{index}.staged"
+            backup.write_bytes(target.read_bytes())
+            staged_path.write_bytes(write.content)
+            staged[write.relative_path] = staged_path
+            journal["entries"].append({"target": write.relative_path, "backup": backup.name})
+        (journal_dir / "journal.json").write_text(
+            json.dumps(journal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        replaced = []
+        for index, write in enumerate(changed):
+            target = _safe_repo_path(root, write.relative_path, must_exist=True)
+            apply_path = journal_dir / f"{index}.apply"
+            shutil.copyfile(staged[write.relative_path], apply_path)
+            # FIX-409: normalize the SD on the file object BEFORE the
+            # rename — os.replace carries the source's security descriptor
+            # onto the target (the mkdtemp-0700 journal was how RISK-061
+            # damage reached the projection faces). Best-effort: hostile
+            # sandboxes may deny chmod; the write-then-probe below is the
+            # hard backstop that surfaces any residual damage.
+            try:
+                os.chmod(apply_path, 0o644)
+            except OSError:
+                pass
+            replace(apply_path, target)
+            replaced.append(write.relative_path)
+        checked = check_projections(root, config_path)
+        if checked.state != "PASS":
+            raise OSError("post-write projection validation failed")
+        # FIX-409 write-then-probe (root fix paired with the FIX-405
+        # release-gate detection): every replaced target must be READABLE
+        # by the current token the moment the write lands. An unreadable
+        # target is RISK-061 SD damage — reported explicitly (never
+        # silent), WITHOUT rollback: the bytes were just validated, so the
+        # defect is the descriptor, and the remedy is takeown/icacls, not
+        # restoring older content.
+        probe_issues = [
+            f"write-then-probe: {rel} unreadable after write — SD damage "
+            f"(RISK-061 class); remediate: takeown /f \"{root / rel}\" && "
+            f"icacls \"{root / rel}\" /grant \"%USERNAME%:F\""
+            for rel in replaced
+            if not _probe_readable(root / rel)
+        ]
+        if probe_issues:
+            return CheckResult("FAIL", probe_issues, {
+                "source_version": version, "written": len(replaced),
+                "write_then_probe": "FAIL",
+            })
+        cleanup_journal = True
+    except Exception as exc:
+        rollback_issues = []
+        for entry in reversed(journal["entries"]):
+            try:
+                backup = journal_dir / entry["backup"]
+                target = _safe_repo_path(root, entry["target"], must_exist=True)
+                if backup.exists():
+                    restore_path = journal_dir / f"restore-{entry['backup']}"
+                    shutil.copyfile(backup, restore_path)
+                    replace(restore_path, target)
+            except Exception as rollback_exc:
+                rollback_issues.append(f"rollback failed for {entry['target']}: {type(rollback_exc).__name__}")
+        if not rollback_issues:
+            cleanup_journal = True
+        return CheckResult(
+            "BLOCKED" if rollback_issues else "FAIL",
+            [f"projection write failed: {type(exc).__name__}", *rollback_issues],
+            {"rollback_journal": str(journal_dir)},
+        )
+    finally:
+        if cleanup_journal:
+            for path in journal_dir.glob("*"):
+                # FIX-409: normalize before unlink so journal cleanup also
+                # succeeds where the SD would otherwise deny DELETE.
+                try:
+                    os.chmod(path, 0o644)
+                except OSError:
+                    pass
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+            try:
+                journal_dir.rmdir()
+            except OSError:
+                pass
+    return CheckResult("PASS", facts={"source_version": version, "written": len(changed), "write_then_probe": "PASS"})

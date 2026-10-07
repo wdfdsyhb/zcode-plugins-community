@@ -1,0 +1,21 @@
+{
+  "name": "claritykit",
+  "interface": {
+    "displayName": "ClarityKit"
+  },
+  "plugins": [
+    {
+      "name": "claritykit",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools",
+      "description": "Turn vague design into reviewable artifacts — requirement briefs, architecture candidates, behavior models, UI prototypes. (Experimental Codex packaging — see docs/install/codex.md.)"
+    }
+  ]
+}

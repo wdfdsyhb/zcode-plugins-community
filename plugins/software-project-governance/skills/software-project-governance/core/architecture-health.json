@@ -1,0 +1,99 @@
+{
+  "$schema": "architecture-health-v1.json",
+  "version": "1.0",
+  "description": "Declarative architecture health budget. ArchGuard reads this to calibrate thresholds.",
+  "module_size": {
+    "warn_lines": 2000,
+    "error_lines": 5000,
+    "target_lines": 1500,
+    "exclusions": [
+      {
+        "path": "**/tests/**",
+        "reason": "test files exempted from size limits"
+      },
+      {
+        "path": "**/test_*.py",
+        "reason": "test files exempted from size limits"
+      },
+      {
+        "path": "project/**",
+        "reason": "FIX-350: e2e fixture projection mirror (project/e2e-test-project) — expected duplication by design, release-projection generates it; dual-write debt is registered as RISK-039, long-term fix = projection single-source"
+      },
+      {
+        "path": ".governance/**",
+        "reason": "FIX-350: host governance runtime data (incl. backups/) — not product code"
+      }
+    ]
+  },
+  "function_size": {
+    "warn_lines": 200,
+    "error_lines": 500,
+    "target_lines": 100
+  },
+  "module_constants": {
+    "warn_count": 150,
+    "error_count": 300,
+    "detect_duplicates": true
+  },
+  "duplicate_code": {
+    "warn_pct": 60,
+    "error_pct": 80,
+    "normalize_line_endings": true,
+    "ignore_whitespace": true,
+    "source_projection_pairs": "auto-from-manifest",
+    "exclusions": [
+      {
+        "path": "skills/software-project-governance/infra/__init__.py",
+        "reason": "FIX-350: projection mirror pair — 100% identity is the expected release-projection sync, not accidental copy; dual-write debt registered as RISK-039, long-term fix = projection single-source"
+      },
+      {
+        "path": "skills/software-project-governance/infra/resolve_entry.py",
+        "reason": "FIX-350: projection mirror pair — 100% identity is the expected release-projection sync, not accidental copy; dual-write debt registered as RISK-039, long-term fix = projection single-source"
+      },
+      {
+        "path": "skills/software-project-governance/infra/cleanup.py",
+        "reason": "FIX-350: projection mirror pair — 89.2% identity is the expected release-projection sync, not accidental copy; dual-write debt registered as RISK-039, long-term fix = projection single-source"
+      }
+    ]
+  },
+  "complexity": {
+    "enabled": false,
+    "warn_cyclomatic": 15,
+    "error_cyclomatic": 30,
+    "note": "AST-based complexity deferred to 0.59.0+; 0.58.0 uses line-based proxy"
+  },
+  "technical_debt": {
+    "root_residue_patterns": [
+      "_fix_*",
+      "_tmp_*",
+      "debug_*",
+      "scratch_*"
+    ],
+    "release_docs_archive_threshold_versions": 100,
+    "release_docs_note": "FIX-350: threshold raised 30->80. Keeping the full docs/release history is a deliberate strategy (release lineage reproducibility — check-release reads these files for released-version lineage), so the 74-token count is a permanent false WARN at 30. Archiving existing files is blocked by the check-release dependency; at 80 the advisory re-arms and archive candidacy must be re-evaluated. FIX-419 (arch D4 policy-threshold recalibration, revert evidence 7d6c4a7): raised 80->100 — measured 85 distinct version tokens over a 21-week in-repo history (~4.0/week overall; ~5.5/week in the FIX-350→FIX-419 hot window) re-tripped the FIX-350 threshold, and the archive migration path is disproven (docs/release subdirectory move trips loop-runtime-claim-gate ×3 — the registry anchors original paths; reverted in 7d6c4a7 undoing 263779f), leaving recalibration the only viable resolution. Budget: 100 = current 85 + headroom ≈3-4 weeks at measured rates, re-evaluate on next re-trip — archive-path feasibility must be re-assessed before any further raise. WARN semantics retained (check not removed); other faces (governance_data_size et al.) untouched. Drives check-technical-debt (28q).",
+    "hooks_drift_detection": true,
+    "ledger_cross_validate": true
+  },
+  "governance_data_size": {
+    "enabled": true,
+    "files": [
+      ".governance/plan-tracker.md",
+      ".governance/evidence-log.md",
+      ".governance/decision-log.md",
+      ".governance/risk-log.md"
+    ],
+    "warn_bytes": 200000,
+    "error_bytes": 250000,
+    "note": "FIX-160: governance data volume threshold. Global: warn 200KB / error 250KB (below the 256KB agent single-read limit). DEC-295(1) track-1 recalibration (2026-09-29, user ruling): evidence-log per-file override warn 400KB / error 650KB — steady-state basis: 199 permanently-hot registered-ID rows (~280-300KB) + working set (0.92 closeout + 0.93 in flight), measured 515KB + migration wobble. Drives check-governance-data-size.",
+    "file_overrides": {
+      ".governance/evidence-log.md": {
+        "warn_bytes": 400000,
+        "error_bytes": 650000
+      }
+    }
+  },
+  "gate_integration": {
+    "fatal_on_error": false,
+    "note": "0.58.0 first release: WARN/ERROR are advisory, do not block release gate. Future versions may enable fatal."
+  }
+}

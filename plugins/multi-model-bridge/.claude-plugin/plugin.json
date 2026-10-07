@@ -1,0 +1,15 @@
+{
+  "name": "multi-model-bridge",
+  "version": "1.0.0",
+  "description": "Multi-model collaboration skill: delegate image/vision understanding (or future capabilities) to an external model when the active model lacks them.",
+  "author": {
+    "name": "Et3rW",
+    "url": "https://github.com/Et3rW"
+  },
+  "license": "MIT",
+  "skills": "skills",
+  "description_i18n": {
+    "en": "Multi-model collaboration skill: delegate image/vision understanding (or future capabilities) to an external model when the active model lacks them.",
+    "zh-CN": "多模型协同桥:主模型缺能力(图像/视觉)时把子任务路由给外部模型"
+  }
+}

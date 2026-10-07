@@ -1,0 +1,15 @@
+{
+  "name": "bufatechno-webgamedev",
+  "version": "0.1.0",
+  "description": "BUFATECHNO WEB GAME DEV — skill for building complete, production-ready web games with Three.js (WebGPU/TSL) or Babylon.js (WebGPU/Havok). Optimized for ZCode and Claude. Covers scaffolding, ECS, PBR/IBL, WebGPU/TSL, VFX/particles/post-processing, Web Audio, assets (GLTF/Draco/KTX2/Splat), 2D canvas/sprites, and animation (mixer/skeletal/morph/blending). Use when user asks to create, build or ship",
+  "author": {
+    "name": "bufatechno",
+    "url": "https://github.com/bufatechno"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "BUFATECHNO WEB GAME DEV — skill for building complete, production-ready web games with Three.js (WebGPU/TSL) or Babylon.js (WebGPU/Havok). Optimized for ZCode and Claude. Covers scaffolding, ECS, PBR/IBL, WebGPU/TSL, VFX/particles/post-processing, Web Audio, assets (GLTF/Draco/KTX2/Splat), 2D canvas/sprites, and animation (mixer/skeletal/morph/blending). Use when user asks to create, build or ship",
+    "zh-CN": "网页游戏开发技能"
+  }
+}

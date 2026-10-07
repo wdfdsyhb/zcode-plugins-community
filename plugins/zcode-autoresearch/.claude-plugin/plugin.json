@@ -1,0 +1,14 @@
+{
+  "name": "autoresearch",
+  "version": "0.1.0",
+  "description": "Autonomous experiment loop for ZCode: set a goal, pick a mechanical metric, and let the agent iterate automatically.",
+  "author": {
+    "name": "luochang212",
+    "url": "https://github.com/luochang212"
+  },
+  "license": "MIT",
+  "description_i18n": {
+    "en": "Autonomous experiment loop for ZCode: set a goal, pick a mechanical metric, and let the agent iterate automatically.",
+    "zh-CN": "自主实验循环:基于固定度量让 agent 自动迭代优化"
+  }
+}

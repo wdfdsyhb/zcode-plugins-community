@@ -1,0 +1,666 @@
+"""FEAT-019 ArchGuard ratchet tests — R1~R7 positive/negative controls.
+
+Every rule is proven machine-judged in BOTH directions (packet hard gate:
+正/负对照测试). Negative controls operate on temp-dir fixtures or perturbed
+in-memory copies — the real engine, the real baseline and the real FEAT-020
+snapshot are never modified.
+
+Cross-validations against the AUDIT-150 facts baseline:
+  - R4 total print calls must equal 1,315 (facts §3.1) — proves the
+    attribution caliber matches the audit's counting method;
+  - R1 anchor must be the regen-time measurement (≥ 24,000, packet scale);
+  - R5 consumes the FEAT-020 snapshot via its own extractors (81 keys after
+    this slice's deliberate contract-face extension).
+
+Run:
+    python -m unittest skills/software-project-governance/infra.tests.test_archguard_ratchet -v
+"""
+
+import copy
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+_INFRA_DIR = _HERE.parent
+_SKILL_ROOT = _INFRA_DIR.parent
+_REPO_ROOT = _SKILL_ROOT.parents[1]
+if str(_INFRA_DIR) not in sys.path:
+    sys.path.insert(0, str(_INFRA_DIR))
+
+import archguard_ratchet as ar  # noqa: E402
+# DEC-096 authority: SKILL.md frontmatter is the only version fact source.
+from checks.version import extract_skill_version  # noqa: E402
+
+ENGINE = _INFRA_DIR / "verify_workflow.py"
+BASELINE = _SKILL_ROOT / "core" / "architecture-baseline.json"
+SNAPSHOT = _INFRA_DIR / "contract_matrix" / "snapshots.json"
+
+# facts-0.80.0 §3.1 (2026-09-09 audit): print-call census over the engine.
+# Evolution chain (calibration re-census, appendix per sanctioned change):
+#   1315 (facts §3.1, 2026-09-09)
+#   -> 1310 (FEAT-012 G5, 2026-09-10: 5 print calls in cmd_task_priority_analysis
+#      moved out of the engine into task_priority.run_cli_analysis; sanctioned
+#      ratchet shrink, baseline regenerated in the same change)
+#   -> 1311 (FEAT-026 Slice-2, sanctioned +1: the --quick dispatch branch renders
+#      the selector's four-state output at the L5 dispatch site —
+#      r4_print_orchestration.per_function attributes it to cmd_check_governance;
+#      baseline regenerated in the same change, EVD-1000 authorization recorded)
+#   -> 1298 (FIX-310, 2026-09-12: -13 — retiring the dead `dsh.skills`
+#      declaration also retired its guard output: the Check 40 print block in
+#      the engine plus cmd_check_dsh_skills_manifest's own prints; sanctioned
+#      ratchet shrink, baseline regenerated in the same change)
+#   -> 1299 (FEAT-031, 2026-09-13: +1 — the V8 `cmd_check_dsh_boundary` thin
+#      wrapper prints the criterion report it delegates to; the engine's 28w
+#      section itself prints nothing (C-15: the rendering lives in
+#      `checks.dsh_boundary`). Baseline regenerated with
+#      `archguard-ratchet --regen` after all V8 source edits, per the
+#      all-changes-first rule that keeps the anchor from being re-cut twice.)
+#   -> 1301 (FIX-350, 2026-09-17: +2 — the DEC-151 [EXEMPT] disclosure loop
+#      for schema-exempt source/projection pairs: one print site in the
+#      engine's 28p check-governance segment (cmd_check_governance) and one
+#      in cmd_check_duplicate_code. Baseline regenerated in the same change:
+#      R1 anchor 24453 -> 24583, R4 total 1299 -> 1301.)
+#   -> 1304 (0.84.0 slice A, 2026-09-18: +3 across the parallel A-7/A-8 work.
+#      A-8 (FEAT-039) contributes ONE new site — the Check 33 injection-budget
+#      verdict line; the report body renders inside `checks.injection_budget`
+#      so the engine's own print surface stays at the wiring minimum. The
+#      remaining sites are A-7 (FEAT-038) scenario-routing output. The two
+#      tasks share one working tree, so the baseline was regenerated ONCE,
+#      after both source edits, per the all-changes-first rule that keeps the
+#      anchor from being re-cut twice. Baseline regenerated in the same change:
+#      R1 anchor 24639 -> 24766, R4 total 1301 -> 1304.)
+#   -> 1306 (0.86.0 批 2.3, FEAT-057: +2 in cmd_governance_write_guard — the
+#      face-5 BASELINE disclosure line and the WARN-aware PASS Result line.
+#      Baseline regenerated in the same change: R1 anchor 24852 -> 25291,
+#      R4 total 1304 -> 1306.)
+#   -> 1316 (0.87.0, FIX-370 closure window: census truth re-alignment — the
+#      +10 drift is ATTRIBUTED TO PRE-EXISTING committed-tree state, NOT
+#      introduced in the 0.87.0 window; HEAD and worktree census both probe
+#      1316 with a zero per-function diff. Lineage trace of the +10 sites is
+#      registered as FIX-377 (0.88) for bisect. Baseline regenerated in the
+#      same change: architecture-baseline.json re-anchored after the
+#      locks-release dispatch-face wiring.
+#      M-2 regen re-baseline (2026-09-25, REL-087/088 window): the sanctioned
+#      archguard-ratchet --regen at the 0.88.0 release gate re-anchored the
+#      committed baseline to a8a72a3 and absorbed the 0.88 A~E batch engine
+#      growth (FEAT-060/063/064 prints among others). Census now probes 1318
+#      (+2 vs the 0.87-era 1316); the only-down ratchet continues from here.
+#      Same M-2 obligation shape as the FEAT-064 contract-matrix rebaseline
+#      (registry 96->97): frozen-count tests track the regenerated truth.
+#   -> 1338 (0.93.0 B3 window, FEAT-080 / DEC-290(5), 2026-09-29: +20 — the
+#      Check 41 (Priority Inversion Guard) and Check 42 (Discovery Closure
+#      Rate) box renderings, the demand-source-revise CLI output, and the
+#      execution-packet incremental-merge note. Sanctioned regen re-anchored
+#      in the same change; see the R1 anchor lineage note below.
+#   -> 1341 (0.93.1 window, FEAT-081 M2 / CR-R1-2, 2026-10-02: +3 in
+#      _run_full_engine_checks — the Check 42 SKIP 语义分态 rendering
+#      replaced the legacy single SKIP print with the vacuum-SKIP /
+#      fallback-WARN branches (window note + WARN reason + degradation
+#      disclosure). architecture-baseline.json was re-anchored in the same
+#      commit (the "archguard rider"), and FEAT-084's later baseline touch
+#      (0377b78, 2026-10-03) carried the same 1341 with a zero per-function
+#      diff — but this frozen-count literal, the third mirror, was left at
+#      1338; synced here by FIX-423 with the bisect evidence
+#      (344ec8c..2aa2377 census: _run_full_engine_checks 608 -> 611, all
+#      other functions unchanged).)
+#   -> 1369 (0.95.0 window, FIX-438 / DEC-320 path A, 2026-10-06: +28 over
+#      the FEAT-083-regen census — FEAT-088 (638509e) +21: the Check 12
+#      exploration-channels face (+5 in _run_full_engine_checks, 615 -> 620;
+#      +6 in cmd_check_cross_references, 17 -> 23) and the standalone
+#      cmd_check_exploration_channels panel +10 (0 -> 10); FIX-432 (9a28e4d,
+#      the F-4 citation/note quote-sync guard) +7: 611 -> 615 in
+#      _run_full_engine_checks and 14 -> 17 in cmd_check_cross_references.
+#      Both tickets landed without their archguard rider; this make-up regen
+#      re-anchored the baseline in the same change. Per-commit split
+#      machine-censused via count_print_calls over git show c00d70c /
+#      9a28e4d / e1457a8.)
+FACTS_PRINT_TOTAL = 1369
+
+
+def _committed_baseline():
+    return json.loads(BASELINE.read_text(encoding="utf-8"))
+
+
+class R1MainfileBudgetTests(unittest.TestCase):
+    def test_r1_passes_on_current_tree(self):
+        anchor = _committed_baseline()["r1_mainfile_budget"]["anchor_loc"]
+        self.assertEqual(ar.check_r1(ENGINE, anchor), [])
+        self.assertGreaterEqual(anchor, 24000)  # packet: ≥24,000 scale, 实测为准
+
+    def test_r1_negative_control_one_added_line(self):
+        """Packet acceptance ② — main file +1 line MUST fail R1.
+
+        Fixture copy in a temp dir; the real engine is untouched.
+        """
+        anchor = ar.measure_mainfile_loc(ENGINE)
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp) / "engine_plus_one.py"
+            fixture.write_text(
+                ENGINE.read_text(encoding="utf-8") + "# ratchet negative control\n",
+                encoding="utf-8")
+            violations = ar.check_r1(fixture, anchor)
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0]["rule"], "R1")
+        self.assertEqual(violations[0]["excess_lines"], 1)
+
+    def test_r1_detects_shrunk_anchor_tamper(self):
+        """A hand-lowered anchor (anchor-1) also fails — only-down cuts both ways."""
+        anchor = ar.measure_mainfile_loc(ENGINE)
+        violations = ar.check_r1(ENGINE, anchor - 1)
+        self.assertEqual(len(violations), 1)
+
+
+class R2ReverseDependencyTests(unittest.TestCase):
+    def _current(self):
+        return ar.scan_reverse_dependencies(_INFRA_DIR)
+
+    def test_r2_current_tree_matches_inventory(self):
+        baseline = _committed_baseline()
+        violations = ar.check_r2(
+            self._current(), baseline["r2_reverse_dependency"]["inventory"])
+        self.assertEqual(violations, [])
+
+    def test_r2_inventory_records_paths_and_lines(self):
+        """Packet acceptance ③ — inventory carries path + line numbers."""
+        inventory = _committed_baseline()["r2_reverse_dependency"]["inventory"]
+        self.assertGreater(len(inventory), 30)
+        for entry in inventory:
+            self.assertIn("path", entry)
+            self.assertIn("lines", entry)
+            self.assertGreaterEqual(entry["count"], 1)
+            self.assertEqual(len(entry["lines"]), entry["count"])
+        joined = " ".join(e["path"] for e in inventory)
+        self.assertIn("checks/review_domain.py", joined)
+        self.assertIn("loop_health.py", joined)
+
+    def test_r2_new_site_count_fails(self):
+        baseline = _committed_baseline()
+        current = self._current()
+        key = ("checks/review_domain.py", "vw_call")
+        self.assertIn(key, current)  # precondition: legacy site exists
+        inflated = copy.deepcopy(current)
+        inflated[key]["count"] += 1
+        violations = ar.check_r2(
+            inflated, baseline["r2_reverse_dependency"]["inventory"])
+        self.assertTrue(any(v["rule"] == "R2" and v["path"] == key[0]
+                            for v in violations))
+
+    def test_r2_new_file_zero_tolerance(self):
+        baseline = _committed_baseline()
+        current = self._current()
+        current[("brand_new_module.py", "vw_def")] = {"count": 1, "lines": [3]}
+        violations = ar.check_r2(
+            current, baseline["r2_reverse_dependency"]["inventory"])
+        self.assertTrue(any("brand_new_module.py" in v.get("path", "")
+                            for v in violations))
+
+    def test_r2_line_drift_tolerated(self):
+        """Edits above a legacy site shift its line — count semantics hold."""
+        baseline = _committed_baseline()
+        current = self._current()
+        key = ("checks/review_domain.py", "vw_def")
+        drifted = copy.deepcopy(current)
+        drifted[key]["lines"] = [line + 500 for line in drifted[key]["lines"]]
+        violations = ar.check_r2(
+            drifted, baseline["r2_reverse_dependency"]["inventory"])
+        self.assertEqual(violations, [])
+
+    def test_r2_expired_inventory_entry_zero_budget(self):
+        """到期即 FAIL — an expired inventory fuse un-budgets its sites."""
+        baseline = _committed_baseline()
+        inventory = copy.deepcopy(baseline["r2_reverse_dependency"]["inventory"])
+        for entry in inventory:
+            if entry["path"] == "checks/review_domain.py" and entry["kind"] == "vw_def":
+                entry["expire_version"] = "0.78.1"  # == current skill version
+        violations = ar.check_r2(self._current(), inventory,
+                                 version=(0, 78, 1))
+        self.assertTrue(any(v.get("kind") == "vw_def"
+                            and v["path"] == "checks/review_domain.py"
+                            for v in violations))
+
+
+class R3LayerMatrixTests(unittest.TestCase):
+    def test_r3_matrix_integrity_matches_evolution_doc(self):
+        """12-edge enumeration (§3.2) — the W1 guard is itself asserted."""
+        self.assertEqual(len(ar.ALLOWED_EDGES), 12)
+        self.assertEqual(len(set(ar.ALLOWED_EDGES)), 12)  # no duplicates
+        self.assertEqual(ar.ASSERTED_EDGE_COUNT, 12)
+        for edge in ar.ALLOWED_EDGES:
+            src, dst = edge
+            self.assertIn(src, ar.LAYERS)
+            self.assertIn(dst, ar.LAYERS)
+            self.assertNotEqual(src, dst)
+        # forbidden trio that a C(6,2)=15 reading would wrongly admit
+        for bad in (("L5", "L3"), ("L5", "L2"), ("L3", "L2")):
+            self.assertNotIn(bad, ar.ALLOWED_EDGES)
+
+    def test_r3_current_managed_set_passes(self):
+        violations, report = ar.check_r3(
+            ar.DEFAULT_MANAGED_MODULES, _INFRA_DIR)
+        self.assertEqual(violations, [])
+        self.assertEqual(report["max_scc_size"], 1)
+        self.assertTrue(report["unmanaged_target_refs"])  # honest disclosure
+
+    def test_r3_forbidden_edge_and_cycle_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            infra = Path(tmp) / "infra"
+            infra.mkdir()
+            # A(L2) ↔ B(L0): A→B allowed, B→A forbidden AND a 2-cycle.
+            (infra / "mod_a.py").write_text("import mod_b\n", encoding="utf-8")
+            (infra / "mod_b.py").write_text("import mod_a\n", encoding="utf-8")
+            managed = {
+                "infra/mod_a.py": {"layer": "L2"},
+                "infra/mod_b.py": {"layer": "L0"},
+            }
+            violations, report = ar.check_r3(managed, infra)
+            self.assertTrue(any(v["scope"] == "layer-edge:infra/mod_b.py->infra/mod_a.py"
+                                for v in violations))
+            self.assertTrue(any(v["scope"] == "layer-cycle" for v in violations))
+            self.assertEqual(report["max_scc_size"], 2)
+
+    def test_r3_unknown_layer_assignment_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            infra = Path(tmp) / "infra"
+            infra.mkdir()
+            (infra / "mod_x.py").write_text("import json\n", encoding="utf-8")
+            managed = {"infra/mod_x.py": {"layer": "L9"}}
+            violations, _ = ar.check_r3(managed, infra)
+            self.assertTrue(any(v["scope"] == "layer-assign:infra/mod_x.py"
+                                for v in violations))
+
+
+class R4PrintOrchestrationTests(unittest.TestCase):
+    def test_r4_total_matches_facts_census(self):
+        """Calibration cross-check: 1,316 print calls (0.87.0, FIX-370
+        closure window — the +10 is pre-existing committed drift, NOT
+        introduced here; lineage trace registered as FIX-377. Chain
+        1,315 → 1,310 → 1,311 → 1,298 → 1,299 → 1,301 → 1,304 → 1,306
+        → 1,316 — see FACTS_PRINT_TOTAL note)."""
+        current = ar.count_print_calls(ENGINE)
+        self.assertEqual(current["total"], FACTS_PRINT_TOTAL)
+        self.assertEqual(
+            current["total"],
+            _committed_baseline()["r4_print_orchestration"]["total"])
+
+    def test_r4_committed_per_function_matches_current(self):
+        committed = _committed_baseline()["r4_print_orchestration"]["per_function"]
+        current = ar.count_print_calls(ENGINE)["per_function"]
+        self.assertEqual(current, committed)
+
+    def test_r4_growth_fails_both_granularities(self):
+        baseline = _committed_baseline()["r4_print_orchestration"]
+        inflated_total = dict(ar.count_print_calls(ENGINE))
+        inflated_total["total"] = int(inflated_total["total"]) + 1
+        self.assertTrue(any(v["scope"] == "print:total"
+                            for v in ar.check_r4(inflated_total, baseline)))
+        # a NEW print-bearing function (absent from baseline) fails per-function
+        with_fn = dict(inflated_total)
+        with_fn["per_function"] = dict(with_fn["per_function"])
+        with_fn["per_function"]["cmd_brand_new"] = 1
+        self.assertTrue(any(v["scope"] == "print:cmd_brand_new"
+                            for v in ar.check_r4(with_fn, baseline)))
+
+    def test_r4_shrink_passes(self):
+        baseline = _committed_baseline()["r4_print_orchestration"]
+        shrunk = ar.count_print_calls(ENGINE)
+        shrunk = dict(shrunk)
+        shrunk["total"] = int(shrunk["total"]) - 1
+        self.assertEqual(ar.check_r4(shrunk, baseline), [])
+
+
+class R5RegistrationIntegrityTests(unittest.TestCase):
+    def test_r5_consumes_snapshot_pass(self):
+        violations, report = ar.check_r5(_SKILL_ROOT)
+        self.assertEqual(violations, [])
+        self.assertEqual(report["status"], "PASS")
+        # Both faces are read from the FEAT-020 snapshot rather than re-spelled:
+        # the claim is "R5 consumes the live snapshot", and every deliberate
+        # contract change regenerates that snapshot (generator.py --regen).
+        faces = json.loads(
+            (SNAPSHOT).read_text(encoding="utf-8"))["faces"]
+        self.assertEqual(report["frozen_cli_keys"],
+                         faces["cli_dispatch"]["key_count"])
+        self.assertEqual(report["frozen_segments"],
+                         faces["check_segments"]["count"])
+
+    def test_r5_missing_snapshot_skips_with_disclosure(self):
+        """Packet acceptance ③ — snapshot missing → SKIP+披露, never a false FAIL."""
+        with tempfile.TemporaryDirectory() as tmp:
+            violations, report = ar.check_r5(_SKILL_ROOT,
+                                             snapshot_path=Path(tmp) / "nope.json")
+        self.assertEqual(violations, [])
+        self.assertEqual(report["status"], "SKIP")
+        self.assertIn("SKIP", report["reason"])
+        self.assertIn("披露", report["reason"])
+
+    def test_r5_removed_frozen_key_fails(self):
+        """A command key vanishing from the live dispatch = contract break.
+
+        The live face is fixture-injected (temp-controlled); the real
+        snapshot and the real engine stay untouched.
+        """
+        from unittest.mock import patch
+        snapshot_keys = json.loads(
+            SNAPSHOT.read_text(encoding="utf-8")
+        )["faces"]["cli_dispatch"]["keys"]
+        reduced_live = {"cli_keys": [k for k in snapshot_keys if k != "verify"],
+                        "segment_ids": ar.r5_live_faces(_INFRA_DIR)["segment_ids"]}
+        with patch.object(ar, "r5_live_faces", return_value=reduced_live):
+            violations, _ = ar.check_r5(_SKILL_ROOT)
+        self.assertTrue(any("missing from live dispatch" in v["message"]
+                            for v in violations))
+
+    def test_r5_unregistered_live_key_fails(self):
+        snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        snapshot["faces"]["cli_dispatch"]["keys"].remove("archguard-ratchet")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "snap.json"
+            path.write_text(json.dumps(snapshot), encoding="utf-8")
+            violations, _ = ar.check_r5(_SKILL_ROOT, snapshot_path=path)
+        self.assertTrue(any("not in the frozen snapshot" in v["message"]
+                            for v in violations))
+
+    def test_r5_dispatch_key_registered_in_engine(self):
+        from contract_matrix import generator as cmg
+        self.assertIn("archguard-ratchet", cmg.extract_cli_dispatch()["keys"])
+
+
+class R6StartupBudgetTests(unittest.TestCase):
+    def test_r6_deterministic_faces_recorded(self):
+        first = ar.measure_cold_import(str(_INFRA_DIR))
+        second = ar.measure_cold_import(str(_INFRA_DIR))
+        self.assertIsNotNone(first)
+        self.assertEqual(first["import_count"], second["import_count"])
+        self.assertEqual(first["import_set_sha256"], second["import_set_sha256"])
+        self.assertGreater(first["import_count"], 100)
+        self.assertRegex(first["import_set_sha256"], r"^[0-9a-f]{64}$")
+        baseline_r6 = _committed_baseline()["r6_startup_budget"]
+        self.assertIsNone(baseline_r6["threshold"])  # FEAT-018 fills it later
+
+    def test_r6_never_fatal_in_this_slice(self):
+        report = ar.run_check(_SKILL_ROOT, BASELINE)
+        status = report["rules"]["R6"]["status"]
+        self.assertIn(status, ("INFO", "SKIP"))
+        self.assertFalse(any(v["rule"] == "R6" for v in report["violations"]))
+
+
+class R7ReproducibilityTests(unittest.TestCase):
+    def test_r7_double_build_byte_identical(self):
+        fresh_a = ar.build_baseline(_SKILL_ROOT, _committed_baseline())
+        fresh_b = ar.build_baseline(_SKILL_ROOT, _committed_baseline())
+        self.assertEqual(ar._canonical_json_bytes(fresh_a),
+                         ar._canonical_json_bytes(fresh_b))
+
+    def test_r7_committed_baseline_matches_fresh_regen(self):
+        violations, report = ar.check_r7(_SKILL_ROOT, _committed_baseline())
+        self.assertEqual(violations, [])
+        self.assertTrue(report["deterministic"])
+        self.assertTrue(report["committed_matches_fresh"])
+
+    def test_r7_detects_hand_edited_extraction_zone(self):
+        tampered = _committed_baseline()
+        tampered["r1_mainfile_budget"]["anchor_loc"] = (
+            int(tampered["r1_mainfile_budget"]["anchor_loc"]) + 10)
+        violations, _ = ar.check_r7(_SKILL_ROOT, tampered)
+        self.assertTrue(any(v["scope"] == "baseline-stale"
+                            for v in violations))
+
+    def test_r7_detects_stale_baseline_after_engine_change(self):
+        stale = _committed_baseline()
+        stale["r1_mainfile_budget"]["anchor_loc"] = (
+            int(stale["r1_mainfile_budget"]["anchor_loc"]) - 5)
+        violations, _ = ar.check_r7(_SKILL_ROOT, stale)
+        self.assertTrue(any(v["scope"] == "baseline-stale"
+                            for v in violations))
+
+
+class ExemptionMechanismTests(unittest.TestCase):
+    """The fuse's two faces: an ACTIVE exemption suppresses / still fails.
+
+    FIX-335 derivation discipline (4th instance of version-pin rot): the two
+    "active" fixtures below derive their ``expire_version`` from the
+    authoritative version — SKILL.md frontmatter, read through
+    ``checks.version.extract_skill_version`` (DEC-096; same helper the
+    ``test_dsh_doctor`` / ``test_dsh_adapter`` derivations use) — instead of
+    pinning a release literal. The fuse is judged
+    ``current_version >= expire_version`` (``archguard_ratchet._entry_expired``),
+    so a pinned literal equal to the then-current release flips its fixture to
+    ``EXPIRED:<version>`` the moment that release ships: the literal 0.81.0
+    pinned here turned both fixtures into ``EXPIRED:0.81.0`` at 0.81.0 and made
+    this module red on every candidate tree. Deriving keeps the fixtures'
+    semantics intact — an exemption whose fuse has NOT expired yet — under any
+    future bump, while a bump that passes the derived fuse still turns them red
+    (the assertion stays a real test, never a tautology).
+    """
+
+    def _r1_finding(self, excess):
+        return [{"rule": "R1", "scope": "mainfile", "message": "x",
+                 "excess_lines": excess}]
+
+    def _not_yet_expired_version(self) -> str:
+        """Fuse strictly ABOVE the shipped version — not expired by construction.
+
+        Patch-increment of the DEC-096 authoritative version: parse, then step
+        one patch. An unreadable version fails the fixture loudly (fail-closed)
+        rather than silently degrading the expiry judgement.
+        """
+        current = extract_skill_version(_SKILL_ROOT / "SKILL.md")
+        self.assertRegex(current, r"^\d+\.\d+\.\d+$",
+                         "SKILL.md frontmatter version (DEC-096) is required")
+        major, minor, patch = (int(part) for part in current.split("."))
+        derived = f"{major}.{minor}.{patch + 1}"
+        self.assertGreater(tuple(int(p) for p in derived.split(".")),
+                           tuple(int(p) for p in current.split(".")))
+        return derived
+
+    def test_active_exemption_suppresses_within_allowance(self):
+        """NOT-yet-expired fuse + excess <= allowance -> suppressed, disclosed."""
+        exemptions = [{"rule": "R1", "scope": "mainfile",
+                       "allowance_lines": 16, "reason": "test",
+                       "dec": "DEC-TEST",
+                       "expire_version": self._not_yet_expired_version()}]
+        effective, disclosures = ar.apply_exemptions(
+            self._r1_finding(10), exemptions, _SKILL_ROOT)
+        self.assertEqual(effective, [])
+        self.assertTrue(disclosures)
+
+    def test_active_exemption_over_allowance_still_fails(self):
+        """NOT-yet-expired fuse + excess > allowance -> the teeth still bite."""
+        exemptions = [{"rule": "R1", "scope": "mainfile",
+                       "allowance_lines": 16, "reason": "test",
+                       "dec": "DEC-TEST",
+                       "expire_version": self._not_yet_expired_version()}]
+        effective, _ = ar.apply_exemptions(
+            self._r1_finding(20), exemptions, _SKILL_ROOT)
+        self.assertEqual(len(effective), 1)
+        self.assertIn("OVER-ALLOWANCE", effective[0]["exemption"])
+
+    def test_expired_exemption_no_longer_suppresses(self):
+        """到期即 FAIL — the fuse is the teeth of the mechanism."""
+        exemptions = [{"rule": "R1", "scope": "mainfile",
+                       "allowance_lines": 16, "reason": "test",
+                       "dec": "DEC-TEST", "expire_version": "0.78.1"}]
+        effective, _ = ar.apply_exemptions(
+            self._r1_finding(2), exemptions, _SKILL_ROOT)
+        self.assertEqual(len(effective), 1)
+        self.assertIn("EXPIRED", effective[0]["exemption"])
+
+    def test_committed_bootstrap_exemption_is_registered(self):
+        """done_definition: 自举豁免显式登记 + 到期版本."""
+        exemptions = _committed_baseline()["exemptions"]
+        bootstrap = [e for e in exemptions
+                     if e.get("rule") == "R1" and e.get("scope") == "mainfile"]
+        self.assertEqual(len(bootstrap), 1)
+        self.assertIn("self-bootstrap", bootstrap[0]["reason"])
+        self.assertRegex(bootstrap[0]["expire_version"], r"^\d+\.\d+\.\d+$")
+
+
+class BaselineArtifactTests(unittest.TestCase):
+    def test_metadata_contract(self):
+        """Packet acceptance ① — regen metadata: anchor / git HEAD / rules version."""
+        data = _committed_baseline()
+        self.assertEqual(data["schema"], "spg-architecture-baseline/1")
+        self.assertEqual(data["task"], "FEAT-019")
+        self.assertIsInstance(data["rules_version"], int)
+        self.assertRegex(data["generated"]["git_head"],
+                         r"^([0-9a-f]{40}|unknown)$")
+        # 0.93.0 B3 regen re-baseline (2026-09-29, FEAT-080 / DEC-260
+        # separation discipline): anchor re-anchored 26478 -> 26921, a
+        # three-ticket lineage — FEAT-078 +30 (B1a entry-text wiring),
+        # FEAT-079 +74 (B1b staged registry + budget tier wiring),
+        # FEAT-080 +339 (B3: Check 41/42 boxes, provenance plumbing,
+        # demand-source CLI window close + demand-source-revise,
+        # release-gate sub-check, execution-packet incremental merge).
+        # FIX-405 batch (same 0.93.0 window, 2026-09-29): interim working-tree
+        # bump +44 (26921 -> 26965) predated the FEAT-076 engine-face edits and
+        # was superseded by the release-assembly regen rider (same window):
+        # final re-anchor 26921 -> 27133, measured split — FEAT-076 +129
+        # (GovernanceDataSource read facade +120 module-top; Check 28s
+        # three-track wiring in check_governance_data_size +9), FIX-405 +98/-15
+        # (release_readiness SD sub-check +26; governance_data_size layered
+        # thresholds +28/-3; release_ledger SD gate +30/-6; user_impact
+        # predicate unification +5/-4; session-closure BLOCKED collector +5/-1;
+        # execution-packet F-3 regenerated-set note +4/-1); net +212. The
+        # sd_integrity measurement leaf lives in checks/, so
+        # engine print count stayed 1338 across the whole window (zero drift).
+        # R4 print census 1318 -> 1338 in the FEAT-080 regen (sanctioned
+        # +20, see FACTS_PRINT_TOTAL). Assert the exact regenerated anchor:
+        # the metadata contract's job is to pin the committed truth, and
+        # the regen itself is the sanctioned change that moves it
+        # (only-down from here). Keep in sync with
+        # core/architecture-baseline.json r1_mainfile_budget.anchor_loc
+        # on every sanctioned regen.
+        # FIX-410 G-1 rider re-anchor (2026-09-29): 27133 -> 27164, +31/-0
+        # measured split — FIX-410 +31 (Check 17 read-side latest-wins
+        # pre-pass ~26 incl. the P1-1 review seam narrowing; anchor-dict
+        # 0.92.0->0.93.0 bumps line-count-neutral); FIX-411 +0 on the main
+        # file (its deltas live in checks/review_domain.py, archive.py and
+        # test files). Engine print census stayed 1338 (zero drift — the
+        # latest-wins block prints nothing).
+        # FIX-416 rider re-anchor (2026-09-30): 27164 -> 27190, +28/-2
+        # measured split — all in check_archive_integrity's trigger face:
+        # the four-family actionable total (tasks+evidence+decisions+risks+
+        # non-EVD row_families, no double counting) replaces the tasks-only
+        # pending count, and the FAIL issue carries the full per-family
+        # breakdown (the old text read "0 hot completed task(s)" while the
+        # gap lived in the REVIEW/TRIAGE/RECO families). Engine print
+        # census stays 1338 (zero drift — the block prints nothing; the
+        # issue string is data returned in the result dict). Same-window
+        # regen also re-anchors r2_reverse_dependency (FIX-415's test-file
+        # insertion had left it stale — R7 failing at fe0afcb).
+        # FIX-420 rider re-anchor (2026-10-01): 27190 -> 27213, +23/-0
+        # measured split — all in check_commit_task_references'
+        # revert-awareness face: docstring boundary contract (quoted-original
+        # task ID extraction, plain machine-readable task_id, fail-closed
+        # boundary) + revert_subject_pattern + the Revert fallback block in
+        # the subject loop. Engine print census stays 1338 (zero drift —
+        # the function returns data, prints nothing); r2/r6 faces byte-
+        # stable in the same regen.
+        # FEAT-081 regen (2026-10-01, committed as the B4 M2 rider): anchor
+        # re-anchored 27213 -> 27466 (+253, the B4 M2 词集检测 wiring) but
+        # this frozen literal was left at 27213 — the metadata contract went
+        # red at HEAD (pre-existing failure, caught while attributing the
+        # FIX-421 rider). The FEAT-081 window also left the R4 census at a
+        # measured 1341 vs the FACTS_PRINT_TOTAL 1338 chain (+3 unattributed
+        # print sites — registered for its own attribution ticket).
+        # FIX-421 rider re-anchor (2026-10-02): 27466 -> 27472, +6/-0
+        # measured split — all six lines are the FIX-421 comment block above
+        # FIX_105_SNAPSHOT_RELEASE_VERSION_RE (the regex change itself is
+        # line-count-neutral). Engine print census stays 1341 (zero drift —
+        # FIX-421 adds zero print sites); r2/r6 faces byte-stable in the
+        # same regen.
+        # FEAT-084 rider re-anchor (2026-10-02): 27472 -> 27489, +17/-0
+        # measured split — argparse ``--scope quick|full`` registration (+7),
+        # cmd_check_governance FEAT-084 docstring paragraph (+5) and the
+        # scope→quick normalization branch (+5, incl. comment). Engine print
+        # census stays 1341 (zero drift — FEAT-084 adds zero print sites);
+        # r2/r6 faces byte-stable in the same regen.
+        # FEAT-083 rider re-anchor (2026-10-03): 27489 -> 27352, -137 net —
+        # the closure-collection core (evidence/risk row arms + the
+        # deferred-ledger arm + the window note, ~155 lines) moved to
+        # checks/provenance_domain as the shared leaf both the engine's
+        # Check 42 and the bootstrap sub-face consume; the engine keeps a
+        # thin delegation (+18, function-local import — the frozen cold
+        # face is untouched, R6 stays 205/Δ0). Engine print census stays
+        # 1341 (zero drift — the delegation prints nothing); r2 face
+        # byte-stable in the same regen (47 sites across 37 files).
+        # FIX-438 make-up re-anchor (2026-10-06, DEC-319/320 path A):
+        # 27352 -> 27792, +440 net over the FEAT-083 anchor — measured
+        # split: FEAT-088 (638509e) +332 (the inline exploration-channel
+        # guard body +234 at L12142, Check 12 wiring +8, engine-check
+        # integration +23, CLI renderers +57, dispatch +10), FIX-432
+        # (9a28e4d) +108 net (M0-M9→M10 sweep: cmd_gates +76 among others),
+        # REL-098 M-4 / REL-099 version bumps ±0 (wash). Both tickets
+        # landed reviewed (REVIEW-FEAT-088-CODE-R0 / FIX-432 R0, both
+        # AWN/0) but without their archguard rider — the make-up regen
+        # re-anchored in the same change. R2 face 47 -> 48 sites (the
+        # dsh_doctor.py _channel_projection lazy import_vw, L1205, BT-R-02
+        # single-verdict projection); R4 census 1341 -> 1369 (per-commit
+        # split in the FACTS_PRINT_TOTAL lineage above).
+        self.assertEqual(data["r1_mainfile_budget"]["anchor_loc"], 27792)
+
+    def test_authored_zone_survives_regen(self):
+        existing = _committed_baseline()
+        existing["exemptions"].append({
+            "rule": "R2", "scope": "reverse-dep:checks/review_domain.py:vw_call",
+            "reason": "regen-carryover probe", "dec": "DEC-TEST",
+            "expire_version": "0.81.0"})
+        rebuilt = ar.build_baseline(_SKILL_ROOT, existing)
+        self.assertEqual(len(rebuilt["exemptions"]), 2)
+        self.assertEqual(
+            len(rebuilt["r3_layer_matrix"]["managed_modules"]),
+            len(ar.DEFAULT_MANAGED_MODULES))
+
+
+class CliGateTests(unittest.TestCase):
+    """Two-state CLI proof via the real dispatch path (subprocess)."""
+
+    def _run(self, *flags):
+        cmd = [sys.executable, str(ENGINE), "archguard-ratchet", *flags]
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace",
+                              timeout=300, cwd=str(_REPO_ROOT))
+
+    def test_cli_green_on_current_tree(self):
+        result = self._run()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Result: PASS", result.stdout)
+        for rule_id in ("R1", "R2", "R3", "R4", "R5", "R7"):
+            self.assertRegex(result.stdout, rf"\[{rule_id}\] PASS")
+
+    def test_cli_red_on_tampered_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tampered = Path(tmp) / "baseline.json"
+            data = _committed_baseline()
+            data["r1_mainfile_budget"]["anchor_loc"] = (
+                int(data["r1_mainfile_budget"]["anchor_loc"]) - 2)
+            tampered.write_text(json.dumps(data), encoding="utf-8")
+            result = self._run("--baseline", str(tampered))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Result: FAIL", result.stdout)
+        self.assertIn("[VIOLATION]", result.stdout)
+
+    def test_cli_fail_closed_on_missing_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run("--baseline", str(Path(tmp) / "absent.json"))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("fail-closed", result.stdout)
+
+    def test_cli_regen_writes_idempotent_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "baseline.json"
+            first = self._run("--regen", "--baseline", str(target))
+            self.assertEqual(first.returncode, 0, first.stdout)
+            payload_a = target.read_bytes()
+            second = self._run("--regen", "--baseline", str(target))
+            self.assertEqual(second.returncode, 0, second.stdout)
+            payload_b = target.read_bytes()
+            self.assertEqual(payload_a, payload_b)
+
+
+if __name__ == "__main__":
+    unittest.main()

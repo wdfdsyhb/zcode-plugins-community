@@ -1,0 +1,2705 @@
+"""Unit tests for task_priority.py — FIX-226 (0.71.0).
+
+These tests are the load-bearing verification for the task dependency / priority
+analysis tool. The single most important properties proven here:
+
+  - **Parse correctness** — a sample plan-tracker priority table parses to the
+    correct ``TaskDep`` list (ID, priority, status, dependencies, version).
+  - **Task-family vs cross-entity** — RISK-/DEC-/REVIEW- refs in the ``依赖``
+    cell are NOT counted as blocking dependencies (FIX-171 precedent). Only
+    task-family IDs (FIX/REL/AUDIT/REQ/...) block.
+  - **Status semantics** — ✅ = completed; any other emoji (⏳/🔴/🚧/⛔/⏸) =
+    active, and active tasks block their dependents.
+  - **Third-class status filter** — only ⏳ (pending) rows and rows WITHOUT a
+    leading status marker may enter Unblocked / Recommended next; ⛔/⏸/🔴/🚧
+    terminal rows are excluded even when dependency-satisfied (FIX-237.2 /
+    ADR-017 §4.4 P1-3).
+  - **Unblocked** — a not-completed task whose ALL task-family deps are
+    completed (or which has none) is unblocked / ready to work.
+  - **Blocked** — a not-completed task with ≥1 incomplete task-family dep is
+    blocked, and the report lists the specific blocking deps.
+  - **Recommended next** — the highest-priority unblocked task, tie-broken by
+    target version then task ID, is the top pick.
+  - **Cycle detection** — a dependency cycle (A→B→A) is detected and reported
+    without infinite-looping; the report still produces best-effort analysis.
+    A cycle is a WARNING (``cycle_warning`` flag + WARN banner), never an
+    ERROR exit (FIX-237.2 cycle tolerance).
+  - **Robustness** — the parser survives the malformed real-world rows:
+    duplicated leading ``**P0**`` cells, free-prose 闭环路径 cells containing
+    literal ``|``, ``—`` empty deps, and blank lines inside a table.
+
+ALL tests use in-memory fixture strings — the real ``.governance/`` is NEVER
+touched. The pure-module contract (no file I/O in compute) is what makes this
+possible.
+
+Run:
+    python -m pytest skills/software-project-governance/infra/tests/test_task_priority.py -v
+"""
+
+import json
+import os
+import sys
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+# Make the infra/ directory importable when run standalone or via pytest.
+_INFRA = Path(__file__).resolve().parent.parent
+if str(_INFRA) not in sys.path:
+    sys.path.insert(0, str(_INFRA))
+
+from task_priority import (  # noqa: E402  (import after sys.path setup)
+    BlockedTask,
+    PriorityReport,
+    TPA_STATE_FILENAME,
+    TaskDep,
+    _MAX_ROOT_WALK_DEPTH,
+    _ROOT_KIND_CYCLE,
+    _archive_index_status_is_completed,
+    _is_task_family_id,
+    _version_tuple,
+    _walk_blocker_roots,
+    compute_unblocked_tasks,
+    demand_source_distribution,
+    format_report,
+    has_reco_row_today,
+    parse_archive_index_completed_ids,
+    parse_task_dependencies,
+    resolve_demand_source,
+    should_reuse_cached_analysis,
+)
+
+
+# ─── Fixture: a compact priority table exercising every interesting case ──────
+#
+# Layout (7-col, matches the live plan-tracker header):
+#   | 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+#
+# Cases covered (IDs use realistic PREFIX-NNN shape so the bare-ID regex matches):
+#   FIX-101 DONE-A   : ✅ completed, no deps                  → completed
+#   FIX-102 DONE-B   : ✅ completed, depended-on by READY     → completed (unblocks READY)
+#   FIX-103 READY    : ⏳ pending, single dep on DONE-B (✅)   → unblocked (dep satisfied)
+#   FIX-104 NODEPS   : ⏳ pending, — deps                     → unblocked (no deps)
+#   FIX-105 BLOCKER  : 🔴 blocked-marker row (no task deps itself) → NOT
+#                                              unblocked (third-class status filter: 🔴 leading marker
+#                                              = non-executable candidate, ADR-017 §4.4 P1-3). Still
+#                                              acts as a blocking SOURCE for FIX-106/FIX-109.
+#   FIX-106 READY2   : ⏳ pending, dep on FIX-105 (🔴)        → blocked (FIX-105 not completed)
+#   FIX-107 XENTITY  : ⏳ pending, ONLY cross-entity refs      → unblocked (cross-entity never blocks)
+#   FIX-108 MIXED    : ⏳ pending, one ✅ task dep + RISK ref   → unblocked (task dep done, RISK ignored)
+#   FIX-109 MIXEDBLK : ⏳ pending, one 🔴 task dep + RISK ref   → blocked (by FIX-105 only)
+_SAMPLE_TABLE = """\
+# Plan Tracker
+
+Some prose preamble that is not a table.
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-101 | done task no deps | — | 0.1.0 | closed | ✅ 完成 (2026-01-01) |
+| **P0** | FIX-102 | done task depended on | — | 0.1.0 | closed | ✅ 已交付 |
+
+| **P0** | FIX-103 | pending single completed dep | FIX-102✅ | 0.2.0 | open | ⏳ 待执行 |
+| **P2** | FIX-104 | pending no deps | — | 0.3.0 | open | ⏳ 待执行 |
+| **P2** | FIX-105 | active blocking source | — | 0.2.0 | open | 🔴 阻塞 |
+| **P1** | FIX-106 | pending dep on active task | FIX-105 | 0.2.0 | open | ⏳ 待执行 |
+| **P1** | FIX-107 | only cross-entity refs | RISK-039, DEC-090 | 0.4.0 | open | ⏳ 待执行 |
+| **P2** | FIX-108 | done task dep + risk ref | FIX-102✅, RISK-039 | 0.4.0 | open | ⏳ 待执行 |
+| **P2** | FIX-109 | active task dep + risk ref | FIX-105, RISK-039 | 0.4.0 | open | ⏳ 待执行 |
+
+### 其他章节
+
+Not a table anymore.
+"""
+
+# Human-readable aliases for the fixture task IDs (for test readability).
+_DONE_A = "FIX-101"
+_DONE_B = "FIX-102"
+_READY = "FIX-103"
+_NODEPS = "FIX-104"
+_PEND_DEP = "FIX-105"
+_READY2 = "FIX-106"
+_XENTITY = "FIX-107"
+_MIXED = "FIX-108"
+_MIXEDBLK = "FIX-109"
+
+
+class TestParseTaskDependencies(unittest.TestCase):
+    """parse_task_dependencies — table → list[TaskDep]."""
+
+    def test_parse_returns_one_task_per_data_row(self):
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        ids = {t.task_id for t in tasks}
+        self.assertEqual(ids, {
+            "FIX-101", "FIX-102", "FIX-103", "FIX-104", "FIX-105",
+            "FIX-106", "FIX-107", "FIX-108", "FIX-109",
+        })
+
+    def test_parse_priority_strips_markdown_bold(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        self.assertEqual(tasks["FIX-101"].priority, "P1")
+        self.assertEqual(tasks["FIX-102"].priority, "P0")
+        self.assertEqual(tasks["FIX-104"].priority, "P2")
+
+    def test_parse_status_preserved_raw(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        # Status is the raw cell — interpretation is via is_completed().
+        self.assertIn("✅", tasks["FIX-101"].status)
+        self.assertIn("⏳", tasks["FIX-103"].status)
+        self.assertIn("🔴", tasks["FIX-105"].status)
+
+    def test_parse_target_version_extracted(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        self.assertEqual(tasks["FIX-101"].target_version, "0.1.0")
+        self.assertEqual(tasks["FIX-103"].target_version, "0.2.0")
+
+    def test_parse_dependencies_split_by_comma(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        # FIX-102✅ — the trailing ✅ marker is stripped, leaving DONE-B.
+        self.assertEqual(tasks["FIX-103"].dependencies, ("FIX-102",))
+        # Multiple task-family deps.
+        self.assertEqual(tasks["FIX-108"].dependencies, ("FIX-102",))
+
+    def test_parse_em_dash_means_no_deps(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        self.assertEqual(tasks["FIX-104"].dependencies, ())
+        self.assertEqual(tasks["FIX-101"].dependencies, ())
+
+    def test_parse_blank_lines_inside_table_are_tolerated(self):
+        # The sample has a blank line between DONE-B and READY; both must parse.
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        ids = {t.task_id for t in tasks}
+        self.assertIn("FIX-102", ids)
+        self.assertIn("FIX-103", ids)
+
+    def test_parse_ignores_non_table_prose(self):
+        # The "Some prose preamble" line and "Not a table anymore." must NOT
+        # produce tasks, and must not crash the parser.
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        for t in tasks:
+            self.assertRegex(t.task_id, r"^[A-Z]+-\d+$|^[A-Z]+$")
+
+
+class TestTaskFamilyClassification(unittest.TestCase):
+    """_is_task_family_id — FIX-171 precedent (mirrored from archive.py)."""
+
+    def test_task_family_prefixes_classify_true(self):
+        for tid in ("FIX-226", "REL-063", "AUDIT-141", "REQ-082", "SYSGAP-047",
+                    "FEAT-002", "VAL-008", "DOC-001", "TD-014", "MAINT-003",
+                    "DESIGN-001", "DIAG-005", "FMT-002", "CLEANUP-001"):
+            self.assertTrue(_is_task_family_id(tid), f"{tid} should be task-family")
+
+    def test_cross_entity_prefixes_classify_false(self):
+        for tid in ("RISK-039", "DEC-090", "REVIEW-FIX-155", "EVD-630",
+                    "TIER-001", "CONSTRAINT-001", "TOOL-001", "ADR-009"):
+            self.assertFalse(_is_task_family_id(tid), f"{tid} should be cross-entity")
+
+    def test_review_prefixed_ref_does_not_leak_inner_task_id(self):
+        # REVIEW-FIX-155 is a single cross-entity record; the parser must NOT
+        # extract "FIX-155" from it as a task-family dependency. This is the
+        # load-bearing regex fix (negative lookbehind for [-A-Z]).
+        tf, ce = _parse_deps_helper("REVIEW-FIX-155, REVIEW-REL-047")
+        self.assertNotIn("FIX-155", tf)
+        self.assertNotIn("REL-047", tf)
+        # Critically: neither the inner task ID nor the REVIEW token blocks.
+        for blocking in (*tf, *ce):
+            self.assertNotIn("FIX-155", blocking)
+            self.assertNotIn("REL-047", blocking)
+
+
+def _parse_deps_helper(cell):
+    """Tiny helper: run the private dependency-cell parser, return (tf, ce)."""
+    from task_priority import _parse_dependency_cell
+    return _parse_dependency_cell(cell)
+
+
+class TestStatusSemantics(unittest.TestCase):
+    """✅ = completed; everything else = active."""
+
+    def test_checkmark_emoji_is_completed(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        self.assertTrue(tasks["FIX-101"].is_completed())
+        self.assertTrue(tasks["FIX-102"].is_completed())
+
+    def test_pending_emoji_is_active(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        self.assertFalse(tasks["FIX-103"].is_completed())
+        self.assertFalse(tasks["FIX-104"].is_completed())
+
+    def test_blocked_emoji_is_active(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_TABLE)}
+        # 🔴 = blocked status → active (not done).
+        self.assertFalse(tasks["FIX-105"].is_completed())
+
+
+class TestComputeUnblocked(unittest.TestCase):
+    """compute_unblocked_tasks — DAG classification."""
+
+    def setUp(self):
+        self.tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        self.by_id = {t.task_id: t for t in self.tasks}
+        self.report = compute_unblocked_tasks(self.tasks)
+
+    def test_completed_classification(self):
+        completed_ids = {t.task_id for t in self.report.completed}
+        self.assertEqual(completed_ids, {"FIX-101", "FIX-102"})
+
+    def test_unblocked_includes_no_deps_and_satisfied_deps(self):
+        unblocked_ids = {t.task_id for t in self.report.unblocked}
+        # Unblocked (not completed + all task-family deps satisfied or none
+        # + status candidate-eligible):
+        #   FIX-103 (dep FIX-102 ✅), FIX-104 (no deps), FIX-107 (only
+        #     cross-entity refs), FIX-108 (FIX-102 ✅ + RISK ignored).
+        # FIX-105 (🔴) is NOT unblocked — the third-class status filter
+        # excludes it even though its dependencies are satisfied.
+        self.assertEqual(unblocked_ids, {"FIX-103", "FIX-104", "FIX-107", "FIX-108"})
+
+    def test_blocked_lists_specific_blocking_deps(self):
+        blocked_by_id = {bt.task.task_id: bt for bt in self.report.blocked}
+        # READY2 blocked by FIX-105 (🔴 active) only.
+        self.assertIn("FIX-106", blocked_by_id)
+        self.assertEqual(set(blocked_by_id["FIX-106"].blocking_dependencies), {"FIX-105"})
+        # MIXEDBLK blocked by FIX-105 (the task-family dep); RISK-039 NOT a blocker.
+        self.assertIn("FIX-109", blocked_by_id)
+        self.assertEqual(set(blocked_by_id["FIX-109"].blocking_dependencies), {"FIX-105"})
+        self.assertNotIn("RISK-039", blocked_by_id["FIX-109"].blocking_dependencies)
+
+    def test_cross_entity_refs_do_not_block(self):
+        # XENTITY depends ONLY on RISK-039 + DEC-090 → unblocked (not blocked).
+        unblocked_ids = {t.task_id for t in self.report.unblocked}
+        blocked_ids = {bt.task.task_id for bt in self.report.blocked}
+        self.assertIn("FIX-107", unblocked_ids)
+        self.assertNotIn("FIX-107", blocked_ids)
+
+    def test_total_count(self):
+        self.assertEqual(self.report.total, 9)
+
+    def test_no_cycles_in_acyclic_fixture(self):
+        self.assertEqual(self.report.cycles, [])
+
+    def test_dependency_graph_built(self):
+        # Graph maps task_id → its task-family dependency tuple.
+        g = self.report.dependency_graph
+        self.assertEqual(set(g["FIX-103"]), {"FIX-102"})
+        self.assertEqual(set(g["FIX-104"]), set())
+        # Cross-entity refs are NOT in the graph (only task-family).
+        self.assertNotIn("RISK-039", g["FIX-107"])
+        self.assertEqual(g["FIX-107"], ())
+
+
+class TestRecommendedNext(unittest.TestCase):
+    """recommended_next — priority then version then ID ordering."""
+
+    def test_recommended_next_sorted_by_priority(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        # Unblocked set: FIX-103(P0,0.2.0), FIX-104(P2,0.3.0),
+        #                FIX-107(P1,0.4.0), FIX-108(P2,0.4.0).
+        # FIX-105 (🔴) is filtered out by the third-class status filter.
+        # Sorted by priority then version: P0→FIX-103; P1→FIX-107;
+        #   P2→FIX-104(0.3.0) < FIX-108(0.4.0).
+        ids = [t.task_id for t in report.recommended_next]
+        self.assertEqual(ids, ["FIX-103", "FIX-107", "FIX-104", "FIX-108"])
+
+    def test_top_pick_is_first(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        self.assertEqual(report.recommended_next[0].task_id, "FIX-103")
+
+    def test_recommended_next_excludes_completed_and_blocked(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        ids = {t.task_id for t in report.recommended_next}
+        # Completed tasks are not recommended.
+        self.assertNotIn("FIX-101", ids)
+        self.assertNotIn("FIX-102", ids)
+        # Blocked tasks are not recommended.
+        self.assertNotIn("FIX-106", ids)
+        self.assertNotIn("FIX-109", ids)
+
+    def test_priority_p0_beats_p1_beats_p2(self):
+        # Direct unit test of the sort key across priorities.
+        p0 = TaskDep("A", "P0", "⏳", (), (), "0.1.0")
+        p1 = TaskDep("B", "P1", "⏳", (), (), "0.1.0")
+        p2 = TaskDep("C", "P2", "⏳", (), (), "0.1.0")
+        report = compute_unblocked_tasks([p0, p1, p2])
+        ids = [t.task_id for t in report.recommended_next]
+        self.assertEqual(ids, ["A", "B", "C"])
+
+    def test_version_tiebreak_within_same_priority(self):
+        # Same priority P0; lower version first.
+        v_later = TaskDep("A", "P0", "⏳", (), (), "0.5.0")
+        v_earlier = TaskDep("B", "P0", "⏳", (), (), "0.2.0")
+        report = compute_unblocked_tasks([v_later, v_earlier])
+        ids = [t.task_id for t in report.recommended_next]
+        self.assertEqual(ids, ["B", "A"])
+
+    def test_no_priority_sorts_last(self):
+        # P9 (no priority / —) must sort after real P0/P1/P2.
+        p9 = TaskDep("Z", "P9", "⏳", (), (), "0.1.0")
+        p2 = TaskDep("A", "P2", "⏳", (), (), "0.1.0")
+        report = compute_unblocked_tasks([p9, p2])
+        ids = [t.task_id for t in report.recommended_next]
+        self.assertEqual(ids, ["A", "Z"])
+
+
+class TestEmptyAndSatisfiedDeps(unittest.TestCase):
+    """Spec-named cases: empty deps → unblocked; dep on completed → unblocked."""
+
+    def test_empty_deps_em_dash_is_unblocked(self):
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        report = compute_unblocked_tasks(tasks)
+        unblocked_ids = {t.task_id for t in report.unblocked}
+        self.assertIn("FIX-104", unblocked_ids)  # deps = —
+
+    def test_dep_on_completed_task_is_unblocked(self):
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        report = compute_unblocked_tasks(tasks)
+        unblocked_ids = {t.task_id for t in report.unblocked}
+        self.assertIn("FIX-103", unblocked_ids)  # dep DONE-B is ✅
+
+    def test_dep_on_pending_task_is_blocked(self):
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        report = compute_unblocked_tasks(tasks)
+        blocked_ids = {bt.task.task_id for bt in report.blocked}
+        self.assertIn("FIX-106", blocked_ids)  # dep FIX-105 is 🔴
+
+    def test_dep_on_unknown_task_family_id_blocks_fail_closed(self):
+        # A task-family dep that is MISSING from the table cannot be proven
+        # complete → it blocks (fail-closed, FIX-171 conservative default).
+        t = TaskDep("CHILD", "P0", "⏳", ("MISSING-FIX",), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertEqual(len(report.blocked), 1)
+        self.assertEqual(report.blocked[0].blocking_dependencies, ("MISSING-FIX",))
+        self.assertEqual(report.unblocked, [])
+
+    def test_empty_input_yields_empty_report(self):
+        report = compute_unblocked_tasks([])
+        self.assertEqual(report.total, 0)
+        self.assertEqual(report.completed, [])
+        self.assertEqual(report.unblocked, [])
+        self.assertEqual(report.blocked, [])
+        self.assertEqual(report.recommended_next, [])
+        self.assertEqual(report.cycles, [])
+
+
+class TestCycleDetection(unittest.TestCase):
+    """Cycle detection — A→B→A must be reported, not infinite-loop."""
+
+    def test_simple_two_node_cycle_detected(self):
+        a = TaskDep("FIX-A", "P0", "⏳", ("FIX-B",), (), "0.1.0")
+        b = TaskDep("FIX-B", "P0", "⏳", ("FIX-A",), (), "0.1.0")
+        report = compute_unblocked_tasks([a, b])
+        self.assertTrue(len(report.cycles) >= 1, "at least one cycle must be detected")
+        # The cycle must close back to its start node.
+        joined = " ".join(" ".join(c) for c in report.cycles)
+        self.assertIn("FIX-A", joined)
+        self.assertIn("FIX-B", joined)
+
+    def test_three_node_cycle_detected(self):
+        a = TaskDep("A", "P0", "⏳", ("B",), (), "0.1.0")
+        b = TaskDep("B", "P0", "⏳", ("C",), (), "0.1.0")
+        c = TaskDep("C", "P0", "⏳", ("A",), (), "0.1.0")
+        report = compute_unblocked_tasks([a, b, c])
+        self.assertTrue(len(report.cycles) >= 1)
+
+    def test_self_dependency_is_a_cycle(self):
+        # A task that depends on itself is a 1-cycle.
+        a = TaskDep("A", "P0", "⏳", ("A",), (), "0.1.0")
+        report = compute_unblocked_tasks([a])
+        self.assertTrue(any("A" in cycle for cycle in report.cycles))
+
+    def test_cycle_does_not_infinite_loop(self):
+        # The load-bearing safety property: cycle detection terminates.
+        a = TaskDep("A", "P0", "⏳", ("B",), (), "0.1.0")
+        b = TaskDep("B", "P0", "⏳", ("C",), (), "0.1.0")
+        c = TaskDep("C", "P0", "⏳", ("A",), (), "0.1.0")
+        # If this returns at all, the DFS terminated (no infinite loop).
+        report = compute_unblocked_tasks([a, b, c])
+        self.assertIsInstance(report, PriorityReport)
+
+    def test_acyclic_graph_has_no_cycles(self):
+        a = TaskDep("A", "P0", "⏳", (), (), "0.1.0")
+        b = TaskDep("B", "P0", "⏳", ("A",), (), "0.1.0")
+        c = TaskDep("C", "P0", "⏳", ("B",), (), "0.1.0")
+        report = compute_unblocked_tasks([a, b, c])
+        self.assertEqual(report.cycles, [])
+
+
+class TestParserRobustness(unittest.TestCase):
+    """Robustness against real plan-tracker malformations."""
+
+    def test_duplicated_leading_priority_cell(self):
+        # Live lines 174-176 have | **P0** | **P0** | FIX-222 | ... |
+        table = """\
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | **P0** | FIX-222 | dup priority row | AUDIT-139✅ | 0.71.0 | some closure | ✅ 完成 (2026-07-26) | |
+"""
+        tasks = parse_task_dependencies(table)
+        self.assertEqual(len(tasks), 1)
+        t = tasks[0]
+        self.assertEqual(t.task_id, "FIX-222")
+        self.assertEqual(t.priority, "P0")
+        self.assertEqual(t.dependencies, ("AUDIT-139",))
+        self.assertEqual(t.target_version, "0.71.0")
+        self.assertTrue(t.is_completed())
+
+    def test_prose_closure_path_with_literal_pipe(self):
+        # The 闭环路径 cell frequently contains unescaped | (e.g. "| RISK-" 行).
+        # Status must still be read from the LAST cell, not shifted into prose.
+        table = """\
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | FIX-176 | desc | DEC-090, RISK-039 | 未规划版本 | closure with | RISK- row inside it | ✅ 完成 (2026-07-05) |
+"""
+        tasks = parse_task_dependencies(table)
+        self.assertEqual(len(tasks), 1)
+        t = tasks[0]
+        self.assertEqual(t.task_id, "FIX-176")
+        # DEC-090 is cross-entity (DEC prefix) → NOT in dependencies.
+        self.assertEqual(t.dependencies, ())
+        self.assertIn("DEC-090", t.cross_entity_refs)
+        self.assertIn("RISK-039", t.cross_entity_refs)
+        # Status correctly read as completed despite the prose pipe.
+        self.assertTrue(t.is_completed())
+
+    def test_status_emoji_variants_all_completed(self):
+        # ✅ 已交付 / ✅ 已发布 / ✅ 完成 / ✅ ACCEPTED all mean completed.
+        for status in ("✅ 已交付", "✅ 已发布 (2026-07-25)", "✅ 完成 (2026-06-30)",
+                       "✅ ACCEPTED / 0 blocker", "✅ 代码完成 (2026-07-24)"):
+            table = (
+                "| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |\n"
+                "|---|---|---|---|---|---|---|\n"
+                f"| **P0** | T-001 | x | — | 0.1.0 | c | {status} |\n"
+            )
+            tasks = parse_task_dependencies(table)
+            self.assertTrue(tasks[0].is_completed(), f"status {status!r} should be completed")
+
+    def test_active_emoji_variants_all_active(self):
+        for status in ("⏳ 待执行", "🔴 blocked", "🚧 in progress", "⛔ BLOCKED",
+                       "⏸ paused", "⏸ SPLIT_TO FIX-199/FIX-200"):
+            table = (
+                "| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |\n"
+                "|---|---|---|---|---|---|---|\n"
+                f"| **P0** | T-001 | x | — | 0.1.0 | c | {status} |\n"
+            )
+            tasks = parse_task_dependencies(table)
+            self.assertFalse(tasks[0].is_completed(), f"status {status!r} should be active")
+
+    def test_dependency_cell_with_glued_checkmark(self):
+        # "FIX-155✅, FIX-156✅" — the ✅ is a dep-state hint glued to the ID.
+        tf, ce = _parse_deps_helper("FIX-155✅, FIX-156✅, RISK-039")
+        self.assertEqual(tf, ("FIX-155", "FIX-156"))
+        self.assertEqual(ce, ("RISK-039",))
+
+    def test_dependency_cell_with_prose_around_ids(self):
+        # Real cells embed IDs in prose: "DEC-085/086/087(授权沿用)".
+        tf, ce = _parse_deps_helper("DEC-088, DEC-085/086/087(授权沿用), RISK-039")
+        # DEC-088 is captured; the /086/087 bare numbers are not (no PREFIX-).
+        self.assertIn("DEC-088", ce)
+        self.assertIn("DEC-085", ce)
+        self.assertIn("RISK-039", ce)
+        self.assertEqual(tf, ())
+
+    def test_multiple_priority_tables_are_both_parsed(self):
+        # The live plan-tracker has two priority tables (优先级一览 + 已归档版本).
+        table = """\
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | FIX-100 | active | — | 0.1.0 | c | ⏳ 待执行 |
+
+### 已归档版本 task
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| — | FIX-082 | archived | AUDIT-102 | 0.38.0 | c | ✅ 已交付 |
+"""
+        tasks = parse_task_dependencies(table)
+        ids = {t.task_id for t in tasks}
+        self.assertEqual(ids, {"FIX-100", "FIX-082"})
+
+    def test_duplicate_task_id_keeps_first_occurrence(self):
+        # Same ID appearing twice → first occurrence wins (de-duplication).
+        table = """\
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | FIX-500 | first | — | 0.1.0 | c | ⏳ 待执行 |
+| **P0** | FIX-500 | second | — | 0.9.0 | c | ✅ 完成 |
+"""
+        tasks = parse_task_dependencies(table)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].target_version, "0.1.0")
+        self.assertFalse(tasks[0].is_completed())
+
+
+# ─── Fixture: headerless 「最近完成」 sub-section table (FIX-251) ─────────────
+#
+# The live plan-tracker's ``### 最近完成（本会话提交窗口）`` sub-section
+# (plan-tracker.md L217-224) is a 优先级|ID|事项|依赖|目标版本|闭环路径|状态 task
+# table WITHOUT a header row and WITHOUT a separator row — the first ``|``
+# line directly after the heading is already a data row. FIX-251: the parser
+# must recognize this shape so the window's task IDs (FIX-244~249, REL-067)
+# are visible to dependency analysis (previously change-triage reported them
+# as unknown-dep fail-closed).
+#
+# FIX-252 F1 (Reviewer P3-1): the fixture was completed from 3/7 to the full
+# 7-row live window, aligned to live order (FIX-244/245/246/REL-067/247/248/249,
+# REL-067 in the middle at position 4 — NOT last) and live fields.
+_SAMPLE_RECENT_WINDOW_TABLE = """\
+# Plan Tracker
+
+Some prose preamble.
+
+### 最近完成（本会话提交窗口）
+
+| **P2** | FIX-244 | archive --project-root fail-closed 校验 | FIX-242, FIX-243 | 未规划版本 | product code | ✅ 完成 (2026-08-06) |
+| **P2** | FIX-245 | verify_workflow --project-root fail-closed 对齐 | FIX-187, FIX-244 | 未规划版本 | product code | ✅ 完成 (2026-08-06) |
+| **P2** | FIX-246 | FIX-242/244/245 遗留观察项清理 | FIX-242, FIX-244, FIX-245 | 未规划版本 | product code | ✅ 完成 (2026-08-07) |
+
+| **P1** | REL-067 | 发布 0.74.0——五修复链打包 | FIX-242✅, FIX-243✅, FIX-244✅, FIX-245✅, FIX-246✅ | 0.74.0 | release mgmt | ✅ 已发布 (2026-08-13) |
+| **P2** | FIX-247 | 观察项债务包——FIX-237/238 遗留处置 | FIX-237✅, FIX-238✅ | 未规划版本 | debt pack | ✅ 完成 (2026-08-16) |
+| **P2** | FIX-248 | CLI 测试 fixture 版本对齐 | FIX-247✅ | 未规划版本 | debt pack | ✅ 完成 (2026-08-16) |
+| **P2** | FIX-249 | 观察项债务包——FIX-247 R0 处置 | FIX-247✅, REVIEW-FIX-247-CODE-R0 | 未规划版本 | debt pack | ✅ 完成 (2026-08-16) |
+> 历史提交窗口已归档。
+"""
+
+
+class TestHeaderlessRecentWindowTable(unittest.TestCase):
+    """FIX-251 — headerless task sub-section (最近完成) must be parsed.
+
+    The live plan-tracker's ``### 最近完成（本会话提交窗口）`` window is a full
+    7-col task table that lacks the header row (``| 优先级 | ID | ... |``) and
+    separator row. Before FIX-251 the parse state machine never entered
+    ``in_table`` for it (only a ``| 优先级 | ID |`` header row triggers entry),
+    so the window's task IDs were invisible to dependency analysis and
+    change-triage reported unknown-dep on them fail-closed. These tests pin
+    the headerless-shape recognition: a ``|`` row directly after a heading
+    that carries a bare task ID cell AND a status cell is treated as a
+    headerless task table with the column layout inferred from the canonical
+    7-col shape.
+    """
+
+    def test_window_task_ids_are_parsed(self):
+        tasks = parse_task_dependencies(_SAMPLE_RECENT_WINDOW_TABLE)
+        ids = {t.task_id for t in tasks}
+        self.assertEqual(ids, {
+            "FIX-244", "FIX-245", "FIX-246", "REL-067",
+            "FIX-247", "FIX-248", "FIX-249",
+        })
+
+    def test_window_fields_are_correct(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(_SAMPLE_RECENT_WINDOW_TABLE)}
+        t244 = tasks["FIX-244"]
+        self.assertEqual(t244.priority, "P2")
+        self.assertEqual(t244.dependencies, ("FIX-242", "FIX-243"))
+        self.assertEqual(t244.target_version, "未规划版本")
+        self.assertTrue(t244.is_completed())
+
+        t245 = tasks["FIX-245"]
+        self.assertEqual(t245.priority, "P2")
+        self.assertEqual(t245.dependencies, ("FIX-187", "FIX-244"))
+        self.assertTrue(t245.is_completed())
+
+        t246 = tasks["FIX-246"]
+        self.assertEqual(t246.priority, "P2")
+        self.assertEqual(t246.dependencies, ("FIX-242", "FIX-244", "FIX-245"))
+        self.assertTrue(t246.is_completed())
+
+        rel = tasks["REL-067"]
+        self.assertEqual(rel.priority, "P1")
+        # ✅ glued to the dependency IDs is a dep-state hint — stripped, IDs kept.
+        self.assertEqual(rel.dependencies,
+                         ("FIX-242", "FIX-243", "FIX-244", "FIX-245", "FIX-246"))
+        self.assertEqual(rel.target_version, "0.74.0")
+        self.assertTrue(rel.is_completed())
+
+        t247 = tasks["FIX-247"]
+        self.assertEqual(t247.priority, "P2")
+        self.assertEqual(t247.dependencies, ("FIX-237", "FIX-238"))
+        self.assertTrue(t247.is_completed())
+
+        t248 = tasks["FIX-248"]
+        self.assertEqual(t248.priority, "P2")
+        self.assertEqual(t248.dependencies, ("FIX-247",))
+        self.assertTrue(t248.is_completed())
+
+        t249 = tasks["FIX-249"]
+        self.assertEqual(t249.priority, "P2")
+        # REVIEW-FIX-247-CODE-R0 is a single cross-entity record — its inner
+        # FIX-247 is NOT extracted (negative lookbehind blocks [-A-Z] before the
+        # ID), so it contributes NO task dep and NO extractable ref token.
+        self.assertEqual(t249.dependencies, ("FIX-247",))
+        self.assertEqual(t249.cross_entity_refs, ())
+        self.assertTrue(t249.is_completed())
+
+    def test_window_table_ends_at_non_table_line(self):
+        # The trailing "> 已归档" blockquote ends the headerless table; a
+        # subsequent header-driven table (已归档版本 task pointer) parses
+        # normally AFTER the window without leaking rows into it.
+        table = _SAMPLE_RECENT_WINDOW_TABLE + """\
+### 已归档版本 task
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| — | FIX-082 | archived pointer | AUDIT-102 | 0.38.0 | archive | ✅ 已交付 |
+"""
+        ids = {t.task_id for t in parse_task_dependencies(table)}
+        self.assertEqual(ids, {
+            "FIX-244", "FIX-245", "FIX-246", "REL-067",
+            "FIX-247", "FIX-248", "FIX-249", "FIX-082",
+        })
+        self.assertEqual(len(parse_task_dependencies(table)), 8)
+
+    def test_prose_between_heading_and_table_blocks_headerless_parse(self):
+        # Guard for the 需求跟踪矩阵 class of false positive: a table that is
+        # NOT directly after a heading (prose in between) must NOT be read as
+        # a headerless task table — even when its rows carry REQ-* ID cells
+        # (task-family prefix) and emoji status cells (📋 etc.).
+        table = """\
+# Plan Tracker
+
+## 需求跟踪矩阵
+
+需求跟踪回答"这个任务服务于哪个用户需求"——从立项的 PR/FAQ 到开发的 task 全程可追溯。
+
+| 需求ID | 需求描述 | 来源 | 优先级 | 关联任务 | 当前状态 | 验证方式 |
+|--------|---------|------|--------|---------|---------|---------|
+| REQ-002 | 用户能在 5 分钟内完成初始化 | PR/FAQ: 新用户立即可用 | P0 | MAINT-012, AUDIT-003, FIX-001 | ⚠️ 部分 | 外部验证 |
+| REQ-014 | Task-Gate 模型——plan-tracker 数据结构改造 | AUDIT-052 | P0 | AUDIT-057 | 📋 降级到 1.0.0 | — |
+"""
+        tasks = parse_task_dependencies(table)
+        self.assertEqual(tasks, [])
+
+
+class TestLiveCombinationOrder(unittest.TestCase):
+    """FIX-252 F2 (Reviewer P3-2) — explicitly pin the LIVE real combination order.
+
+    FIX-251 only locked the reverse order (window → blockquote → 标题 →
+    已归档表). The live plan-tracker's actual order is the OTHER way round for
+    the active window: a **header-driven** 优先级表 (``| 优先级 | ID | … |``) is
+    followed by a ``###`` heading and then a **headerless** window table. This
+    class locks that exact order so the state machine's transitions (header
+    → heading arms ``after_heading`` → headerless recognition) cannot regress
+    the coexistence of both tables' tasks.
+    """
+
+    _TABLE = """\
+# Plan Tracker
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | FIX-301 | header-driven active | — | 0.5.0 | open | ⏳ 待执行 |
+
+### 最近完成（本会话提交窗口）
+
+| **P2** | FIX-302 | headerless window completed | — | 未规划版本 | product | ✅ 完成 (2026-08-16) |
+"""
+
+    def test_header_table_then_heading_then_headerless_both_parsed(self):
+        tasks = parse_task_dependencies(self._TABLE)
+        ids = {t.task_id for t in tasks}
+        # Both the header-driven table and the headerless window table must be
+        # present (the live order, not just the reverse already locked).
+        self.assertIn("FIX-301", ids)
+        self.assertIn("FIX-302", ids)
+        self.assertEqual(ids, {"FIX-301", "FIX-302"})
+
+    def test_header_table_status_preserved_in_combination(self):
+        tasks = {t.task_id: t for t in parse_task_dependencies(self._TABLE)}
+        self.assertEqual(tasks["FIX-301"].priority, "P0")
+        self.assertFalse(tasks["FIX-301"].is_completed())
+        self.assertTrue(tasks["FIX-302"].is_completed())
+
+
+class TestCoerceTextPathAmbiguity(unittest.TestCase):
+    """FIX-252 O1 — ``_coerce_text`` str path / text ambiguity.
+
+    Red-to-green root behavior: a caller who passes a **str-form path** to
+    :func:`parse_task_dependencies` (e.g.
+    ``parse_task_dependencies('D:\\\\...\\\\plan-tracker.md')``) previously got a
+    silent ``total 0`` — the string was treated as document text, no table was
+    found. These tests pin that (1) a str path to an existing ``.md`` file with
+    a priority table now returns that table's tasks, (2) pure-text str input is
+    unchanged (no regression on the existing text fixtures), (3) a str that
+    looks like a path but names no existing file raises a clear error (rather
+    than a silent 0), and (4) ``Path`` object input is unchanged.
+    """
+
+    def _write_temp_file(self, text, suffix=".md"):
+        fd, path = tempfile.mkstemp(suffix=suffix)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        self.addCleanup(lambda: os.remove(path))
+        return path
+
+    def test_str_path_to_existing_md_reads_task_table(self):
+        # A str path (not a Path object) to an .md containing a priority table
+        # must be READ as a file — previously returned total 0.
+        path = self._write_temp_file(_SAMPLE_TABLE)
+        tasks = parse_task_dependencies(str(Path(path)))
+        ids = {t.task_id for t in tasks}
+        self.assertIn("FIX-101", ids)  # red before fix: total 0 → empty set
+        self.assertEqual(len(tasks), 9)
+
+    def test_plain_text_str_input_unchanged(self):
+        # Passing raw markdown text as str remains the text channel (existing
+        # _SAMPLE_TABLE usage) — zero regression.
+        tasks = parse_task_dependencies(_SAMPLE_TABLE)
+        self.assertEqual(len(tasks), 9)
+
+    def test_path_object_input_unchanged(self):
+        # Path object input still reads the file — zero regression.
+        path = self._write_temp_file(_SAMPLE_TABLE)
+        tasks = parse_task_dependencies(Path(path))
+        self.assertEqual(len(tasks), 9)
+
+    def test_str_path_like_but_missing_file_raises_value_error(self):
+        # A str that looks like a path (contains separator / ends .md) but does
+        # not name an existing file must fail clearly, not silent total 0.
+        missing = str(Path(tempfile.gettempdir()) / "no-such-plan-tracker-file.md")
+        with self.assertRaises(ValueError):
+            parse_task_dependencies(missing)
+
+    def test_text_containing_forward_slash_not_treated_as_path(self):
+        # Ordinary markdown text containing '/' (prose / table separators) must
+        # NOT be mis-detected as a path — it stays the text channel.
+        text = "## a/b path-like value but it is prose text\n\nnot a real file."
+        tasks = parse_task_dependencies(text)
+        self.assertEqual(tasks, [])
+
+    def test_empty_string_is_text_not_path(self):
+        # FIX-252 R0 P1-1: Path("") normalizes to Path("."), whose exists() is
+        # True in a real cwd → the pre-guard heuristic mis-classified "" as a
+        # path → open(".") raised IsADirectoryError/PermissionError. An empty
+        # string must stay on the text channel and parse to [] (the pre-O1
+        # behavior), not crash uncategorized.
+        tasks = parse_task_dependencies("")
+        self.assertEqual(tasks, [])
+
+    def test_multiline_str_never_treated_as_path(self):
+        # FIX-252 R0 P1-1: a real path can never contain "\n" — any multi-line
+        # value is by definition document text. A multi-line str whose first
+        # line carries a drive prefix / .md suffix must NOT raise a spurious
+        # ValueError; it stays the text channel.
+        text = "C:/x/y.md\nrest of the document"
+        tasks = parse_task_dependencies(text)
+        self.assertEqual(tasks, [])
+
+    def test_single_line_md_suffix_with_separator_raises_documented_ambiguity(self):
+        # FIX-252 R0 P3-3: pins the documented ambiguity — a SINGLE-line str
+        # that ends in a document suffix and contains a path separator is
+        # interpreted as a path (prefer path), and a missing file raises
+        # ValueError (documented, not silent).
+        missing = str(Path("nonexistent/nested/dir") / "doc.md")
+        with self.assertRaises(ValueError):
+            parse_task_dependencies(missing)
+
+
+class TestFormatReport(unittest.TestCase):
+    """format_report — markdown output shape."""
+
+    def test_format_includes_summary_counts(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        out = format_report(report)
+        self.assertIn("Task Priority Analysis", out)
+        self.assertIn("Total:", out)
+        self.assertIn("completed", out)
+        self.assertIn("unblocked", out)
+        self.assertIn("blocked", out)
+
+    def test_format_includes_recommended_next_section(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        out = format_report(report)
+        self.assertIn("Recommended next", out)
+        self.assertIn("Top pick", out)
+        # Top pick is FIX-103 (P0, dep FIX-102 satisfied).
+        self.assertIn("`FIX-103`", out)
+
+    def test_format_lists_blocked_with_blockers(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        out = format_report(report)
+        self.assertIn("Blocked", out)
+        # FIX-106 is blocked by FIX-105 (the active task-family dep).
+        self.assertIn("`FIX-106`", out)
+        self.assertIn("FIX-105", out)  # the blocking dep shown
+
+    def test_format_cycle_banner_when_cycles_present(self):
+        a = TaskDep("FIX-A", "P0", "⏳", ("FIX-B",), (), "0.1.0")
+        b = TaskDep("FIX-B", "P0", "⏳", ("FIX-A",), (), "0.1.0")
+        report = compute_unblocked_tasks([a, b])
+        out = format_report(report)
+        self.assertIn("CYCLE", out)
+
+    def test_format_no_cycle_banner_when_acyclic(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        out = format_report(report)
+        self.assertNotIn("CYCLE", out)
+
+    def test_format_empty_report_does_not_crash(self):
+        out = format_report(compute_unblocked_tasks([]))
+        self.assertIn("Task Priority Analysis", out)
+        self.assertIn("No unblocked tasks", out)
+
+
+class TestVersionTuple(unittest.TestCase):
+    """_version_tuple — sort-key helper."""
+
+    def test_parse_semver(self):
+        self.assertEqual(_version_tuple("0.71.0"), (0, 71, 0))
+
+    def test_extract_from_parenthetical(self):
+        # "0.66.2（暂定）" → (0, 66, 2)
+        self.assertEqual(_version_tuple("0.66.2（暂定）"), (0, 66, 2))
+
+    def test_em_dash_sorts_last(self):
+        em = _version_tuple("—")
+        real = _version_tuple("0.1.0")
+        self.assertGreater(em, real)
+
+    def test_unversioned_sorts_last(self):
+        unv = _version_tuple("未规划版本")
+        real = _version_tuple("0.1.0")
+        self.assertGreater(unv, real)
+
+
+class TestPurityContract(unittest.TestCase):
+    """The compute path must hold no module-level mutable state."""
+
+    def test_repeated_calls_are_deterministic(self):
+        t1 = parse_task_dependencies(_SAMPLE_TABLE)
+        r1 = compute_unblocked_tasks(t1)
+        t2 = parse_task_dependencies(_SAMPLE_TABLE)
+        r2 = compute_unblocked_tasks(t2)
+        self.assertEqual([t.task_id for t in r1.recommended_next],
+                         [t.task_id for t in r2.recommended_next])
+        self.assertEqual(r1.total, r2.total)
+
+    def test_module_imports_only_stdlib(self):
+        # Inspect the module's globals — every loaded module must be stdlib.
+        import task_priority as tp
+        allowed = set(sys.stdlib_module_names) if hasattr(sys, "stdlib_module_names") else set()
+        # Always-allowed: the module itself + dataclasses (stdlib).
+        allowed |= {"task_priority", "dataclasses", "re", "unicodedata"}
+        # What matters: no third-party imports sneaked in. Walk sys.modules
+        # entries the module pulled in via its own imports (best-effort).
+        for name in ("re", "unicodedata", "dataclasses"):
+            self.assertIn(name, sys.modules)
+
+
+# ─── Fixture: third-class status filter named cases (FIX-237.2 / ADR-017) ────
+#
+# Every non-control row has NO dependencies (—) so the ONLY reason it is not
+# unblocked is the third-class status filter: rows whose status leading marker
+# is ⛔/⏸/🔴/🚧 are non-executable candidates even when dependency-satisfied.
+# Named cases mirror the live plan-tracker rows that previously polluted the
+# Unblocked list (AUDIT-142 diagnosis R0 实测, ADR-017 §4.4 P1-3):
+#   SYSGAP-046 (🚧 historical in-progress terminal), FIX-197 (⏸ SPLIT_TO),
+#   REL-058 (⛔ BLOCKED), AUDIT-136 (⛔ BLOCKED_REVIEW_FUSE),
+#   FIX-203 (⛔ BLOCKED_PERFORMANCE), FIX-105 (🔴 blocked).
+# Controls: FIX-777 (⏳ pending → eligible), FIX-778 (✅ completed → excluded
+# via _status_is_completed, never reaches the candidate filter).
+_NON_EXECUTABLE_TABLE = """\
+# Non-executable status fixtures
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | SYSGAP-046 | historical in-progress terminal (named case) | — | 0.65.3 | closed | 🚧 前向门禁完成，历史处置待 DEC (2026-07-11) |
+| **P0** | FIX-197 | split/held terminal (named case) | — | 0.66.1 | closed | ⏸ SPLIT_TO FIX-199/FIX-200 (2026-07-13) |
+| **P0** | REL-058 | blocked release incident (named case) | — | 0.66.1 | closed | ⛔ BLOCKED — release incident (2026-07-17) |
+| **P0** | AUDIT-136 | blocked review fuse (named case) | — | 0.66.2（暂定） | closed | ⛔ BLOCKED_REVIEW_FUSE——已拆分至 AUDIT-137/138 |
+| **P1** | FIX-203 | blocked performance terminal | — | 0.66.1 | closed | ⛔ BLOCKED_PERFORMANCE |
+| **P2** | FIX-105 | 🔴 blocked-marker row | — | 0.2.0 | open | 🔴 阻塞 |
+| **P0** | FIX-777 | pending control row | — | 0.3.0 | open | ⏳ 待执行 |
+| **P2** | FIX-778 | completed control row | — | 0.1.0 | closed | ✅ 完成 (2026-01-01) |
+"""
+
+
+class TestThirdClassStatusFilter(unittest.TestCase):
+    """Third-class status filter — ⛔/⏸/🔴/🚧 rows never enter unblocked / next.
+
+    FIX-237.2 / ADR-017 §4.4 P1-3: dependency satisfaction alone no longer
+    makes a row an executable candidate. The status leading marker must be ⏳
+    (pending/active) or absent (unmarked plain-text status). Terminal /
+    non-executable markers (⛔ blocked, ⏸ split/held, 🔴 blocked, 🚧 historical
+    in-progress) are excluded even when dependency-satisfied.
+    """
+
+    def setUp(self):
+        self.tasks = parse_task_dependencies(_NON_EXECUTABLE_TABLE)
+        self.report = compute_unblocked_tasks(self.tasks)
+        self.unblocked_ids = {t.task_id for t in self.report.unblocked}
+        self.recommended_ids = [t.task_id for t in self.report.recommended_next]
+        self.excluded_ids = {t.task_id for t in self.report.non_executable}
+        self.completed_ids = {t.task_id for t in self.report.completed}
+
+    def test_named_non_executable_rows_excluded_from_unblocked(self):
+        for tid in ("SYSGAP-046", "FIX-197", "REL-058", "AUDIT-136", "FIX-203", "FIX-105"):
+            self.assertNotIn(tid, self.unblocked_ids, f"{tid} must not be unblocked")
+
+    def test_named_non_executable_rows_excluded_from_recommended(self):
+        for tid in ("SYSGAP-046", "FIX-197", "REL-058", "AUDIT-136", "FIX-203", "FIX-105"):
+            self.assertNotIn(tid, self.recommended_ids, f"{tid} must not be recommended")
+
+    def test_only_pending_control_is_unblocked(self):
+        self.assertEqual(self.unblocked_ids, {"FIX-777"})
+        self.assertEqual(self.recommended_ids, ["FIX-777"])
+
+    def test_non_executable_bucket_reports_excluded_rows(self):
+        self.assertEqual(self.excluded_ids, {"SYSGAP-046", "FIX-197", "REL-058", "AUDIT-136", "FIX-203", "FIX-105"})
+
+    def test_pending_row_still_eligible(self):
+        self.assertIn("FIX-777", self.unblocked_ids)
+        self.assertIn("FIX-777", self.recommended_ids)
+
+    def test_completed_row_still_excluded_by_is_completed(self):
+        self.assertIn("FIX-778", self.completed_ids)
+        self.assertNotIn("FIX-778", self.unblocked_ids)
+        self.assertNotIn("FIX-778", self.recommended_ids)
+        self.assertNotIn("FIX-778", self.excluded_ids)
+
+    def test_unmarked_plain_status_is_eligible(self):
+        # A status cell with no leading emoji marker (plain text) is eligible.
+        t = TaskDep("FIX-780", "P0", "待执行", (), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertEqual([x.task_id for x in report.unblocked], ["FIX-780"])
+        self.assertEqual(report.non_executable, [])
+        self.assertEqual(report.recommended_next[0].task_id, "FIX-780")
+
+    def test_marked_blocked_row_with_blocking_deps_remains_blocked(self):
+        # A ⛔ row whose task-family dep is unknown cannot be proven complete →
+        # it stays in the Blocked list (dependency fact); blocked takes
+        # precedence over the non-executable bucket.
+        t = TaskDep("REL-900", "P0", "⛔ BLOCKED_BY FIX-999", ("FIX-999",), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertEqual(len(report.blocked), 1)
+        self.assertEqual(report.blocked[0].task.task_id, "REL-900")
+        self.assertEqual(report.non_executable, [])
+        self.assertEqual(report.unblocked, [])
+
+    def test_clipboard_queued_marker_is_non_candidate(self):
+        # 📋 待启动 (queued-not-executable) — a leading marker that is not ⏳
+        # is non-candidate even with no dependencies (FIX-237.3 P3-2).
+        t = TaskDep("FIX-781", "P0", "📋 待启动", (), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertEqual([x.task_id for x in report.non_executable], ["FIX-781"])
+        self.assertEqual(report.unblocked, [])
+
+    def test_stop_marker_is_non_candidate(self):
+        # 🛑 stopped — a leading marker that is not ⏳ is non-candidate
+        # (FIX-237.3 P3-2).
+        t = TaskDep("FIX-782", "P0", "🛑 停止", (), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertEqual([x.task_id for x in report.non_executable], ["FIX-782"])
+        self.assertEqual(report.unblocked, [])
+
+    def test_empty_status_cell_is_eligible(self):
+        # Empty status cell → no leading marker → eligible (dependency
+        # analysis decides; FIX-237.3 P3-2).
+        t = TaskDep("FIX-783", "P0", "", (), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertEqual([x.task_id for x in report.unblocked], ["FIX-783"])
+        self.assertEqual(report.non_executable, [])
+
+    def test_format_excluded_section_lists_filtered_rows(self):
+        out = format_report(self.report)
+        self.assertIn("Excluded (non-executable status)", out)
+        self.assertIn("`REL-058`", out)
+        self.assertIn("`SYSGAP-046`", out)
+        # The Unblocked section itself must not contain the filtered rows.
+        unblocked_section = out.split("## Unblocked (ready to work)", 1)[1].split("## Excluded (non-executable status)", 1)[0]
+        self.assertNotIn("REL-058", unblocked_section)
+        self.assertNotIn("FIX-197", unblocked_section)
+        self.assertIn("`FIX-777`", unblocked_section)
+
+
+# ─── Fixture: non-✅ terminal wording forms (FIX-288 ⑦) ─────────────────────
+#
+# Router live-data reproduction (FIX-288 ⑦): rows whose status is terminal in
+# WORDING but carries no ⛔/⏸/🔴/🚧/🛑/📋 leading marker leaked into Unblocked /
+# Recommended next / Top pick, because the third-class filter only knew the
+# emoji marker set. Named cases (live shapes):
+#   FIX-881 — the live REL-073 form 「🔄 规划段完成 + M-0 裁决完成」 (listed as
+#             Top pick in the FIX-288 triage snapshot despite being terminal);
+#   FIX-882 — bare text terminal prefix 「已终止 …」;
+#   FIX-883 — 「已撤回/失效」 (live roadmap vocabulary);
+#   FIX-884 — 「已完成」 without the ✅ emoji (blocking semantics unchanged:
+#             non_executable, NOT completed — completed still requires ✅).
+# Controls: FIX-885 (「🔄 进行中」 — ACTIVE, 🔄 is NOT wholesale terminal),
+# FIX-886 (⏳ 待执行).
+_TERMINAL_WORD_TABLE = """\
+# Non-✅ terminal wording fixtures (FIX-288 ⑦)
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-881 | live REL-073 form: segment-complete wording | — | 0.78.1 | closed | 🔄 规划段完成 + M-0 裁决完成 |
+| **P0** | FIX-882 | terminated (text-only terminal prefix) | — | 0.1.0 | closed | 已终止 (2026-08-01) |
+| **P2** | FIX-883 | withdrawn (text-only terminal prefix) | — | 0.1.0 | closed | 已撤回/失效 |
+| **P1** | FIX-884 | completed wording without emoji | — | 0.1.0 | closed | 已完成 |
+| **P0** | FIX-885 | ACTIVE control: 🔄 in-progress stays eligible | — | 0.78.1 | open | 🔄 进行中 |
+| **P2** | FIX-886 | pending control row | — | 0.3.0 | open | ⏳ 待执行 |
+"""
+
+# Router acceptance anchor (FIX-288): when EVERY row is terminal, the report
+# must fall back to the REQ-110 structured reason — no Top pick, no terminal
+# task in Unblocked / Recommended next.
+_ALL_TERMINAL_TABLE = """\
+# All-terminal fixture (FIX-288 ⑦ router anchor)
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-881 | live REL-073 form | — | 0.78.1 | closed | 🔄 规划段完成 + M-0 裁决完成 |
+| **P0** | FIX-882 | terminated text-only | — | 0.1.0 | closed | 已终止 (2026-08-01) |
+"""
+
+
+class TestTerminalWordStatusFilter(unittest.TestCase):
+    """FIX-288 ⑦ — non-✅ terminal WORDING is non-executable too.
+
+    The emoji marker set (⛔/⏸/🔴/🚧/🛑/📋) does not cover terminal statuses
+    that occur in live plan-tracker data: 🔄-led rows whose wording records a
+    completion (the live REL-073 row — previously listed as Top pick) and
+    bare text terminal prefixes (已终止/已撤回/已取消/已失效/已完成). Rule: a
+    not-completed status cell is terminal when it starts with a text terminal
+    prefix OR contains the completion word 「完成」 — except ⏳-led cells
+    (explicit pending marker wins). 「🔄 进行中」 carries no completion word
+    and stays ACTIVE: 🔄 is deliberately NOT added to the terminal marker set
+    because it also marks genuine in-progress rows.
+    """
+
+    def setUp(self):
+        self.tasks = parse_task_dependencies(_TERMINAL_WORD_TABLE)
+        self.report = compute_unblocked_tasks(self.tasks)
+        self.unblocked_ids = {t.task_id for t in self.report.unblocked}
+        self.recommended_ids = [t.task_id for t in self.report.recommended_next]
+        self.excluded_ids = {t.task_id for t in self.report.non_executable}
+
+    def test_terminal_wording_rows_excluded_from_unblocked(self):
+        for tid in ("FIX-881", "FIX-882", "FIX-883", "FIX-884"):
+            self.assertNotIn(tid, self.unblocked_ids,
+                             f"{tid} must not be unblocked")
+
+    def test_terminal_wording_rows_excluded_from_recommended(self):
+        for tid in ("FIX-881", "FIX-882", "FIX-883", "FIX-884"):
+            self.assertNotIn(tid, self.recommended_ids,
+                             f"{tid} must not be recommended")
+
+    def test_terminal_wording_rows_land_in_non_executable_bucket(self):
+        self.assertEqual(
+            self.excluded_ids, {"FIX-881", "FIX-882", "FIX-883", "FIX-884"})
+
+    def test_active_in_progress_control_stays_eligible(self):
+        # 🔄 is NOT wholesale terminal: a genuine in-progress row stays a
+        # candidate (live FIX-288/FIX-289 rows depend on this).
+        self.assertIn("FIX-885", self.unblocked_ids)
+        self.assertNotIn("FIX-885", self.excluded_ids)
+
+    def test_pending_and_in_progress_controls_are_the_only_candidates(self):
+        self.assertEqual(self.unblocked_ids, {"FIX-885", "FIX-886"})
+        self.assertEqual(self.recommended_ids, ["FIX-885", "FIX-886"])
+
+    def test_completed_still_requires_emoji_not_wording(self):
+        # 「已完成」 without ✅ is terminal-non-executable, NOT completed —
+        # blocking semantics are unchanged (completed still requires ✅).
+        t = TaskDep("FIX-884", "P1", "已完成", (), (), "0.1.0")
+        done = TaskDep("FIX-885", "P0", "✅ 代码完成", (), (), "0.1.0")
+        report = compute_unblocked_tasks([t, done])
+        self.assertEqual(
+            [x.task_id for x in report.non_executable], ["FIX-884"])
+        self.assertEqual([x.task_id for x in report.completed], ["FIX-885"])
+        # ✅-led wording (「✅ 代码完成」) is completed per the FIX-226 rule
+        # (contains ✅) — judged terminal via the completed bucket (stricter
+        # than non-executable: it unblocks dependents), codified here.
+
+    def test_all_terminal_rows_yield_structured_reason_not_top_pick(self):
+        # Router acceptance anchor: an all-terminal board has NO Top pick and
+        # NO terminal task in Unblocked / Recommended next — the REQ-110
+        # structured empty reason renders instead.
+        report = compute_unblocked_tasks(
+            parse_task_dependencies(_ALL_TERMINAL_TABLE))
+        self.assertEqual(report.unblocked, [])
+        self.assertEqual(report.recommended_next, [])
+        self.assertIsNone(report.unblock_recommendation)
+        self.assertIsNotNone(report.empty_reason)
+        self.assertEqual(report.empty_reason["kind"], "all_non_executable")
+        out = format_report(report)
+        self.assertNotIn("Top pick", out)
+        unblocked_section = out.split(
+            "## Unblocked (ready to work)", 1)[1].split(
+            "## Excluded (non-executable status)", 1)[0]
+        self.assertNotIn("FIX-881", unblocked_section)
+        self.assertNotIn("FIX-882", unblocked_section)
+        self.assertIn("`FIX-881`", out)  # visible in the Excluded bucket
+
+
+class TestCycleWarning(unittest.TestCase):
+    """Cycle tolerance — cycles are a WARN, not an ERROR (FIX-237.2).
+
+    The dependency graph may still contain a cycle (or a future one); the
+    report must keep the cycle list for visibility but expose a
+    ``cycle_warning`` flag and format a WARNING banner — the analysis output
+    is best-effort and must not be blocked by the cycle.
+    """
+
+    def test_cycle_warning_flag_set_when_cycles_present(self):
+        a = TaskDep("FIX-A", "P0", "⏳", ("FIX-B",), (), "0.1.0")
+        b = TaskDep("FIX-B", "P0", "⏳", ("FIX-A",), (), "0.1.0")
+        report = compute_unblocked_tasks([a, b])
+        self.assertTrue(report.cycle_warning)
+        self.assertTrue(len(report.cycles) >= 1)
+
+    def test_cycle_warning_flag_false_when_acyclic(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        self.assertFalse(report.cycle_warning)
+
+    def test_cycle_banner_is_warning_not_error(self):
+        a = TaskDep("FIX-A", "P0", "⏳", ("FIX-B",), (), "0.1.0")
+        b = TaskDep("FIX-B", "P0", "⏳", ("FIX-A",), (), "0.1.0")
+        out = format_report(compute_unblocked_tasks([a, b]))
+        self.assertIn("CYCLE DETECTED (WARNING)", out)
+        self.assertNotIn("(ERROR)", out)
+        # The cycle members are still listed (visibility preserved).
+        self.assertIn("FIX-A", out)
+        self.assertIn("FIX-B", out)
+
+    def test_cycle_does_not_block_best_effort_unblocked(self):
+        a = TaskDep("FIX-A", "P0", "⏳", ("FIX-B",), (), "0.1.0")
+        b = TaskDep("FIX-B", "P0", "⏳", ("FIX-A",), (), "0.1.0")
+        c = TaskDep("FIX-C", "P1", "⏳", (), (), "0.2.0")
+        report = compute_unblocked_tasks([a, b, c])
+        self.assertTrue(report.cycle_warning)
+        unblocked_ids = {t.task_id for t in report.unblocked}
+        self.assertIn("FIX-C", unblocked_ids)
+
+
+class TestBackwardCompatibility(unittest.TestCase):
+    """New report fields must not break existing consumers (FIX-237.2)."""
+
+    def test_new_fields_default_on_plain_constructor(self):
+        report = PriorityReport()
+        self.assertEqual(report.non_executable, [])
+        self.assertFalse(report.cycle_warning)
+
+    def test_old_style_keyword_constructor_still_works(self):
+        report = PriorityReport(
+            completed=[], blocked=[], unblocked=[], recommended_next=[],
+            total=0, dependency_graph={}, cycles=[],
+        )
+        self.assertEqual(report.non_executable, [])
+        self.assertFalse(report.cycle_warning)
+
+
+# ─── Fixture: unblocked=0 (all-blocked) — REQ-110 empty-recommendation fallback ──
+#
+# FIX-254 / REQ-110: the live-data shape (total=131+ / unblocked=0 →
+# recommended_next 恒空，任务完成后的推荐交互退化为机械枚举) reduced to a
+# minimal fixture. One completed dep, one dependency-satisfied head held by a
+# terminal status marker (⛔) with a two-task blocked chain hanging off it, and
+# one unknown-dependency chain. The ⛔ head is the highest-value unblock entry
+# (2 downstream tasks vs the unknown chain's 1).
+_ALL_BLOCKED_TABLE = """\
+# Plan Tracker
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-200 | completed dep | — | 0.1.0 | closed | ✅ 完成 (2026-01-01) |
+| **P0** | FIX-205 | held head (deps satisfied) | FIX-200✅ | 0.2.0 | open | ⛔ BLOCKED_ENVIRONMENT |
+| **P0** | FIX-207 | blocked child | FIX-205 | 0.2.0 | open | ⏳ 待执行 |
+| **P0** | FIX-208 | blocked grandchild | FIX-207 | 0.2.0 | open | ⏳ 待执行 |
+| **P1** | FIX-210 | unknown-dep child | FIX-299 | 0.3.0 | open | ⏳ 待执行 |
+"""
+
+
+class TestEmptyRecommendationFallback(unittest.TestCase):
+    """REQ-110 / FIX-254 — unblocked=0 must NOT degrade to a bare empty list.
+
+    When no task is unblocked, the report must carry either a blocked-chain
+    unblock recommendation (the head node of the highest-value chain + a
+    dependency reason) or a structured empty reason (all_blocked /
+    all_non_executable / no_active_tasks + nearest actionable step). A bare
+    ``recommended_next: []`` with no explanation is the AUDIT-143 data-layer
+    root cause of user-feedback 2a/2b and is forbidden.
+    """
+
+    def test_all_blocked_fixture_recommends_unblock_chain(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_ALL_BLOCKED_TABLE))
+        self.assertEqual(report.recommended_next, [])
+        self.assertEqual(report.unblocked, [])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        # FIX-205 (⛔ held, deps satisfied) heads the chain FIX-207→FIX-208 —
+        # 2 downstream beats the unknown-dep chain FIX-299→FIX-210 (1).
+        self.assertEqual(rec.root_task_id, "FIX-205")
+        self.assertEqual(rec.root_kind, "non_executable_status")
+        self.assertEqual(rec.downstream_task_ids, ("FIX-207", "FIX-208"))
+        self.assertEqual(rec.downstream_count, 2)
+        self.assertIn("FIX-205", rec.reason)
+        self.assertIn("status", rec.reason)
+
+    def test_all_blocked_fixture_structured_empty_reason(self):
+        report = compute_unblocked_tasks(parse_task_dependencies(_ALL_BLOCKED_TABLE))
+        er = report.empty_reason
+        self.assertIsNotNone(er)
+        self.assertEqual(er["kind"], "all_blocked")
+        self.assertEqual(er["blocked"], 3)          # FIX-207, FIX-208, FIX-210
+        self.assertEqual(er["non_executable"], 1)   # FIX-205
+        self.assertEqual(er["completed"], 1)        # FIX-200
+        self.assertIn("FIX-205", er["nearest_action"])
+
+    def test_unblock_picks_highest_value_chain_over_priority(self):
+        # Downstream count dominates: a P1 head unlocking 3 beats a P0 head
+        # unlocking 1 (value = how much of the plan reopens).
+        head_p1 = TaskDep("FIX-901", "P1", "⛔ HELD", (), (), "0.1.0")
+        c1 = TaskDep("FIX-902", "P0", "⏳ 待执行", ("FIX-901",), (), "0.1.0")
+        c2 = TaskDep("FIX-903", "P1", "⏳ 待执行", ("FIX-902",), (), "0.1.0")
+        c3 = TaskDep("FIX-904", "P2", "⏳ 待执行", ("FIX-903",), (), "0.1.0")
+        head_p0 = TaskDep("FIX-905", "P0", "⏸ HELD", (), (), "0.1.0")
+        d1 = TaskDep("FIX-906", "P0", "⏳ 待执行", ("FIX-905",), (), "0.1.0")
+        report = compute_unblocked_tasks([head_p1, c1, c2, c3, head_p0, d1])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_task_id, "FIX-901")
+        self.assertEqual(rec.downstream_task_ids, ("FIX-902", "FIX-903", "FIX-904"))
+
+    def test_unblock_equal_value_tiebreak_prefers_priority(self):
+        # Equal downstream counts → higher-priority root wins.
+        head_p1 = TaskDep("FIX-910", "P1", "⛔ HELD", (), (), "0.1.0")
+        c1 = TaskDep("FIX-911", "P0", "⏳ 待执行", ("FIX-910",), (), "0.1.0")
+        head_p0 = TaskDep("FIX-912", "P0", "⏸ HELD", (), (), "0.1.0")
+        c2 = TaskDep("FIX-913", "P0", "⏳ 待执行", ("FIX-912",), (), "0.1.0")
+        report = compute_unblocked_tasks([head_p1, c1, head_p0, c2])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_task_id, "FIX-912")
+
+    def test_unknown_dependency_root_reported_with_reason(self):
+        # A task-family dep missing from the table blocks fail-closed; the
+        # fallback must surface it as a data-gap root, not stay silent.
+        t = TaskDep("FIX-970", "P0", "⏳ 待执行", ("FIX-999",), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_task_id, "FIX-999")
+        self.assertEqual(rec.root_kind, "unknown_dependency")
+        self.assertEqual(rec.downstream_task_ids, ("FIX-970",))
+        self.assertIn("FIX-999", rec.reason)
+        self.assertEqual(report.empty_reason["kind"], "all_blocked")
+
+    def test_cycle_blocker_walk_terminates_with_cycle_root(self):
+        # A↔B blocker cycle: the walk must terminate and classify the root as
+        # a cycle (never a RecursionError / hang).
+        a = TaskDep("FIX-940", "P0", "⏳ 待执行", ("FIX-941",), (), "0.1.0")
+        b = TaskDep("FIX-941", "P0", "⏳ 待执行", ("FIX-940",), (), "0.1.0")
+        c = TaskDep("FIX-942", "P0", "⏳ 待执行", ("FIX-940",), (), "0.1.0")
+        report = compute_unblocked_tasks([a, b, c])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_kind, "cycle")
+        self.assertEqual(rec.root_task_id, "FIX-940")
+        self.assertEqual(set(rec.downstream_task_ids), {"FIX-940", "FIX-942"})
+
+    def test_all_non_executable_yields_structured_reason_and_nearest_action(self):
+        # Nothing is dependency-blocked; every active row is held by a
+        # terminal status marker. There is NO blocked chain, so no chain
+        # recommendation — kind = all_non_executable + a nearest action that
+        # re-evaluates the highest-priority held row.
+        low = TaskDep("FIX-920", "P2", "⛔ BLOCKED", (), (), "0.1.0")
+        high = TaskDep("FIX-921", "P0", "⏸ SPLIT_TO FIX-922/FIX-923", (), (), "0.1.0")
+        report = compute_unblocked_tasks([low, high])
+        self.assertEqual(report.blocked, [])
+        er = report.empty_reason
+        self.assertIsNotNone(er)
+        self.assertEqual(er["kind"], "all_non_executable")
+        self.assertEqual(er["non_executable"], 2)
+        # No chain → no unblock recommendation; the nearest action carries
+        # the re-evaluation entry point instead.
+        self.assertIsNone(report.unblock_recommendation)
+        self.assertIn("FIX-921", er["nearest_action"])
+
+    def test_no_active_tasks_yields_structured_reason(self):
+        done_a = TaskDep("FIX-930", "P0", "✅ 完成", (), (), "0.1.0")
+        done_b = TaskDep("FIX-931", "P1", "✅ 完成", (), (), "0.1.0")
+        report = compute_unblocked_tasks([done_a, done_b])
+        self.assertIsNone(report.unblock_recommendation)
+        er = report.empty_reason
+        self.assertIsNotNone(er)
+        self.assertEqual(er["kind"], "no_active_tasks")
+        self.assertTrue(er["nearest_action"])
+
+    def test_empty_input_yields_no_active_tasks_reason(self):
+        report = compute_unblocked_tasks([])
+        self.assertIsNone(report.unblock_recommendation)
+        self.assertEqual(report.empty_reason["kind"], "no_active_tasks")
+
+    def test_fallback_dormant_when_unblocked_present(self):
+        # Zero behavior change on the non-empty path (no scope creep).
+        report = compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE))
+        self.assertTrue(report.recommended_next)
+        self.assertIsNone(report.unblock_recommendation)
+        self.assertIsNone(report.empty_reason)
+        # Same for the third-class-filter fixture (FIX-777 is unblocked).
+        report2 = compute_unblocked_tasks(parse_task_dependencies(_NON_EXECUTABLE_TABLE))
+        self.assertTrue(report2.recommended_next)
+        self.assertIsNone(report2.unblock_recommendation)
+        self.assertIsNone(report2.empty_reason)
+
+    def test_backward_compat_new_fields_default_none(self):
+        report = PriorityReport()
+        self.assertIsNone(report.unblock_recommendation)
+        self.assertIsNone(report.empty_reason)
+        legacy = PriorityReport(
+            completed=[], blocked=[], unblocked=[], recommended_next=[],
+            total=0, dependency_graph={}, cycles=[],
+        )
+        self.assertIsNone(legacy.unblock_recommendation)
+        self.assertIsNone(legacy.empty_reason)
+
+    # ── FIX-258 debt pack: F-3/F-4/F-6 coverage + F-2 compute-level ─────────
+    # (遗留观察项 from review-FIX-254-CODE-R0.md §1)
+
+    def test_diamond_shape_attributes_shared_root_not_cycle(self):
+        # F-4: origin depends on B and C; both depend on the SAME held root
+        # R. The per-branch ``path`` set must attribute both branches to the
+        # shared root (set-deduped per origin) instead of misreading the
+        # reconvergence as a cycle, and R's downstream must be the full
+        # union {B, C, origin} (count 3 — diamond neither double-counts nor
+        # loses the shared-root attribution).
+        root = TaskDep("FIX-915", "P1", "⛔ HELD", (), (), "0.1.0")
+        b = TaskDep("FIX-916", "P0", "⏳ 待执行", ("FIX-915",), (), "0.1.0")
+        c = TaskDep("FIX-917", "P0", "⏳ 待执行", ("FIX-915",), (), "0.1.0")
+        origin = TaskDep("FIX-918", "P0", "⏳ 待执行",
+                         ("FIX-916", "FIX-917"), (), "0.1.0")
+        report = compute_unblocked_tasks([root, b, c, origin])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_task_id, "FIX-915")
+        self.assertEqual(rec.root_kind, "non_executable_status")
+        self.assertEqual(rec.downstream_task_ids,
+                         ("FIX-916", "FIX-917", "FIX-918"))
+        self.assertEqual(rec.downstream_count, 3)
+
+    def test_two_chains_converging_on_same_root_count_union(self):
+        # F-4: two INDEPENDENT blocked chains converging on one root — the
+        # root's downstream count is the union of both chains' origins (2,
+        # set semantics: no double-count, no loss).
+        root = TaskDep("FIX-925", "P1", "⛔ HELD", (), (), "0.1.0")
+        a1 = TaskDep("FIX-926", "P0", "⏳ 待执行", ("FIX-925",), (), "0.1.0")
+        b1 = TaskDep("FIX-927", "P2", "⏳ 待执行", ("FIX-925",), (), "0.1.0")
+        report = compute_unblocked_tasks([root, a1, b1])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_task_id, "FIX-925")
+        self.assertEqual(rec.downstream_count, 2)
+        # Priority-ordered downstream: P0 FIX-926 before P2 FIX-927.
+        self.assertEqual(rec.downstream_task_ids, ("FIX-926", "FIX-927"))
+
+    def test_unblock_tiebreak_version_decisive_before_id(self):
+        # F-6①: equal count + equal priority → LOWER target version wins —
+        # version outranks ID (FIX-953's 0.2.0 beats FIX-951's 0.5.0 even
+        # though FIX-951 is the smaller ID, so an ID-only tiebreak fails).
+        r_late = TaskDep("FIX-951", "P0", "⛔ HELD", (), (), "0.5.0")
+        d1 = TaskDep("FIX-952", "P0", "⏳ 待执行", ("FIX-951",), (), "0.1.0")
+        r_early = TaskDep("FIX-953", "P0", "⏸ HELD", (), (), "0.2.0")
+        d2 = TaskDep("FIX-954", "P0", "⏳ 待执行", ("FIX-953",), (), "0.1.0")
+        report = compute_unblocked_tasks([r_late, d1, r_early, d2])
+        self.assertEqual(report.unblock_recommendation.root_task_id, "FIX-953")
+
+    def test_unblock_tiebreak_id_decisive_at_full_tie(self):
+        # F-6①: count/priority/version all equal → smaller root ID wins
+        # (the total-order endgame; deterministic regardless of dict order —
+        # the smaller-ID root FIX-961 is listed AFTER FIX-962 here).
+        r_b = TaskDep("FIX-962", "P1", "⛔ HELD", (), (), "0.1.0")
+        d1 = TaskDep("FIX-963", "P0", "⏳ 待执行", ("FIX-962",), (), "0.1.0")
+        r_a = TaskDep("FIX-961", "P1", "⏸ HELD", (), (), "0.1.0")
+        d2 = TaskDep("FIX-964", "P0", "⏳ 待执行", ("FIX-961",), (), "0.1.0")
+        report = compute_unblocked_tasks([r_b, d1, r_a, d2])
+        self.assertEqual(report.unblock_recommendation.root_task_id, "FIX-961")
+
+    def test_all_blocked_message_held_clause_when_non_executable_coexists(self):
+        # F-6③: blocked + non_executable coexist → the all_blocked message
+        # carries the "; N dependency-satisfied row(s) additionally held by
+        # non-executable status markers" clause (N = 1: the ⛔ FIX-205 row).
+        report = compute_unblocked_tasks(
+            parse_task_dependencies(_ALL_BLOCKED_TABLE))
+        er = report.empty_reason
+        self.assertEqual(er["kind"], "all_blocked")
+        self.assertIn(
+            "; 1 dependency-satisfied row(s) additionally held "
+            "by non-executable status markers", er["message"])
+
+    def test_all_blocked_message_no_held_clause_without_non_executable(self):
+        # F-6③ negative: blocked-only fixture (no held rows) → no clause.
+        t = TaskDep("FIX-970", "P0", "⏳ 待执行", ("FIX-999",), (), "0.1.0")
+        report = compute_unblocked_tasks([t])
+        self.assertNotIn("additionally held",
+                         report.empty_reason["message"])
+
+    def test_multi_entry_cycle_downstream_count_declared_per_node(self):
+        # F-3 (option b — DECLARED approximation, FIX-258): a multi-node
+        # cycle entered from DIFFERENT members splits downstream attribution
+        # per member. X↔Y with D1 entering via X and D2 via Y: each member
+        # root carries itself + its own entrants (count 2), undercounting
+        # the cycle's true unlock scope (X, Y, D1, D2 = 4). The pick is a
+        # genuine cycle member and the action guidance ("resolve the
+        # cycle") is correct — pinned here as DECLARED semantics (see the
+        # approximation note on UnblockRecommendation), not a defect.
+        x = TaskDep("FIX-980", "P0", "⏳ 待执行", ("FIX-981",), (), "0.1.0")
+        y = TaskDep("FIX-981", "P0", "⏳ 待执行", ("FIX-980",), (), "0.1.0")
+        d1 = TaskDep("FIX-982", "P0", "⏳ 待执行", ("FIX-980",), (), "0.1.0")
+        d2 = TaskDep("FIX-983", "P0", "⏳ 待执行", ("FIX-981",), (), "0.1.0")
+        report = compute_unblocked_tasks([x, y, d1, d2])
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertEqual(rec.root_kind, "cycle")
+        # Deterministic total order: both member roots count 2 with equal
+        # priority/version → smaller ID FIX-980 wins.
+        self.assertEqual(rec.root_task_id, "FIX-980")
+        self.assertEqual(rec.downstream_task_ids, ("FIX-980", "FIX-982"))
+        # Per-member split (2); the cycle's full unlock scope is 4.
+        self.assertEqual(rec.downstream_count, 2)
+
+    def test_visit_budget_exhaustion_marks_reason_and_terminates(self):
+        # F-2 (compute-level): a 15-layer binary diamond lattice makes the
+        # origin's simple-path enumeration exponential (~2×(2^15−1) ≈ 65k
+        # visits > the default per-walk budget). compute must terminate
+        # promptly, still recommend (the held layer-14 roots win on
+        # downstream count over the tiny truncated frontier roots), and the
+        # recommendation reason must carry the observable truncation note.
+        tasks = [TaskDep("FIX-800", "P0", "⏳ 待执行",
+                         ("FIX-901", "FIX-902"), (), "0.1.0")]
+        for i in range(14):  # layers 0..13, two nodes each
+            deps = ((f"FIX-{901 + 2 * (i + 1)}", f"FIX-{902 + 2 * (i + 1)}")
+                    if i < 13 else ("FIX-929", "FIX-930"))
+            for s in (0, 1):
+                tasks.append(TaskDep(f"FIX-{901 + 2 * i + s}", "P0",
+                                     "⏳ 待执行", deps, (), "0.1.0"))
+        tasks.append(TaskDep("FIX-929", "P0", "⛔ HELD", (), (), "0.1.0"))
+        tasks.append(TaskDep("FIX-930", "P0", "⛔ HELD", (), (), "0.1.0"))
+        report = compute_unblocked_tasks(tasks)  # returning == no hang/crash
+        rec = report.unblock_recommendation
+        self.assertIsNotNone(rec)
+        self.assertIn(rec.root_task_id, {"FIX-929", "FIX-930"})
+        self.assertEqual(rec.root_kind, "non_executable_status")
+        self.assertIn("visit budget", rec.reason)
+        self.assertIn("downstream attribution may be truncated", rec.reason)
+
+    def test_depth_cap_long_chain_classifies_cycle_style_root(self):
+        # F-6②: depth-cap boundary — a chain DEEPER than
+        # _MAX_ROOT_WALK_DEPTH (200) must terminate via the depth guard and
+        # classify the OVER-CAP node as a cycle-style root (defensive
+        # semantics per R0 F-6②), never crash. Programmatic 202-link chain:
+        # origin FIX-2999 → FIX-3000 (depth 0) → … → FIX-3201 (depth 201).
+        chain = [f"FIX-{3000 + i}" for i in range(_MAX_ROOT_WALK_DEPTH + 2)]
+        task_index = {tid: TaskDep(tid, "P0", "⏳ 待执行", (), (), "0.1.0")
+                      for tid in chain}
+        task_index["FIX-2999"] = TaskDep("FIX-2999", "P0", "⏳ 待执行",
+                                         ("FIX-3000",), (), "0.1.0")
+        blocked_map = {"FIX-2999": ("FIX-3000",)}
+        for i in range(len(chain) - 1):
+            blocked_map[chain[i]] = (chain[i + 1],)
+        # Chain tail: a held root (⛔, no deps) — reachable only PAST the cap.
+        task_index[chain[-1]] = TaskDep(chain[-1], "P0", "⛔ HELD",
+                                        (), (), "0.1.0")
+        roots: dict = {}
+        exhausted = _walk_blocker_roots(
+            "FIX-2999", blocked_map, task_index, roots)
+        # The over-cap node (depth 201 > 200) is classified cycle-style and
+        # attributed to the origin.
+        self.assertEqual(roots.get((chain[-1], _ROOT_KIND_CYCLE)),
+                         {"FIX-2999"})
+        # The in-cap predecessor (depth 200 ≤ 200) is NOT a cycle root —
+        # only the over-cap node flips to cycle-style classification.
+        self.assertNotIn((chain[-2], _ROOT_KIND_CYCLE), roots)
+        # Depth-cap termination is distinct from the F-2 visit budget: a
+        # 202-link chain is far under _MAX_ROOT_WALK_VISITS.
+        self.assertFalse(exhausted)
+
+
+class TestEmptyRecommendationFallbackFormat(unittest.TestCase):
+    """format_report rendering of the REQ-110 fallback (no bare empty list)."""
+
+    def test_format_all_blocked_renders_unblock_pick(self):
+        out = format_report(
+            compute_unblocked_tasks(parse_task_dependencies(_ALL_BLOCKED_TABLE)))
+        self.assertIn("No unblocked tasks", out)
+        self.assertIn("Unblock pick", out)
+        self.assertIn("`FIX-205`", out)
+        self.assertIn("status", out)
+        self.assertIn("`FIX-207`", out)
+        self.assertIn("`FIX-208`", out)
+        self.assertIn("nearest action", out)
+        self.assertIn("all_blocked", out)
+        # The pre-FIX-254 bare fallback text must be gone in this branch.
+        self.assertNotIn(
+            "Every non-completed task is blocked or there are no active tasks", out)
+
+    def test_format_all_non_executable_renders_structured_reason(self):
+        low = TaskDep("FIX-920", "P2", "⛔ BLOCKED", (), (), "0.1.0")
+        high = TaskDep("FIX-921", "P0", "⏸ HELD", (), (), "0.1.0")
+        out = format_report(compute_unblocked_tasks([low, high]))
+        self.assertIn("No unblocked tasks", out)
+        self.assertIn("all_non_executable", out)
+        self.assertIn("`FIX-921`", out)
+        self.assertIn("nearest action", out)
+        self.assertNotIn("Unblock pick", out)
+
+    def test_format_no_active_tasks_renders_structured_reason(self):
+        done = TaskDep("FIX-930", "P0", "✅ 完成", (), (), "0.1.0")
+        out = format_report(compute_unblocked_tasks([done]))
+        self.assertIn("No unblocked tasks", out)
+        self.assertIn("no_active_tasks", out)
+        self.assertIn("nearest action", out)
+        self.assertNotIn("Unblock pick", out)
+
+    def test_format_normal_table_has_no_fallback_markers(self):
+        out = format_report(
+            compute_unblocked_tasks(parse_task_dependencies(_SAMPLE_TABLE)))
+        self.assertIn("Top pick", out)
+        self.assertNotIn("Unblock pick", out)
+        self.assertNotIn("nearest action", out)
+
+
+# ─── CLI integration fixtures (FIX-237.3 P2-1) ──────────────────────────────
+#
+# These tables are written to a TEMPORARY project root (never the real
+# .governance/) and read by ``verify_workflow.py task-priority-analysis
+# --project-root <tmp>`` via subprocess.
+_CYCLIC_CLI_TABLE = """\
+# Priority fixture with a dependency cycle (FIX-237.3 CLI test)
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | FIX-991 | cycle node a | FIX-992 | 0.1.0 | open | ⏳ 待执行 |
+| **P0** | FIX-992 | cycle node b | FIX-991 | 0.1.0 | open | ⏳ 待执行 |
+| **P1** | FIX-993 | independent task | — | 0.2.0 | open | ⏳ 待执行 |
+"""
+
+_ACYCLIC_CLI_TABLE = """\
+# Priority fixture without a cycle (FIX-237.3 CLI test)
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P0** | FIX-991 | depends on b | FIX-992 | 0.1.0 | open | ⏳ 待执行 |
+| **P0** | FIX-992 | leaf task | — | 0.1.0 | open | ⏳ 待执行 |
+| **P1** | FIX-993 | independent task | — | 0.2.0 | open | ⏳ 待执行 |
+"""
+
+
+class TestTaskPriorityCliCycleTolerance(unittest.TestCase):
+    """CLI integration — cycle tolerance (FIX-237.3 P2-1).
+
+    These are subprocess-level integration tests: they run ``verify_workflow.py
+    task-priority-analysis --project-root <temp>`` against a TEMPORARY fixture
+    plan-tracker (the real ``.governance/`` is never touched). The CLI must
+    exit 0 with a CYCLE DETECTED (WARNING) banner by default when the
+    dependency graph contains a cycle, and exit 1 only under ``--strict``.
+    """
+
+    _CLI = Path(__file__).resolve().parent.parent / "verify_workflow.py"
+
+    def _run_cli(self, project_root, extra=()):
+        return subprocess.run(
+            [sys.executable, str(self._CLI), "task-priority-analysis",
+             "--project-root", str(project_root), *extra],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120,
+        )
+
+    def _write_fixture(self, table):
+        tmp = tempfile.TemporaryDirectory(prefix="spg-tpa-cli-")
+        gov = Path(tmp.name) / ".governance"
+        gov.mkdir(parents=True, exist_ok=True)
+        (gov / "plan-tracker.md").write_text(table, encoding="utf-8")
+        self.addCleanup(tmp.cleanup)
+        return tmp.name
+
+    def test_cycle_defaults_to_exit_0_with_warning_banner(self):
+        root = self._write_fixture(_CYCLIC_CLI_TABLE)
+        proc = self._run_cli(root)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("CYCLE DETECTED (WARNING)", proc.stdout)
+        self.assertNotIn("(ERROR)", proc.stdout)
+        # Best-effort analysis still produced (independent task present).
+        self.assertIn("`FIX-993`", proc.stdout)
+
+    def test_cycle_strict_preserves_exit_1(self):
+        root = self._write_fixture(_CYCLIC_CLI_TABLE)
+        proc = self._run_cli(root, ("--strict",))
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("CYCLE DETECTED (WARNING)", proc.stdout)
+
+    def test_acyclic_fixture_exits_0_without_banner(self):
+        root = self._write_fixture(_ACYCLIC_CLI_TABLE)
+        proc = self._run_cli(root)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertNotIn("CYCLE DETECTED", proc.stdout)
+
+
+# ─── FEAT-012 G5: same-session duplicate-run suppression (pure layer) ────────
+
+_RECO_ROW_TMPL = (
+    "| RECO-{task} | {task} | 治理记录 | "
+    "task-priority-analysis 机器写入完成必推荐调用快照（trigger {task}，"
+    "M7.4 step 6 / FIX-262） | 事实依据：task-priority-analysis 输出摘要（机器写入）"
+    " | 3 tasks/0 completed/2 unblocked/0 blocked/1 non-exec | Coordinator "
+    "| {day} | G11 | N/A |"
+)
+
+
+class TestDuplicateRunSuppressionPredicates(unittest.TestCase):
+    """FEAT-012 G5 — pure cache/duplicate predicates (no I/O)."""
+
+    _TODAY = "2026-09-10"
+    _MTIME = 1757500000.123456
+
+    def _state(self, **overrides):
+        state = {
+            "date": self._TODAY,
+            "plan_tracker_mtime": self._MTIME,
+            "report_text": "# Task Priority Analysis\nTotal: **3** tasks",
+        }
+        state.update(overrides)
+        return state
+
+    def test_reuse_hit_same_day_same_mtime(self):
+        """G5 抑制命中：当日 + plan-tracker mtime 未变 + 缓存报告在 → 复用。"""
+        self.assertTrue(
+            should_reuse_cached_analysis(
+                self._state(), self._TODAY, self._MTIME))
+
+    def test_reuse_misses_on_every_invalidation_signal(self):
+        """G5 抑制未命中：非 dict / 日期跨天 / mtime 变化 / 缓存报告缺失
+        ——每一信号独立使复用失效（fail-open 到全量重跑）。"""
+        self.assertFalse(should_reuse_cached_analysis(None, self._TODAY, self._MTIME))
+        self.assertFalse(should_reuse_cached_analysis("junk", self._TODAY, self._MTIME))
+        # 不同日（会话边界/跨天）→ 重跑
+        self.assertFalse(should_reuse_cached_analysis(
+            self._state(date="2026-09-09"), self._TODAY, self._MTIME))
+        # plan-tracker 已被编辑（mtime 变化）→ 重跑
+        self.assertFalse(should_reuse_cached_analysis(
+            self._state(), self._TODAY, self._MTIME + 0.5))
+        # 缓存报告缺失/为空 → 重跑（无内容可复用）
+        self.assertFalse(should_reuse_cached_analysis(
+            self._state(report_text=""), self._TODAY, self._MTIME))
+        self.assertFalse(should_reuse_cached_analysis(
+            self._state(report_text=None), self._TODAY, self._MTIME))
+
+    def test_has_reco_row_today_hit_and_miss(self):
+        """G5 RECO 重复判定：当日机器 RECO-{task} 行命中；跨日/他任务/无机器
+        标记/空日志均不命中。"""
+        ev_today = _RECO_ROW_TMPL.format(task="FIX-991", day=self._TODAY)
+        ev_yesterday = _RECO_ROW_TMPL.format(
+            task="FIX-991", day="2026-09-09")
+        legacy_row = (
+            "| RECO-FIX-991 | FIX-991 | 治理记录 | 完成必推荐调用快照（手工） "
+            "| 事实依据：手写 | 3 tasks | Coordinator | " + self._TODAY + " | G11 | N/A |"
+        )
+        self.assertTrue(has_reco_row_today(ev_today, "FIX-991", self._TODAY))
+        self.assertTrue(has_reco_row_today(  # 多行日志中定位
+            "| EVD-1 | FIX-990 | 产品代码 | x | y | z | Dev | 2026-09-10 | G6 | N/A |\n"
+            + ev_today, "FIX-991", self._TODAY))
+        self.assertFalse(has_reco_row_today(ev_yesterday, "FIX-991", self._TODAY),
+                         "昨日快照不算当日重复")
+        self.assertFalse(has_reco_row_today(ev_today, "FIX-992", self._TODAY),
+                         "他任务的 RECO 行不算本任务重复")
+        self.assertFalse(has_reco_row_today(legacy_row, "FIX-991", self._TODAY),
+                         "无机器标记的行不算机器重复（严格判定）")
+        self.assertFalse(has_reco_row_today("", "FIX-991", self._TODAY))
+        self.assertFalse(has_reco_row_today(None, "FIX-991", self._TODAY))
+
+
+# ─── FEAT-012 G5: same-session duplicate-run suppression (CLI layer) ────────
+
+class TestTaskPriorityCliDuplicateSuppression(unittest.TestCase):
+    """CLI integration — FEAT-012 G5 duplicate-run suppression.
+
+    Subprocess-level tests against a TEMPORARY fixture root (the real
+    ``.governance/`` is never touched). The live-session bloat fact this
+    closes: one session ran task-priority-analysis 7×, each run re-doing the
+    full analysis and appending its own RECO row. Now the second consecutive
+    run reuses the cached analysis (「复用上次分析（--force 重跑）」) and a
+    duplicate RECO-{task} row dated today is NOT re-appended.
+    """
+
+    _CLI = Path(__file__).resolve().parent.parent / "verify_workflow.py"
+
+    def _run_cli(self, project_root, extra=()):
+        return subprocess.run(
+            [sys.executable, str(self._CLI), "task-priority-analysis",
+             "--project-root", str(project_root), *extra],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120,
+        )
+
+    def _write_fixture(self, table=_ACYCLIC_CLI_TABLE, evidence=True):
+        tmp = tempfile.TemporaryDirectory(prefix="spg-tpa-g5-")
+        gov = Path(tmp.name) / ".governance"
+        gov.mkdir(parents=True, exist_ok=True)
+        (gov / "plan-tracker.md").write_text(table, encoding="utf-8")
+        if evidence:
+            (gov / "evidence-log.md").write_text(
+                "| id | task | type | desc | fact | artifacts | actor | date | gate | note |\n",
+                encoding="utf-8")
+        self.addCleanup(tmp.cleanup)
+        return tmp.name
+
+    def test_second_consecutive_run_is_suppressed(self):
+        """活体场景（纯分析）：连续两次 tpa——第二次输出「复用上次分析
+        （--force 重跑）」提示并复用缓存报告，不再重复全量分析。"""
+        root = self._write_fixture()
+        first = self._run_cli(root)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.assertIn("# Task Priority Analysis", first.stdout)
+        self.assertNotIn("复用上次分析", first.stdout)
+        second = self._run_cli(root)
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertIn("复用上次分析（--force 重跑）", second.stdout)
+        self.assertIn("# Task Priority Analysis", second.stdout)  # 缓存报告仍在
+        # 状态文件已由首次运行落盘（缓存判定依据）。
+        self.assertTrue((Path(root) / ".governance" / "tpa-last-run.json").is_file())
+
+    def test_force_reruns_full_analysis(self):
+        """--force 显式重跑：不触发复用提示，照常全量分析输出。"""
+        root = self._write_fixture()
+        self._run_cli(root)
+        forced = self._run_cli(root, ("--force",))
+        self.assertEqual(forced.returncode, 0, forced.stdout + forced.stderr)
+        self.assertNotIn("复用上次分析", forced.stdout)
+        self.assertIn("# Task Priority Analysis", forced.stdout)
+
+    def test_plan_tracker_edit_invalidates_cache(self):
+        """抑制未命中：plan-tracker 被编辑（mtime 变化）→ 复用失效重跑。"""
+        root = self._write_fixture()
+        self._run_cli(root)
+        tracker = Path(root) / ".governance" / "plan-tracker.md"
+        st = tracker.stat()
+        os.utime(tracker, (st.st_atime + 10, st.st_mtime + 10))
+        rerun = self._run_cli(root)
+        self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
+        self.assertNotIn("复用上次分析", rerun.stdout)
+        self.assertIn("# Task Priority Analysis", rerun.stdout)
+
+    def test_duplicate_evidence_task_reco_row_not_reappended(self):
+        """活体场景（RECO 面）：同任务连续两次 --evidence-task——第二次
+        识别当日已存在机器 RECO 行，不重复追加（行数守恒 1）。"""
+        root = self._write_fixture()
+        first = self._run_cli(root, ("--evidence-task", "FIX-991"))
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        ev = Path(root) / ".governance" / "evidence-log.md"
+        self.assertEqual(ev.read_text(encoding="utf-8").count("RECO-FIX-991"), 1)
+        second = self._run_cli(root, ("--evidence-task", "FIX-991"))
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        content = ev.read_text(encoding="utf-8")
+        self.assertEqual(content.count("RECO-FIX-991"), 1,
+                         "重复调用不得追加第二条 RECO 行")
+        self.assertIn("不重复追加", second.stdout)
+
+    def test_first_evidence_task_appends_despite_cached_analysis(self):
+        """FIX-262/REQ-108 硬门槛：缓存命中也必须为新任务的首次闭环落
+        RECO 行——抑制的是「重复」，不是「首次」。"""
+        root = self._write_fixture()
+        warm = self._run_cli(root)  # 建缓存（当日 + mtime 未变）
+        self.assertEqual(warm.returncode, 0, warm.stdout + warm.stderr)
+        proc = self._run_cli(root, ("--evidence-task", "FIX-993"))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        ev = Path(root) / ".governance" / "evidence-log.md"
+        content = ev.read_text(encoding="utf-8")
+        self.assertEqual(content.count("RECO-FIX-993"), 1,
+                         "首次闭环义务不得被抑制")
+        self.assertIn("[OK] recommendation snapshot row RECO-FIX-993", proc.stdout)
+
+
+# ─── FIX-341: archived-index dependency resolution ───────────────────────────
+#
+# Live fact (2026-09-16 tpa output): completed-and-archived dependency IDs with
+# NO hot-table row (REL-076✅, FIX-162✅, FIX-319✅, FEAT-031✅, FIX-171) were
+# conservatively judged blocked (fail-closed unknown-dep default) because the
+# dependency resolution only consulted the hot-table status map. FIX-341 adds
+# an ARCHIVE-INDEX lookup as the second resolution layer: a hot-miss dep that
+# the archive index proves completed is satisfied; an index miss stays
+# fail-closed blocked. The index text is INJECTED (pure compute, no I/O).
+
+# Fixture mirrors the REAL .governance/archive/index.md shapes (section header
+# 「## Task 索引」, 4-col rows, real status wordings — including the traps:
+# 完成候选 / 保守闭环 / 间接闭合 / legacy P0-as-status / prose statuses).
+_ARCHIVE_INDEX_FIXTURE = """\
+# 归档索引
+
+> 自动生成，记录每个治理条目的归档位置。
+
+## Task 索引
+
+| Task ID | 状态 | 版本 | 归档文件 |
+|---------|------|------|---------|
+| FIX-075 | 已完成 (2026-05-21) | 0.36.0 | archive/tasks/completed.md |
+| REL-076 | 已完成 (2026-09-12) | 0.80.0 | archive/tasks/v0.1.0~v0.80.0.md |
+| FEAT-031 | 已发布 (2026-09-14)——origin/master=x | 0.81.0 | archive/tasks/v0.1.0~v0.81.0.md |
+| FIX-171 | 完成 (2026-06-11) | 0.61.0 | archive/tasks/v0.1.0~v0.61.0.md |
+| FIX-152 | 实现完成 + 事后审查 APPROVED (2026-06-25) | 0.58.0 | archive/tasks/completed.md |
+| FIX-264 | 待执行/暂停→✅ 完成 (2026-08-23) | 0.76.0 | archive/tasks/v0.1.0~v0.78.0.md |
+| AUDIT-201 | 未开始 | 0.90.0 | archive/tasks/future.md |
+| REL-080 | 完成候选 (2026-09-30) | 0.90.0 | archive/tasks/future.md |
+| VAL-010 | 保守闭环 / 未满足 full PASS (2026-06-10) | 0.49.0 | archive/tasks/completed.md |
+| FIX-172 | 已撤回/失效 (2026-06-18) | 0.54.2 | archive/tasks/completed.md |
+| DESIGN-099 | 间接闭合（归档：0.66.2 补偿链 + DEC-132；原 ⛔ BLOCKED） | 0.66.1 | archive/tasks/v0.1.0~v0.78.0.md |
+| FIX-173 | 待执行 | 0.90.0 | archive/tasks/future.md |
+| FIX-174 | P0 | 0.10.0 | archive/tasks/legacy-v0.10.0.md |
+| MAINT-010 | 待执行/暂停→⏸ 暂停 (2026-08-23) | 0.76.0 | archive/tasks/v0.1.0~v0.78.0.md |
+| REQ-010 | 0.10.0 | 0.10.0 | archive/tasks/legacy-v0.10.0.md |
+
+## Evidence 索引
+
+| Evidence ID | Task | 归档文件 |
+|---------|------|---------|
+| EVD-641 | FIX-163 | archive/evidence/evidence-v0.1.0-0.61.2.md |
+
+## Decision 索引
+
+| Decision ID | 描述 | 归档文件 |
+|---------|------|---------|
+| DEC-187 | 架构不变量 | archive/decisions/decisions-v0.1.0-0.79.0.md |
+
+## Risk 索引
+
+| Risk ID | 描述 | 归档文件 |
+|---------|------|---------|
+| RISK-039 | 2026-06-24 | archive/risks/risks-v0.1.0-0.59.0.md |
+"""
+
+# Completed-by-index IDs (any-completed-wins across dup rows).
+_ARCHIVE_COMPLETED_EXPECTED = {
+    "FIX-075",    # 已完成
+    "REL-076",    # 已完成
+    "FEAT-031",   # 已发布
+    "FIX-171",    # bare 完成
+    "FIX-152",    # 实现完成 (completion-word form)
+    "FIX-264",    # ✅ escape beats the 待执行/暂停 negative prefix
+}
+# Non-completed / non-Task-section IDs that must NEVER resolve.
+_ARCHIVE_NOT_COMPLETED_EXPECTED = {
+    "AUDIT-201", "REL-080", "VAL-010", "FIX-172", "DESIGN-099",
+    "FIX-173", "FIX-174", "MAINT-010", "REQ-010",
+    "DEC-187", "RISK-039", "EVD-641",  # cross-section leakage guards
+}
+
+
+class TestArchiveIndexCompletedIds(unittest.TestCase):
+    """parse_archive_index_completed_ids — archive-index text → completed IDs.
+
+    FIX-341: the archive index (.governance/archive/index.md 「## Task 索引」
+    table) is the second dependency-resolution layer for hot-miss dep IDs.
+    Conservative: only clear archived-completion wordings resolve; 候选/
+    保守闭环/间接闭合/已终止/待执行/未开始/legacy statuses do NOT.
+    """
+
+    def test_completed_statuses_resolve(self):
+        ids = parse_archive_index_completed_ids(_ARCHIVE_INDEX_FIXTURE)
+        for tid in _ARCHIVE_COMPLETED_EXPECTED:
+            self.assertIn(tid, ids, f"{tid} should resolve as archived-completed")
+
+    def test_non_completed_statuses_do_not_resolve(self):
+        ids = parse_archive_index_completed_ids(_ARCHIVE_INDEX_FIXTURE)
+        for tid in _ARCHIVE_NOT_COMPLETED_EXPECTED:
+            self.assertNotIn(
+                tid, ids, f"{tid} must NOT resolve (conservative fail-closed)")
+
+    def test_non_task_section_rows_never_leak(self):
+        # The section boundary is load-bearing: Decision/Risk/Evidence index
+        # rows share the | PREFIX-NNN |... row shape but are NOT tasks.
+        ids = parse_archive_index_completed_ids(_ARCHIVE_INDEX_FIXTURE)
+        self.assertNotIn("DEC-187", ids)
+        self.assertNotIn("RISK-039", ids)
+
+    def test_empty_and_garbage_input_yield_empty_set(self):
+        self.assertEqual(parse_archive_index_completed_ids(""), frozenset())
+        self.assertEqual(parse_archive_index_completed_ids(None), frozenset())
+        self.assertEqual(
+            parse_archive_index_completed_ids("# no index here\n"),
+            frozenset())
+
+    def test_duplicate_rows_any_completed_wins(self):
+        text = (
+            "## Task 索引\n\n"
+            "| Task ID | 状态 | 版本 | 归档文件 |\n"
+            "|---------|------|------|---------|\n"
+            "| FIX-115 | 已完成 (2026-06-08) | 0.45.0 | archive/tasks/a.md |\n"
+            "| FIX-115 | 未开始 | 0.90.0 | archive/tasks/b.md |\n"
+        )
+        ids = parse_archive_index_completed_ids(text)
+        self.assertIn("FIX-115", ids)
+
+    def test_negative_completion_compounds_do_not_resolve(self):
+        """FIX-342 P2-1 (review-FIX-341-312-CODE-R0): negative-completion
+        compound wordings in the 状态 cell are NOT archived-completed.
+
+        Pre-fix the positive substring 完成 matched 未完成/待完成/完成条件
+        未满足/任务完成度50% (probe → True). The negative-marker table must
+        veto them (unless the ✅ escape is present), while every positive
+        control keeps resolving."""
+        for status in ("未完成", "待完成", "尚未完成",
+                       "完成条件未满足", "任务完成度50%"):
+            self.assertFalse(
+                _archive_index_status_is_completed(status),
+                "{0!r} is not an archived-completed wording".format(status))
+        # Positive controls (zero-flip guard): real-index wordings and the
+        # ✅ escape keep resolving.
+        for status in ("已完成 (2026-09-16)", "完成", "实现完成",
+                       "发布完成", "已发布", "待执行/暂停→✅ 完成"):
+            self.assertTrue(
+                _archive_index_status_is_completed(status),
+                "{0!r} must keep resolving (zero-flip guard)".format(status))
+
+    def test_negative_completion_compound_index_rows_do_not_resolve(self):
+        """End-to-end through the index parser: compound-word rows stay out,
+        completion + ✅-escape rows still resolve."""
+        text = (
+            "## Task 索引\n\n"
+            "| Task ID | 状态 | 版本 | 归档文件 |\n"
+            "|---------|------|------|---------|\n"
+            "| FIX-903 | 未完成 | 0.90.0 | archive/tasks/a.md |\n"
+            "| FIX-904 | 待完成 (条件未满足) | 0.90.0 | archive/tasks/a.md |\n"
+            "| FIX-905 | 完成条件未满足 | 0.90.0 | archive/tasks/a.md |\n"
+            "| FIX-906 | 任务完成度50% | 0.90.0 | archive/tasks/a.md |\n"
+            "| FIX-907 | 已完成 (2026-09-16) | 0.82.0 | archive/tasks/a.md |\n"
+            "| FIX-908 | 待执行/暂停→✅ 完成 | 0.82.0 | archive/tasks/a.md |\n"
+        )
+        ids = parse_archive_index_completed_ids(text)
+        for tid in ("FIX-903", "FIX-904", "FIX-905", "FIX-906"):
+            self.assertNotIn(tid, ids,
+                             "{0} must NOT resolve as completed".format(tid))
+        for tid in ("FIX-907", "FIX-908"):
+            self.assertIn(tid, ids,
+                          "{0} must keep resolving as completed".format(tid))
+
+
+def _arch_dep_task(task_id, deps):
+    """One ⏳ pending task row with the given task-family deps (in-memory)."""
+    return TaskDep(
+        task_id=task_id, priority="P2", status="⏳ 待执行",
+        dependencies=tuple(deps), target_version="0.90.0")
+
+
+class TestArchiveResolvedDependencies(unittest.TestCase):
+    """compute_unblocked_tasks(…, archive_completed_ids=…) — FIX-341.
+
+    Resolution order per dep: hot-table status (authoritative) → archive-index
+    completion → blocking (fail-closed). The parameter is OPTIONAL: the
+    one-argument call is byte-identical to the pre-FIX-341 behavior.
+    """
+
+    def test_no_archive_arg_keeps_fail_closed_baseline(self):
+        # Baseline (pre-FIX-341 behavior preserved): a hot-miss dep blocks.
+        report = compute_unblocked_tasks([_arch_dep_task("FIX-901", ("REL-076",))])
+        self.assertEqual(len(report.blocked), 1)
+        self.assertEqual(report.blocked[0].blocking_dependencies, ("REL-076",))
+
+    def test_archived_completed_dep_unblocks(self):
+        # FIX-341 core: index-proven completed dep is satisfied.
+        report = compute_unblocked_tasks(
+            [_arch_dep_task("FIX-901", ("REL-076",))],
+            archive_completed_ids=frozenset({"REL-076"}))
+        self.assertEqual(len(report.blocked), 0)
+        self.assertEqual([t.task_id for t in report.unblocked], ["FIX-901"])
+
+    def test_index_miss_still_blocks_fail_closed(self):
+        # 保守性保留: an ID absent from BOTH the hot table and the injected
+        # archive set still blocks (unknown dependency).
+        report = compute_unblocked_tasks(
+            [_arch_dep_task("FIX-901", ("FIX-171",))],
+            archive_completed_ids=frozenset({"REL-076"}))
+        self.assertEqual(len(report.blocked), 1)
+        self.assertEqual(report.blocked[0].blocking_dependencies, ("FIX-171",))
+
+    def test_hot_pending_dep_wins_over_archive_completed(self):
+        # A hot ⏳ row is authoritative: even if the archive set (stale or
+        # duplicated index row) claims completion, the hot row blocks.
+        tasks = [
+            _arch_dep_task("FIX-901", ("FIX-902",)),
+            _arch_dep_task("FIX-902", ()),
+        ]
+        report = compute_unblocked_tasks(
+            tasks, archive_completed_ids=frozenset({"FIX-902"}))
+        self.assertEqual(len(report.blocked), 1)
+        self.assertEqual(report.blocked[0].task.task_id, "FIX-901")
+        self.assertEqual(
+            report.blocked[0].blocking_dependencies, ("FIX-902",))
+
+    def test_mixed_deps_partial_archive_resolution(self):
+        # FIX-312-style row: deps = [archived REL-076, archived FIX-162,
+        # unknown FIX-171] → only the unknown one still blocks.
+        tasks = [_arch_dep_task("FIX-901", ("REL-076", "FIX-162", "FIX-171"))]
+        report = compute_unblocked_tasks(
+            tasks,
+            archive_completed_ids=frozenset({"REL-076", "FIX-162"}))
+        self.assertEqual(len(report.blocked), 1)
+        self.assertEqual(
+            report.blocked[0].blocking_dependencies, ("FIX-171",))
+
+    def test_empty_archive_set_is_neutral(self):
+        report = compute_unblocked_tasks(
+            [_arch_dep_task("FIX-901", ("REL-076",))],
+            archive_completed_ids=frozenset())
+        self.assertEqual(len(report.blocked), 1)
+
+
+class TestTaskPriorityCliArchiveIndex(unittest.TestCase):
+    """CLI integration — FIX-341 archive-index resolution end-to-end.
+
+    Subprocess-level tests against a TEMPORARY fixture root: the tracker has a
+    task depending on REL-076 (NO hot row); ``.governance/archive/index.md``
+    proves REL-076 archived-completed. The CLI must resolve it (Unblocked).
+    Editing the index invalidates the FEAT-012 analysis cache (the report is a
+    function of the tracker text AND the archive index).
+    """
+
+    _CLI = Path(__file__).resolve().parent.parent / "verify_workflow.py"
+
+    _TRACKER = """\
+# Priority fixture (FIX-341 CLI test)
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P2** | FIX-901 | depends on archived REL-076 | REL-076✅ | 0.90.0 | open | ⏳ 待执行 |
+| **P2** | FIX-902 | depends on unknown FIX-971 | FIX-971 | 0.90.0 | open | ⏳ 待执行 |
+"""
+
+    _INDEX = """\
+# 归档索引
+
+## Task 索引
+
+| Task ID | 状态 | 版本 | 归档文件 |
+|---------|------|------|---------|
+| REL-076 | 已完成 (2026-09-12) | 0.80.0 | archive/tasks/v0.1.0~v0.80.0.md |
+"""
+
+    def _write_fixture(self):
+        tmp = tempfile.TemporaryDirectory(prefix="spg-tpa-fix341-")
+        gov = Path(tmp.name) / ".governance"
+        (gov / "archive").mkdir(parents=True, exist_ok=True)
+        (gov / "plan-tracker.md").write_text(self._TRACKER, encoding="utf-8")
+        (gov / "archive" / "index.md").write_text(self._INDEX, encoding="utf-8")
+        self.addCleanup(tmp.cleanup)
+        return tmp.name
+
+    def _run_cli(self, project_root, extra=()):
+        return subprocess.run(
+            [sys.executable, str(self._CLI), "task-priority-analysis",
+             "--project-root", str(project_root), *extra],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120,
+        )
+
+    def test_archived_dep_resolves_and_unknown_still_blocks(self):
+        root = self._write_fixture()
+        proc = self._run_cli(root, ("--force",))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        # REL-076 (archived) resolved → FIX-901 executable.
+        self.assertIn("`FIX-901`", proc.stdout)
+        self.assertNotIn(
+            "FIX-901` [P2] v=0.90.0 status=⏳ 待执行 blocked_by=[REL-076]",
+            proc.stdout)
+        # FIX-971 (hot-miss AND index-miss) still blocks fail-closed.
+        self.assertIn(
+            "FIX-902` [P2] v=0.90.0 status=⏳ 待执行 blocked_by=[FIX-971]",
+            proc.stdout)
+
+    def test_index_edit_invalidates_analysis_cache(self):
+        root = self._write_fixture()
+        first = self._run_cli(root)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        index = Path(root) / ".governance" / "archive" / "index.md"
+        st = index.stat()
+        os.utime(index, (st.st_atime + 10, st.st_mtime + 10))
+        rerun = self._run_cli(root)
+        self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
+        self.assertNotIn(
+            "复用上次分析", rerun.stdout,
+            "archive-index change must invalidate the cached analysis")
+
+    def test_legacy_cache_without_index_mtime_key_upgrades_not_reused(self):
+        """FIX-342 P3-3 (review-FIX-341-312-CODE-R0 P3-3): the upgrade
+        scenario — a same-day cache written by a PRE-FIX-341 build carries NO
+        ``archive_index_mtime`` key. With an archive index present, the cache
+        guard must force ONE full re-run (None != mtime) — never reuse a
+        report that did not see the index. The tracker mtime is preserved so
+        the FEAT-012 reuse predicate alone would hit: only the FIX-341 guard
+        can reject here."""
+        root = self._write_fixture()
+        first = self._run_cli(root)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        state_path = Path(root) / ".governance" / TPA_STATE_FILENAME
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertIn("archive_index_mtime", state)  # new-build sanity
+        self.assertIsNotNone(state["archive_index_mtime"])
+        legacy = {k: v for k, v in state.items()
+                  if k != "archive_index_mtime"}
+        st = state_path.stat()
+        state_path.write_text(
+            json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+        os.utime(state_path, (st.st_atime, st.st_mtime))
+        rerun = self._run_cli(root)
+        self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
+        self.assertNotIn(
+            "复用上次分析", rerun.stdout,
+            "legacy cache (no archive_index_mtime key) + index present must "
+            "not be reused — one extra full run, never a stale report")
+
+
+# ─── FEAT-077 / ADR-021 §2.2.2 — demand_source (provenance) 加权层 ────────────
+#
+# M1-L2 B2 批（锁外先行半批）：demand_source 三值封闭枚举 + 行内〔标注〕解析 +
+# 权威联查（triage JSON > 行内标注 > legacy，冲突 → conflict fail-closed）+
+# 排序 tie-break（ADR-021 裁决点 D1：provenance 排在 priority 之内作第一
+# tie-break，同 P 级内 user-named > active-defect > machine-signal，不跨 P 级）
+# + 渲染标注（每行 src= + 头部 provenance 分布行）。
+_DEMAND_SOURCE_TABLE = """\
+# Plan Tracker
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-960 | machine demand | — | 0.1.0 | open | ⏳ 待执行 〔机器信号〕 |
+| **P1** | FIX-961 | user demand | — | 0.2.0 | open | ⏳ 待执行 〔用户点名〕 |
+| **P1** | FIX-962 | unlabeled legacy demand | — | 0.3.0 | open | ⏳ 待执行 |
+| **P1** | FIX-963 | defect demand | — | 0.1.0 | open | ⏳ 待执行 〔活性缺陷〕 |
+"""
+
+
+class TestDemandSourceParsing(unittest.TestCase):
+    """行内〔标注〕解析 — ADR-021 §2.2.2 (2)（依赖列或状态列均可携带）."""
+
+    def _by_id(self, table):
+        return {t.task_id: t for t in parse_task_dependencies(table)}
+
+    def test_status_cell_marker_parsed(self):
+        tasks = self._by_id(_DEMAND_SOURCE_TABLE)
+        self.assertEqual(tasks["FIX-960"].demand_source, "machine-signal")
+        self.assertEqual(tasks["FIX-961"].demand_source, "user-named")
+        self.assertEqual(tasks["FIX-963"].demand_source, "active-defect")
+
+    def test_dependency_cell_marker_parsed(self):
+        # 依赖列携带标注同样生效（ADR §2.2.2：整行原始 cells 扫描）.
+        table = (
+            "| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |\n"
+            "|---|---|---|---|---|---|---|\n"
+            "| **P0** | FIX-964 | x | FIX-100〔用户点名〕 | 0.1.0 | c | ⏳ 待执行 |\n"
+        )
+        tasks = self._by_id(table)
+        self.assertEqual(tasks["FIX-964"].demand_source, "user-named")
+
+    def test_no_marker_means_legacy(self):
+        tasks = self._by_id(_DEMAND_SOURCE_TABLE)
+        self.assertEqual(tasks["FIX-962"].demand_source, "legacy")
+
+    def test_default_field_value_is_legacy(self):
+        # TaskDep 默认值保证既有位置参数构造点不破坏（向后兼容）.
+        t = TaskDep("FIX-965", "P0", "⏳ 待执行", (), (), "0.1.0")
+        self.assertEqual(t.demand_source, "legacy")
+
+    def test_id_token_extraction_regression_with_marker(self):
+        # ADR §2.2.2 测试计划：依赖列含〔用户点名〕中文字 → ID 提取结果与
+        # 无标注时 byte-identical（_ID_TOKEN_RE 不受中文字影响，F5）.
+        from task_priority import _parse_dependency_cell
+        marked, _ = _parse_dependency_cell("FIX-100〔用户点名〕, FIX-101")
+        clean, _ = _parse_dependency_cell("FIX-100, FIX-101")
+        self.assertEqual(marked, clean)
+        self.assertEqual(marked, ("FIX-100", "FIX-101"))
+
+    def test_existing_fixtures_stay_legacy_zero_regression(self):
+        # 既有 fixture（无任何〔标注〕）全量解析为 legacy——排序 tie-break
+        # 对 legacy 与 user-named 同 rank，既有顺序断言零回归的结构性保证.
+        for table in (_SAMPLE_TABLE, _NON_EXECUTABLE_TABLE,
+                      _ALL_BLOCKED_TABLE, _TERMINAL_WORD_TABLE):
+            for t in parse_task_dependencies(table):
+                self.assertEqual(t.demand_source, "legacy", t.task_id)
+
+
+class TestDemandSourceSortKey(unittest.TestCase):
+    """排序 tie-break — ADR-021 裁决点 D1（同 P 级内，不跨 P 级）."""
+
+    def test_same_priority_user_named_before_machine_signal(self):
+        # 同 P1：user-named（含 legacy，同 rank 0）先于 machine-signal；
+        # user-named 与 legacy 之间落回 version → id.
+        report = compute_unblocked_tasks(
+            parse_task_dependencies(_DEMAND_SOURCE_TABLE))
+        ids = [t.task_id for t in report.recommended_next]
+        # P1 组内：FIX-961(user,0.2.0) → FIX-962(legacy,0.3.0) →
+        # FIX-963(defect,0.1.0, rank 1) → FIX-960(machine,0.1.0, rank 2)
+        self.assertEqual(ids, ["FIX-961", "FIX-962", "FIX-963", "FIX-960"])
+
+    def test_demand_rank_does_not_cross_priority_levels(self):
+        # 不跨 P 级：P0 machine-signal 仍排在 P1 user-named 之前——跨级
+        # 倒挂由 ADR-021 §2.2.3 反倒挂判定件兜底（D1 理由：跨级压制会
+        # 制造新倒挂）。
+        p0_machine = TaskDep("FIX-970", "P0", "⏳ 待执行", (), (), "0.1.0",
+                             demand_source="machine-signal")
+        p1_user = TaskDep("FIX-971", "P1", "⏳ 待执行", (), (), "0.1.0",
+                          demand_source="user-named")
+        report = compute_unblocked_tasks([p1_user, p0_machine])
+        self.assertEqual([t.task_id for t in report.recommended_next],
+                         ["FIX-970", "FIX-971"])
+
+    def test_full_order_priority_demand_version_id(self):
+        # 完整排序键：priority → demand_source → version → id.
+        a = TaskDep("FIX-982", "P1", "⏳ 待执行", (), (), "0.5.0",
+                    demand_source="user-named")
+        b = TaskDep("FIX-981", "P1", "⏳ 待执行", (), (), "0.2.0",
+                    demand_source="user-named")
+        c = TaskDep("FIX-983", "P1", "⏳ 待执行", (), (), "0.1.0",
+                    demand_source="active-defect")
+        report = compute_unblocked_tasks([a, c, b])
+        self.assertEqual([t.task_id for t in report.recommended_next],
+                         ["FIX-981", "FIX-982", "FIX-983"])
+
+    def test_conflict_sorts_conservatively_as_user_named_rank(self):
+        # conflict 排序按 user-named 保守处理（rank 0）+ 显式披露（ADR
+        # §2.2.2 验收判据 2）.
+        conflict = TaskDep("FIX-984", "P1", "⏳ 待执行", (), (), "0.2.0",
+                           demand_source="conflict")
+        machine = TaskDep("FIX-985", "P1", "⏳ 待执行", (), (), "0.1.0",
+                          demand_source="machine-signal")
+        report = compute_unblocked_tasks([machine, conflict])
+        self.assertEqual([t.task_id for t in report.recommended_next],
+                         ["FIX-984", "FIX-985"])
+        self.assertEqual(report.demand_source_conflicts, ["FIX-984"])
+
+
+class TestResolveDemandSource(unittest.TestCase):
+    """权威联查 — ADR-021 §2.2.2 (3)：triage JSON > 行内标注 > legacy."""
+
+    def test_triage_record_is_authoritative(self):
+        records = [{"task_id": "FIX-990", "demand_source": "user-named"}]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "legacy", records),
+            "user-named")
+
+    def test_row_marker_used_without_record(self):
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "machine-signal", []),
+            "machine-signal")
+
+    def test_agreeing_sources_return_value(self):
+        records = [{"task_id": "FIX-990", "demand_source": "machine-signal"}]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "machine-signal", records),
+            "machine-signal")
+
+    def test_conflicting_sources_return_conflict(self):
+        records = [{"task_id": "FIX-990", "demand_source": "machine-signal"}]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "user-named", records),
+            "conflict")
+
+    def test_no_source_means_legacy(self):
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "legacy", []), "legacy")
+
+    def test_record_without_valid_value_fails_open_to_row_marker(self):
+        # 旧记录无 demand_source 键（~199 存量，F4/ADR §2.2.1 向后兼容）或
+        # 值非法（非三值枚举）→ 记录无权威性，fail-open 到行内标注
+        # （ADR §2.4 L2 tpa 联查降级行）.
+        legacy_record = [{"task_id": "FIX-990"}]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "active-defect", legacy_record),
+            "active-defect")
+        bogus_record = [{"task_id": "FIX-990", "demand_source": "wild"}]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "active-defect", bogus_record),
+            "active-defect")
+
+    def test_other_task_record_ignored(self):
+        records = [{"task_id": "FIX-991", "demand_source": "user-named"}]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "machine-signal", records),
+            "machine-signal")
+
+
+class TestDemandSourceRendering(unittest.TestCase):
+    """渲染 — ADR-021 §2.2.2 (5)：每行 src 标注 + 头部 provenance 分布行."""
+
+    def test_task_lines_carry_src_annotation(self):
+        report = compute_unblocked_tasks(
+            parse_task_dependencies(_DEMAND_SOURCE_TABLE))
+        out = format_report(report)
+        self.assertIn("src=user-named", out)
+        self.assertIn("src=machine-signal", out)
+        self.assertIn("src=active-defect", out)
+        self.assertIn("src=legacy", out)
+
+    def test_header_carries_provenance_distribution_line(self):
+        report = compute_unblocked_tasks(
+            parse_task_dependencies(_DEMAND_SOURCE_TABLE))
+        out = format_report(report)
+        self.assertIn("provenance distribution:", out)
+        self.assertIn("user-named:1", out)
+        self.assertIn("active-defect:1", out)
+        self.assertIn("machine-signal:1", out)
+        self.assertIn("legacy:1", out)
+
+    def test_distribution_helper_counts_all_buckets(self):
+        report = compute_unblocked_tasks(
+            parse_task_dependencies(_DEMAND_SOURCE_TABLE))
+        dist = demand_source_distribution(report)
+        self.assertEqual(
+            dist, {"user-named": 1, "active-defect": 1,
+                   "machine-signal": 1, "legacy": 1})
+
+    def test_conflict_disclosed_in_report(self):
+        conflict = TaskDep("FIX-984", "P1", "⏳ 待执行", (), (), "0.2.0",
+                           demand_source="conflict")
+        out = format_report(compute_unblocked_tasks([conflict]))
+        self.assertIn("DEMAND SOURCE CONFLICT", out)
+        self.assertIn("`FIX-984`", out)
+
+    def test_no_conflict_banner_without_conflicts(self):
+        out = format_report(compute_unblocked_tasks(
+            parse_task_dependencies(_SAMPLE_TABLE)))
+        self.assertNotIn("DEMAND SOURCE CONFLICT", out)
+
+
+class TestDemandSourceCliResolution(unittest.TestCase):
+    """CLI 编排层联查 — run_cli_analysis 解析 triage JSON 权威 demand_source.
+
+    ADR §2.2.2 (3)：联查 I/O 沿 CLI 编排层（run_cli_analysis 调
+    change_triage.load_triage_records——纯函数 purity 契约不破）。
+    """
+
+    _TRACKER = """\
+# Plan Tracker
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-980 | machine demand | — | 0.1.0 | open | ⏳ 待执行 〔机器信号〕 |
+| **P1** | FIX-981 | unmarked demand with triage record | — | 0.1.0 | open | ⏳ 待执行 |
+"""
+
+    def _run_cli(self, root):
+        import contextlib
+        import io
+        from task_priority import run_cli_analysis
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = run_cli_analysis(
+                Path(root) / ".governance" / "plan-tracker.md",
+                Path(root) / ".governance",
+                Path(root) / ".governance" / "evidence-log.md",
+                force=True)
+        self.assertEqual(code, 0, buf.getvalue())
+        return buf.getvalue()
+
+    def test_triage_json_overrides_missing_row_marker(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-feat077-") as tmp:
+            gov = Path(tmp) / ".governance"
+            (gov / "change-triage").mkdir(parents=True)
+            (gov / "plan-tracker.md").write_text(self._TRACKER, encoding="utf-8")
+            (gov / "change-triage" / "FIX-981.json").write_text(
+                json.dumps({"task_id": "FIX-981",
+                            "demand_source": "user-named"}),
+                encoding="utf-8")
+            out = self._run_cli(tmp)
+            # 行内无标注但 triage 记录 user-named → 权威联查置 user-named，
+            # 同 P 级内排到 machine-signal 之前（D1）.
+            self.assertIn("src=user-named", out)
+            self.assertIn("user-named:1", out)
+            self.assertIn("machine-signal:1", out)
+            rec = out.split("## Recommended next", 1)[1]
+            self.assertLess(rec.index("`FIX-981`"), rec.index("`FIX-980`"))
+
+    def test_conflicting_marker_and_record_disclosed(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-feat077c-") as tmp:
+            gov = Path(tmp) / ".governance"
+            (gov / "change-triage").mkdir(parents=True)
+            (gov / "plan-tracker.md").write_text(self._TRACKER, encoding="utf-8")
+            # 行内标〔机器信号〕，triage 记录却是 user-named → conflict.
+            (gov / "change-triage" / "FIX-980.json").write_text(
+                json.dumps({"task_id": "FIX-980",
+                            "demand_source": "user-named"}),
+                encoding="utf-8")
+            out = self._run_cli(tmp)
+            self.assertIn("DEMAND SOURCE CONFLICT", out)
+            self.assertIn("`FIX-980`", out)
+            self.assertIn("src=conflict", out)
+
+    def test_new_triage_record_invalidates_cached_analysis(self):
+        # 联查结果进缓存键：change-triage 目录变化 → 缓存失效（否则新增
+        # triage 记录后报告持旧行内标注结论——stale provenance）.
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-feat077m-") as tmp:
+            gov = Path(tmp) / ".governance"
+            gov.mkdir(parents=True)
+            (gov / "plan-tracker.md").write_text(self._TRACKER, encoding="utf-8")
+            first = self._run_cli(tmp)  # force=True: full analysis warm-up
+            self.assertIn("# Task Priority Analysis", first)
+            second = self._run_cli(tmp)
+            # force=True in _run_cli bypasses reuse; use raw second call
+            # without force to assert reuse, then mutate and assert rerun.
+            import contextlib
+            import io
+            from task_priority import run_cli_analysis
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                run_cli_analysis(gov / "plan-tracker.md", gov,
+                                 gov / "evidence-log.md")
+            self.assertIn("复用上次分析", buf.getvalue())
+            (gov / "change-triage").mkdir(exist_ok=True)
+            (gov / "change-triage" / "FIX-981.json").write_text(
+                json.dumps({"task_id": "FIX-981",
+                            "demand_source": "user-named"}),
+                encoding="utf-8")
+            buf2 = io.StringIO()
+            with contextlib.redirect_stdout(buf2):
+                run_cli_analysis(gov / "plan-tracker.md", gov,
+                                 gov / "evidence-log.md")
+            self.assertNotIn(
+                "复用上次分析", buf2.getvalue(),
+                "change-triage dir change must invalidate the cached analysis")
+            self.assertIn("src=user-named", buf2.getvalue())
+
+
+# ─── FEAT-077 增量 / ADR-021 §2.2.2 (3) R0 修订——修订事件感知 resolve ─────────
+#
+# 权威链（R0 修订，F-P1-3）：最新修订事件（如有）> triage record > 行内
+# 〔标注〕> legacy。有修订事件时旧值=历史快照，不构成 conflict（合法漂移
+# 通道）；conflict 仅指无修订事件时 record 与行内标注的未声明矛盾。
+def _event(task_id, to, seq=1, from_value="machine-signal"):
+    return {
+        "event_id": "DSR-{0}-{1:03d}".format(task_id, seq),
+        "task_id": task_id,
+        "from": from_value,
+        "to": to,
+        "basis_kind": "user-quote",
+        "demand_basis": "用户原话（fixture）",
+        "revised_by": "Coordinator",
+        "revised_at": "2026-09-29T12:00:00",
+    }
+
+
+class TestResolveDemandSourceRevisions(unittest.TestCase):
+    """resolve_demand_source 第四参 revision_events（默认 None=零行为改变）."""
+
+    def test_latest_event_overrides_record_and_marker(self):
+        records = [{"task_id": "FIX-990", "demand_source": "machine-signal"}]
+        events = [_event("FIX-990", "active-defect")]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "user-named", records, events),
+            "active-defect")
+
+    def test_old_mismatch_with_event_is_not_conflict(self):
+        # record 与行内标注矛盾，但存在修订事件 → 历史快照，终值=事件 to，
+        # 不返回 conflict（无事件时同输入返回 conflict——对照组见下）.
+        records = [{"task_id": "FIX-990", "demand_source": "machine-signal"}]
+        events = [_event("FIX-990", "machine-signal")]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "user-named", records, events),
+            "machine-signal")
+        # 对照：无事件 → conflict（原语义保留）.
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "user-named", records),
+            "conflict")
+
+    def test_none_events_identical_to_three_arg_call(self):
+        """零回归断言：revision_events=None/缺省 与三参调用逐例一致."""
+        cases = [
+            ("FIX-990", "legacy",
+             [{"task_id": "FIX-990", "demand_source": "user-named"}]),
+            ("FIX-990", "machine-signal",
+             [{"task_id": "FIX-990", "demand_source": "machine-signal"}]),
+            ("FIX-990", "machine-signal",
+             [{"task_id": "FIX-990", "demand_source": "user-named"}]),
+            ("FIX-990", "active-defect", []),
+            ("FIX-990", "legacy",
+             [{"task_id": "FIX-991", "demand_source": "user-named"}]),
+            ("FIX-990", "active-defect",
+             [{"task_id": "FIX-990"}]),  # 存量记录无键
+        ]
+        for task_id, marker, records in cases:
+            self.assertEqual(
+                resolve_demand_source(task_id, marker, records, None),
+                resolve_demand_source(task_id, marker, records),
+                (task_id, marker, records))
+            self.assertEqual(
+                resolve_demand_source(task_id, marker, records),
+                resolve_demand_source(task_id, marker, records, None))
+
+    def test_invalid_event_to_ignored_falls_through(self):
+        # 非法 to 的事件不是「合法修订事件」——不构成权威，落回三源链
+        # （此处 record 与行内矛盾且无合法事件 → conflict 保留）.
+        records = [{"task_id": "FIX-990", "demand_source": "machine-signal"}]
+        events = [_event("FIX-990", "wild-value")]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "user-named", records, events),
+            "conflict")
+
+    def test_events_for_other_task_ignored(self):
+        events = [_event("FIX-991", "user-named")]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "machine-signal", [], events),
+            "machine-signal")
+
+    def test_multiple_events_latest_wins(self):
+        events = [_event("FIX-990", "active-defect", seq=1),
+                  _event("FIX-990", "user-named", seq=2,
+                         from_value="active-defect")]
+        self.assertEqual(
+            resolve_demand_source("FIX-990", "legacy", [], events),
+            "user-named")
+
+
+class TestDemandSourceRevisionCliTests(unittest.TestCase):
+    """CLI 编排层修订事件联查——jsonl 读取 + 行内滞后 WARN + 缓存失效."""
+
+    _TRACKER = """\
+# Plan Tracker
+
+### 优先级一览
+
+| 优先级 | ID | 事项 | 依赖 | 目标版本 | 闭环路径 | 状态 |
+|--------|----|------|------|---------|---------|------|
+| **P1** | FIX-980 | machine demand | — | 0.1.0 | open | ⏳ 待执行 〔机器信号〕 |
+| **P1** | FIX-981 | record machine-signal, revised to user-named | — | 0.1.0 | open | ⏳ 待执行 |
+"""
+
+    def _run_cli(self, root, force=True):
+        import contextlib
+        import io
+        from task_priority import run_cli_analysis
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = run_cli_analysis(
+                Path(root) / ".governance" / "plan-tracker.md",
+                Path(root) / ".governance",
+                Path(root) / ".governance" / "evidence-log.md",
+                force=force)
+        self.assertEqual(code, 0, buf.getvalue())
+        return buf.getvalue()
+
+    def _fixture(self, tmp, revise=True):
+        import change_triage as ct
+        gov = Path(tmp) / ".governance"
+        (gov / "change-triage").mkdir(parents=True)
+        (gov / "plan-tracker.md").write_text(self._TRACKER, encoding="utf-8")
+        (gov / "change-triage" / "FIX-981.json").write_text(
+            json.dumps({"task_id": "FIX-981",
+                        "demand_source": "machine-signal"}),
+            encoding="utf-8")
+        if revise:
+            (gov / "evidence-log.md").write_text(
+                "# Evidence Log\n", encoding="utf-8")
+            summary = ct.append_demand_revision(
+                task_id="FIX-981", to="user-named",
+                demand_basis="用户原话：修订演示（fixture）",
+                basis_kind="user-quote", revised_by="Coordinator",
+                governance_dir=gov)
+            assert not summary.get("error"), summary
+        return gov
+
+    def test_revision_event_flips_authority_in_report(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-rev-") as tmp:
+            self._fixture(tmp, revise=True)
+            out = self._run_cli(tmp)
+            # 事件终值 user-named 为权威（record 的 machine-signal=历史快照）.
+            self.assertIn("src=user-named", out)
+            self.assertIn("user-named:1", out)
+            rec = out.split("## Recommended next", 1)[1]
+            self.assertLess(rec.index("`FIX-981`"), rec.index("`FIX-980`"))
+            self.assertNotIn("DEMAND SOURCE CONFLICT", out)
+
+    def test_row_marker_lag_warns_sync_hint(self):
+        """行内标注与修订终值不一致 → WARN 提示同步行内（不 FAIL——事件流
+        才是权威，ADR §2.2.1/§2.2.2 R0 修订）."""
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-revw-") as tmp:
+            self._fixture(tmp, revise=True)
+            # 给 FIX-981 行内挂一个与终值矛盾的〔标注〕（修订后行内滞后）——
+            # 以该行唯一事项文本锚定替换.
+            tracker = Path(tmp) / ".governance" / "plan-tracker.md"
+            tracker.write_text(
+                self._TRACKER.replace(
+                    "revised to user-named | — | 0.1.0 | open | ⏳ 待执行 |",
+                    "revised to user-named | — | 0.1.0 | open | "
+                    "⏳ 待执行 〔机器信号〕 |"),
+                encoding="utf-8")
+            out = self._run_cli(tmp)
+            self.assertIn("src=user-named", out)
+            self.assertIn("WARN", out)
+            self.assertIn("FIX-981", out)
+            self.assertIn("同步行内", out)
+            self.assertNotIn("DEMAND SOURCE CONFLICT", out)
+
+    def test_no_lag_warning_when_marker_agrees(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-revg-") as tmp:
+            self._fixture(tmp, revise=True)
+            tracker = Path(tmp) / ".governance" / "plan-tracker.md"
+            tracker.write_text(
+                self._TRACKER.replace(
+                    "revised to user-named | — | 0.1.0 | open | ⏳ 待执行 |",
+                    "revised to user-named | — | 0.1.0 | open | "
+                    "⏳ 待执行 〔用户点名〕 |"),
+                encoding="utf-8")
+            out = self._run_cli(tmp)
+            self.assertIn("src=user-named", out)
+            self.assertNotIn("同步行内", out)
+
+    def test_jsonl_append_invalidates_cached_analysis(self):
+        """修订事件追加（文件 append——目录 mtime 不变）必须击穿缓存：缓存
+        失效键取 change-triage 目录+全部条目 mtime 的最大值."""
+        import contextlib
+        import io
+        import tempfile
+        from task_priority import run_cli_analysis
+        with tempfile.TemporaryDirectory(prefix="spg-tpa-revm-") as tmp:
+            gov = self._fixture(tmp, revise=False)
+            (gov / "evidence-log.md").write_text(
+                "# Evidence Log\n", encoding="utf-8")
+            out = self._run_cli(tmp, force=True)  # 建缓存（无事件）
+            self.assertIn("machine-signal:2", out)
+            self.assertNotIn("同步行内", out)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                run_cli_analysis(gov / "plan-tracker.md", gov,
+                                 gov / "evidence-log.md")
+            self.assertIn("复用上次分析", buf.getvalue())
+            # 追加修订事件（append-only——目录 mtime 不变，文件 mtime 变化）.
+            import change_triage as ct
+            summary = ct.append_demand_revision(
+                task_id="FIX-981", to="user-named",
+                demand_basis="用户原话：缓存失效演示",
+                basis_kind="user-quote", revised_by="Coordinator",
+                governance_dir=gov)
+            assert not summary.get("error"), summary
+            buf2 = io.StringIO()
+            with contextlib.redirect_stdout(buf2):
+                run_cli_analysis(gov / "plan-tracker.md", gov,
+                                 gov / "evidence-log.md")
+            self.assertNotIn("复用上次分析", buf2.getvalue(),
+                             "jsonl append must invalidate the cache")
+            self.assertIn("src=user-named", buf2.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

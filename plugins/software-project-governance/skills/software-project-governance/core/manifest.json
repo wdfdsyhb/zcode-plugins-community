@@ -1,0 +1,954 @@
+{
+  "$schema": "https://example.com/manifest-schema-v1.json",
+  "workflow": "software-project-governance",
+  "version": "0.95.0",
+  "description": "Canonical file manifest. All entries define files/directories/patterns that SHOULD exist after plugin installation or repo checkout. The single source of truth for cleanup and verification.",
+  "source_of_truth": true,
+  "release_projection_contract": {
+    "projection_ids": [
+      "fixture-skill",
+      "core-manifest",
+      "claude-plugin",
+      "claude-marketplace",
+      "codex-plugin",
+      "zcode-plugin",
+      "chrys-plugin",
+      "package",
+      "fixture-plan",
+      "hook-pre-commit",
+      "hook-commit-msg",
+      "hook-post-commit",
+      "hook-prepare-commit-msg",
+      "dsh-persona-version",
+      "dsh-agents-bootstrap-version",
+      "canonical-bootstrap-version",
+      "fixture-command-governance-init",
+      "fixture-command-governance-status",
+      "fixture-command-governance-router",
+      "fixture-command-governance-scenario-a",
+      "fixture-command-governance-scenario-b",
+      "fixture-command-governance-scenario-c",
+      "fixture-command-governance-scenario-d",
+      "fixture-command-governance-scenario-e",
+      "fixture-command-governance-scenario-f",
+      "fixture-command-governance-bootstrap",
+      "fixture-command-governance-snapshot-schema",
+      "fixture-command-governance-overview"
+    ],
+    "projection_kinds": [
+      "byte_copy",
+      "structured_json",
+      "transformed_text"
+    ],
+    "validation_inventories": [
+      {
+        "id": "required-snippets",
+        "source": "skills/software-project-governance/infra/verify_workflow.py",
+        "symbol": "REQUIRED_SNIPPETS",
+        "value_type": "dict",
+        "min_entries": 40,
+        "required_members": [
+          "Producer-Reviewer 分离",
+          "## 输入参数",
+          "# 软件项目治理工作流入口"
+        ]
+      },
+      {
+        "id": "fixture-mirror-patterns",
+        "source": "skills/software-project-governance/infra/verify_workflow.py",
+        "symbol": "PROJECTION_SYNC_PATTERNS",
+        "value_type": "sequence",
+        "min_entries": 12,
+        "member_match": "exact",
+        "required_members": [
+          "skills/*/SKILL.md",
+          "skills/software-project-governance/SKILL.md",
+          "skills/software-project-governance/core/**/*.md",
+          "skills/software-project-governance/core/**/*.json",
+          "skills/software-project-governance/infra/**/*.py",
+          "skills/software-project-governance/infra/**/*.md",
+          "skills/software-project-governance/infra/**/*.sh",
+          "skills/software-project-governance/infra/hooks/*",
+          "skills/software-project-governance/references/**/*.md",
+          "commands/*.md",
+          "agents/*.md",
+          "commands/governance/*.md"
+        ]
+      }
+    ]
+  },
+  "root_entries": {
+    "files": [
+      "AGENTS.md",
+      "README.md",
+      ".gitattributes",
+      ".gitignore",
+      "package.json",
+      "pyproject.toml",
+      "LICENSE",
+      "changelog.md",
+      "cordis.patch.yml"
+    ],
+    "directories": []
+  },
+  "product": {
+    "description": "Files shipped to end users via plugin installation.",
+    "entries": [
+      {
+        "path": "skills/software-project-governance/SKILL.md",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/",
+        "type": "dir"
+      },
+      {
+        "path": "skills/software-project-governance/core/governance-packs.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/capability-registry.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/lifecycle-registry.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/loop-engineering-registry.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/loop-runtime-claim-allowlist.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/loop-runtime-claim-authority.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/architecture-health.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/technical-debt-ledger.md",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/release-ledger.schema.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/version-projections.json",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/core/templates/",
+        "type": "dir"
+      },
+      {
+        "path": "skills/software-project-governance/core/protocol/",
+        "type": "dir"
+      },
+      {
+        "path": "skills/software-project-governance/infra/",
+        "type": "dir"
+      },
+      {
+        "path": "skills/software-project-governance/infra/hooks/",
+        "type": "dir"
+      },
+      {
+        "path": "skills/software-project-governance/infra/TOOLS.md",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/verify_workflow.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/__init__.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/manifest.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/capability_registry.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/flow_unit_runtime.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/loop_runtime_claims.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/loop_runtime_claim_attestation.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/loop_gate_processor.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/tests/test_loop_runtime_claim_attestation.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/verify-e2e.sh",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/bootstrap.sh",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/bootstrap.cmd",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/archive.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/change_triage.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/checks/triage_domain.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/tests/test_change_triage.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/dsh_compat.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/tests/test_dsh_compat.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/sync_entry_projection.py",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/infra/tests/test_entry_projection.py",
+        "type": "file"
+      },
+      {
+        "path": "commands/change-triage.md",
+        "type": "file"
+      },
+      {
+        "path": "skills/software-project-governance/references/",
+        "type": "dir"
+      },
+      {
+        "path": "agents/",
+        "type": "dir"
+      },
+      {
+        "path": "commands/",
+        "type": "dir"
+      },
+      {
+        "path": "adapters/",
+        "type": "dir"
+      },
+      {
+        "path": "adapters/dsh/host-contract.json",
+        "type": "file"
+      },
+      {
+        "path": "adapters/dsh/fixtures/",
+        "type": "dir"
+      },
+      {
+        "path": "adapters/dsh/fixtures/host-facts-0.1.5-rc.1.json",
+        "type": "file"
+      },
+      {
+        "path": "lib/",
+        "type": "dir"
+      },
+      {
+        "path": "lib/index.js",
+        "type": "file"
+      },
+      {
+        "path": "agent-presets/",
+        "type": "dir"
+      },
+      {
+        "path": "agent-presets/governance/agent.cordis.yml.template",
+        "type": "file"
+      },
+      {
+        "path": "agent-presets/governance/preset.yml",
+        "type": "file"
+      },
+      {
+        "path": ".claude-plugin/",
+        "type": "dir"
+      },
+      {
+        "path": ".codex-plugin/",
+        "type": "dir"
+      },
+      {
+        "path": ".zcode-plugin/",
+        "type": "dir"
+      },
+      {
+        "path": ".zcode-plugin/plugin.json",
+        "type": "file"
+      },
+      {
+        "path": ".zcode-plugin/assets/",
+        "type": "dir"
+      },
+      {
+        "path": ".chrys-plugin/",
+        "type": "dir"
+      },
+      {
+        "path": ".chrys-plugin/plugin.json",
+        "type": "file"
+      },
+      {
+        "path": ".agents/",
+        "type": "dir"
+      },
+      {
+        "path": "docs/release/release-checklist-0.45.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.45.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.45.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/official-submission-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/ecosystem-positioning-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/comparison-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/migration-guide-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/examples-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/zcode-local-load-0.56.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/claude-code-submission-0.56.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/official-readiness-gap-analysis-0.56.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/marketplace/marketplace-source-matrix-0.65.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-lineage-audit-0.65.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.46.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.47.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.47.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.47.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.48.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.48.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.48.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.49.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.49.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.49.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.50.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.50.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.50.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.50.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.50.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.50.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.50.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.50.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.50.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.51.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.51.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.51.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.52.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.52.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.52.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.53.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.53.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.53.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.54.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.54.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.54.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.54.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.54.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.54.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.55.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.55.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.55.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.55.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.55.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.55.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.55.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.55.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.55.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.55.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.55.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.55.3.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.56.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.56.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.56.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/migration/dynamic-flow-gate-migration-0.55.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.56.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.56.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.56.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.57.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.57.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.57.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.58.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.58.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.58.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.59.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.59.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.59.0.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.61.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.61.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.61.1.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/release-checklist-0.61.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/feature-flags-0.61.2.md",
+        "type": "file"
+      },
+      {
+        "path": "docs/release/rollback-plan-0.61.2.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/scenario-a.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/scenario-b.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/scenario-c.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/scenario-d.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/scenario-e.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/scenario-f.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/bootstrap.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/snapshot-schema.md",
+        "type": "file"
+      },
+      {
+        "path": "commands/governance/overview.md",
+        "type": "file"
+      }
+    ],
+    "glob_patterns": [
+      "skills/software-project-governance/core/**/*.md",
+      "skills/software-project-governance/references/**/*.md",
+      "skills/software-project-governance/infra/hooks/*",
+      "skills/stage-*/SKILL.md",
+      "skills/code-review/SKILL.md",
+      "skills/design-review/SKILL.md",
+      "skills/main-workflow/SKILL.md",
+      "skills/okr/SKILL.md",
+      "skills/pr-faq/SKILL.md",
+      "skills/release-checklist/SKILL.md",
+      "skills/release-review/SKILL.md",
+      "skills/requirement-clarification/SKILL.md",
+      "skills/requirement-review/SKILL.md",
+      "skills/retro-meeting/SKILL.md",
+      "skills/retro-review/SKILL.md",
+      "skills/six-pager/SKILL.md",
+      "skills/tech-review/SKILL.md",
+      "skills/test-review/SKILL.md",
+      "agents/*.md",
+      "commands/*.md",
+      "adapters/*/README.md",
+      "adapters/*/adapter-manifest.json",
+      "adapters/*/launch.py",
+      "adapters/dsh/fixtures/*.json",
+      ".claude-plugin/*.json",
+      ".claude-plugin/assets/*",
+      ".codex-plugin/*.json",
+      ".zcode-plugin/*.json",
+      ".zcode-plugin/assets/*",
+      ".agents/plugins/*.json",
+      "commands/governance/*.md"
+    ]
+  },
+  "canonical_product_artifacts": {
+    "description": "Critical product artifacts that must remain tracked, shipped, and covered by manifest and cleanup checks.",
+    "entries": [
+      {
+        "id": "governance-pack-registry",
+        "path": "skills/software-project-governance/core/governance-packs.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "pack-registry",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-governance-packs --fail-on-issues",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "capability-registry",
+        "path": "skills/software-project-governance/core/capability-registry.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "external-capability-registry",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-capability-registry --fail-on-issues",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "lifecycle-registry",
+        "path": "skills/software-project-governance/core/lifecycle-registry.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "dynamic-lifecycle-registry",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-lifecycle-registry --fail-on-issues",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "loop-engineering-registry",
+        "path": "skills/software-project-governance/core/loop-engineering-registry.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "loop-engineering-registry",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "loop-runtime-claim-policy",
+        "path": "skills/software-project-governance/core/loop-runtime-claim-allowlist.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "loop-runtime-claim-policy",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-loop-runtime-claims --product-root . --project-root .",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "loop-runtime-claim-authority",
+        "path": "skills/software-project-governance/core/loop-runtime-claim-authority.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "loop-runtime-claim-authority",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-loop-runtime-claims --product-root . --project-root .",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "loop-runtime-identity-attestor",
+        "path": "skills/software-project-governance/infra/checks/loop_runtime_claim_attestation.py",
+        "type": "file",
+        "required": true,
+        "artifact_role": "loop-runtime-identity-attestor",
+        "validation_commands": [
+          "python -m unittest discover -s skills/software-project-governance/infra/tests -p test_loop_runtime_claim_attestation.py -v",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "architecture-health-budget",
+        "path": "skills/software-project-governance/core/architecture-health.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "architecture-health-budget",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py check-architecture-health --fail-on-issues",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "release-ledger-schema",
+        "path": "skills/software-project-governance/core/release-ledger.schema.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "release-ledger-schema",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py release-ledger --no-remote",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "version-projections",
+        "path": "skills/software-project-governance/core/version-projections.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "artifact-projection-registry",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py release-projection",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "dsh-host-contract",
+        "path": "adapters/dsh/host-contract.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "host-dependency-contract",
+        "validation_commands": [
+          "python -m unittest discover -s skills/software-project-governance/infra/tests -p test_dsh_contract.py",
+          "python skills/software-project-governance/infra/verify_workflow.py check-dsh-boundary --fail-on-issues",
+          "python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues"
+        ]
+      },
+      {
+        "id": "dsh-host-facts-baseline",
+        "path": "adapters/dsh/fixtures/host-facts-0.1.5-rc.1.json",
+        "type": "file",
+        "required": true,
+        "artifact_role": "host-facts-baseline",
+        "validation_commands": [
+          "python skills/software-project-governance/infra/verify_workflow.py dsh-doctor --offline --stage S0",
+          "python skills/software-project-governance/infra/verify_workflow.py check-dsh-boundary --fail-on-issues"
+        ]
+      }
+    ]
+  },
+  "repo_only": {
+    "description": "Files that exist only in the development repository, NOT shipped to end users via plugin installation.",
+    "entries": [
+      {
+        "path": "project/",
+        "type": "dir"
+      },
+      {
+        "path": ".git/",
+        "type": "dir"
+      },
+      {
+        "path": ".claude/",
+        "type": "dir"
+      },
+      {
+        "path": ".github/",
+        "type": "dir"
+      },
+      {
+        "path": "tests/",
+        "type": "dir"
+      },
+      {
+        "path": "docs/",
+        "type": "dir"
+      },
+      {
+        "path": "benchmarks/closure/",
+        "type": "dir"
+      },
+      {
+        "path": "web/",
+        "type": "dir"
+      }
+    ],
+    "glob_patterns": [
+      "project/**/*.md",
+      "project/**/*.yml",
+      "project/**/*.json",
+      ".github/workflows/*.yml",
+      "tests/**/*.py",
+      "docs/**/*.md",
+      "benchmarks/closure/**/*.md",
+      "web/.gitignore",
+      "web/index.html",
+      "web/package.json",
+      "web/package-lock.json",
+      "web/public/*.svg",
+      "web/server.py",
+      "web/vite.config.js",
+      "web/src/**/*"
+    ]
+  },
+  "cleanup_scope": {
+    "description": "Top-level plugin directories that cleanup.py may scan for redundant product artifacts. User project files outside this scope are never cleanup candidates.",
+    "directories": [
+      "adapters",
+      "agent-presets",
+      "agents",
+      "commands",
+      "lib",
+      "skills",
+      ".agents",
+      ".chrys-plugin",
+      ".claude-plugin",
+      ".codex-plugin",
+      ".zcode-plugin"
+    ]
+  },
+  "exclude_from_cleanup": {
+    "description": "Paths NEVER considered redundant, even if not in the manifest above. These are user-generated or external.",
+    "entries": [
+      ".git/",
+      "node_modules/",
+      "__pycache__/",
+      "*.pyc",
+      ".env",
+      ".env.*",
+      "*.log"
+    ],
+    "user_data_dirs": [
+      ".governance/"
+    ]
+  }
+}

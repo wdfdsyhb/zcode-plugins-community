@@ -1,0 +1,115 @@
+# Technology Architecture and Component Selection
+
+This standard provides a project-neutral decision method. It maintains no permanent framework allowlist and makes no language, vendor, or component the universal default.
+
+## 1. Define the Problem Before Choosing Technology
+
+By task scale, establish product form, users, and core flow; runtime, delivery, scale, latency, availability, security, and compliance; current languages, frameworks, components, deployment, data, and maintenance capability; current scope, reversibility, time budget, and expected lifetime; and which capabilities are business differentiation versus infrastructure.
+
+A language is an implementation medium, not an architecture. Application frameworks are optional for small scripts, CLIs, one-off automation, offline processing, and bounded single-file tools that standard libraries and few mature dependencies can serve.
+
+### 1.1 Independent Judgment and Sources of Fact
+
+User input supplies objectives, constraints, preferences, and authority—not automatically system facts or the correct technical answer. Distinguish confirmed facts, inferences, unknowns, and recommendations. Judge designs and defects against requirement contracts, project evidence, counterexamples, alternatives, maintenance cost, and failure boundaries. State when a proposal is unsound, why, and what conditions could make it sound.
+
+For questions about current implementation/runtime, inspect the lowest-cost sufficient authority available in the real project: current requirements/design, call paths, code, configuration, tests, data, or runtime results. User wording, historical docs, directory names, fluent explanations, and general experience are not current-system proof. Label unchecked or insufficient claims as hypotheses or conditional advice.
+
+When changing external technology, standards, security requirements, versions, or mature practice materially affects the decision, query current official or primary evidence and state currency/scope. External sources do not replace project reality. Match evidence strength to risk: concise reasoning for concepts; stronger evidence and candidate comparison for costly, hard-to-reverse, safety, data, authorization, payment, production, or disputed decisions.
+
+### 1.2 Route Technical Planning by Impact
+
+- Implement a bounded, one-step, reversible change directly with matching verification; do not create TD, Research, or ADR.
+- For multi-step/cross-file/recoverable work, use Durable Task State for scope, progress, constraints, and next step. Create TD only when the solution needs explanation, review, or durable reference.
+- Record unknowns that change solution, cost, delivery, maintenance responsibility, or risk in the numbered task. Create a formal Experiment Package or research artifact only when evidence, comparison, or experiment detail no longer fits a summary.
+- Promote research conclusions to TD, ADR, REQ, or another formal owner. A task-plan summary is not a second technical design, and “research complete” is not owner approval, technical review, or production authorization.
+- Create ADR only for durable changes to module responsibilities, dependency direction, public contracts, data ownership, infrastructure, or release boundaries. Keep ordinary implementation decisions in TD/code.
+
+Read requirements, governance charter, current architecture, and existing capabilities before technical design. After design, recheck scope, reuse, complexity, product effects, cost, and production risk. Use minimum self-check for G0-G2 and stronger review for G3-G4 or irreversible choices; this routing is not a mandatory command chain.
+
+## 2. Constrain Candidates by Architecture
+
+Use the principles/questions in `architecture-constraints-and-technical-debt.md`; do not duplicate them here. Reject candidates that create dual primary frameworks, dependency cycles, layer bypasses, shared mutable state, ownership conflict, or duplicate capability unless benefit, isolation, verification, and exit are recorded.
+
+## 3. Selection Order
+
+1. Reuse supported project capability.
+2. Use language/platform standards.
+3. Adopt a mature compatible framework, component, SDK, or service.
+4. Write narrow custom code for business differences mature options cannot cover.
+5. Replace the main framework or restructure architecture only when the baseline cannot meet core requirements.
+
+Mature-first does not prohibit custom work. Reuse general infrastructure; custom-build competitive differentiation, special rules, or genuinely unadaptable parts with clear boundaries, tests, and ownership.
+
+## 4. Candidate Matrix
+
+Compare dimensions proportional to risk:
+
+| Dimension | Core question |
+| --- | --- |
+| Requirement fit | Covers flows/quality without heavy reverse adaptation? |
+| Architecture fit | Respects boundaries, dependencies, data ownership, release units? |
+| Maturity | Maintenance, stability, docs, tests, ecosystem, issue response? |
+| Maintenance | Can the team debug, upgrade, observe, and own it? |
+| Interoperability | Fits identity, data, build, deploy, and monitoring? |
+| Security/compliance | Permissions, privacy, supply chain, license, data location acceptable? |
+| Performance/capacity | Meets real load with verifiable bottlenecks? |
+| Testability/observability | Can critical behavior, failure, performance, and calls be verified? |
+| Migration/exit | Can data, interfaces, artifacts, and business move or roll back? Lock-in cost? |
+| Total cost | Development, operation, training, upgrades, license, and rework reasonable? |
+
+Do not build a large matrix for lightweight work. G1-G2 may use a short judgment; G3-G4, durable baselines, and irreversible choices retain a formal decision record.
+
+## 5. Baseline and Incremental Extension
+
+BuildOS owns the selection method; optional private user/organization preferences break ties; the project's technical owner records the selected baseline. Private preferences never become public vendor defaults.
+
+Before sustained implementation, record the minimum applicable language/runtime, frontend/backend framework, component system, routing/state/request ownership, data storage, build/test/delivery/observation entrypoints, custom boundaries and revisit conditions in the existing technical specification, TD or ADR. Bounded prototypes and one-off tools may use a provisional baseline with explicit limits. Within an authorized choose-and-implement task, make a supported recommendation and proceed; ask only for unresolved material outcome/ownership/cost choices or uncovered authority.
+
+Once the main framework, component system, storage, or runtime platform is approved and documented, treat it as a stable architecture baseline.
+
+- Reuse baseline capability first.
+- Add one bounded compatible specialist capability for a real gap.
+- Do not let several libraries jointly own theme, state, routing, persistence, or authorization.
+- Reuse dependency manifests, lockfiles and existing ownership/security tooling for inventory and versions. Record the purpose, material license/security constraints, ownership, verification and exit rationale for a new or materially changed dependency when that decision needs explanation. Do not hand-author a card for every transitive dependency or duplicate machine-maintained fields.
+- Baseline replacement documents drivers, affected contracts, migration, dual-run period, data treatment, tests, and rollback.
+- Familiarity, novelty, or AI preference does not replace a stable baseline.
+
+## 6. Reuse and Component Audit
+
+Before building common UI, identity, upload, editing, media, charts, queues, caches, logs, monitoring, deployment, or test infrastructure:
+
+1. Search current implementation and approved shared capability.
+2. Check official standards/SDKs, selected ecosystems, and mature community options.
+3. Load only matching docs/examples/components, not whole vendor libraries into a general Skill.
+4. Verify version, license, security, accessibility, performance, and maintenance.
+5. Record adoption, adaptation, or rejection rationale.
+
+For repetitive production, also establish component source, parameter contract, I/O, determinism, visual/behavior regression, upgrade policy, and legacy boundary. If not reused, state no match or adaptation cost above custom work.
+
+## 7. POC and Owner Confirmation
+
+Use a focused POC when a material uncertainty about fit, failure, performance or migration cannot be resolved from sufficient existing evidence. Material change calls for impact and authorization checks, not automatically a new experiment or renewed approval. Within an already authorized choose-and-implement scope, make the supported decision and continue; ask only for an uncovered action or an unresolved choice that materially changes outcome, cost, risk or ownership.
+
+Use the same representative scenario and acceptance across candidates. Record variables, failures, measurements, human evaluation, conclusion state, and reconstruction. An experiment conclusion is not production approval.
+
+For uncertainty in algorithms, state machines, business process, or data transformation, prefer a logic prototype: an isolated executable harness exposing inputs, state, transitions, outputs, errors, and two or three representative scenarios for repeatable comparison. Do not add production navigation, visual shells, or real data writes for appearance. Design owns visual/interaction prototypes; Assurance freezes formal reproducible POC objects/evidence. For a business-state question, adapt the [offline state demo](../assets/logic-prototype/job-state.html): show the question, readable state, free actions, reset and guided normal/invalid/recovery scenarios. Keep the model independent of its display and use fake inputs. Record the chosen contract and unresolved real-system behavior at the existing decision owner; a demo is not acceptance or production code.
+
+## 8. Project Decision Artifact
+
+Record the result in local technical design, stack documentation, or ADR with problem/constraints/quality attributes; current capability and candidates; choice, rationale, rejected options, and evidence; module/dependency/data/side-effect ownership; custom boundary and prohibited duplicate capability; pinned/compatible versions and upgrade/exit conditions; verification, runtime observation, migration, and rollback; owner and latest calibration.
+
+Ecosystem APIs, component patterns, and version rules belong in project specialist docs or conditional references, not this general method.
+
+## 9. Runtime Boundaries and Revisit Conditions
+
+Choose runtimes using actual needs, representative latency/throughput, CPU/memory/startup/concurrency, safety, ecosystem, debugging, maintainability and total lifecycle cost. Generic language slogans and model familiarity are not evidence. Record accepted limitations, observable thresholds, measurement methods and replacement/recovery boundaries. A resource bottleneck prompts measurement and comparison with reasonable optimization before replacement.
+
+| Shape | Applicable verification and recovery |
+| --- | --- |
+| Native platform module (Swift/Kotlin) | Module owner, interface, tests and version compatibility; recover with the application release, not a fictional independent deployment |
+| In-process extension / FFI | ABI/FFI, memory/thread safety, packaging, compatibility, failure containment and disable/replace path |
+| Independent service | Protocol/data owner, independent build, deploy, observation, scaling and rollback; benefit above distributed complexity |
+| Replacement migration | Consumer/data compatibility window, staged cutover, original-path exit, verification and rollback |
+| Offline/build tool | Repeatable build, I/O contract, distribution environment and failure recovery; no mandatory production deployment |
+
+A new language must solve a real need with a clear owner, interface, toolchain, verification and recovery matching the actual delivery unit. Profiles are implementation guidance after selection, not a language allowlist. Do not add languages or second primary frameworks solely because a profile or model favors them.

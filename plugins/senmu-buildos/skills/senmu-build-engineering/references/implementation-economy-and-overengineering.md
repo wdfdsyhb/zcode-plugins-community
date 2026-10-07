@@ -1,0 +1,97 @@
+# Implementation Economy and Overengineering Governance
+
+Use this standard to reduce unnecessary code, abstractions, dependencies, files, and maintenance while preserving requirement meaning, quality attributes, and risk gates. It applies to features, fixes, refactors, design review, and read-only engineering review. Minimum line count is not a substitute for correctness or quality.
+
+## 1. Decision Order
+
+Understand the real requirement, call path, data, and failure semantics, then find the smallest correct solution in this order:
+
+1. Determine whether current behavior already satisfies the requirement or the request is an unapproved hypothesis. Do not build unneeded capability.
+2. Reuse or repair an existing owner, public entrypoint, or safely extensible implementation; do not create a parallel capability.
+3. Evaluate whether the language standard library, platform primitive, or installed dependency fully satisfies semantics, compatibility, and quality attributes.
+4. Evaluate mature maintained open source, framework, component, or service when its total cost is below custom implementation.
+5. Otherwise build a bounded, verifiable custom implementation with minimum maintenance surface.
+
+Semantic fit and risk gates precede cost at every level. Existing availability alone does not qualify a candidate.
+
+Before coding, identify the approved outcome, existing owner, and real variation/reuse pressure. Search for the same capability, not only similar source text; differently written auth, request or job orchestration can still duplicate one responsibility. For a material new dependency or custom infrastructure decision, keep a short fit/maintenance/security/exit rationale at the existing technical owner, not a scorecard per function. Usually this is a brief inspection and implementation decision, not another architecture document. Shared business behavior across pages should have one owner for state transitions, requests, and recovery; extracting JSX alone does not remove duplicated orchestration. An approved second provider is sufficient evidence for a small application-owned contract and provider adapters. Prefer the provider's supported SDK inside its adapter; normalize only required inputs, outputs, errors, and cancellation. Do not build speculative plugin infrastructure.
+
+## 2. Smallest Correct Implementation
+
+- Optimize for the smallest correct change satisfying approved requirements and quality attributes—not fewest lines, tests, or files.
+- Prefer deleting obsolete branches, merging duplicate owners, shortening call chains, and extending current responsibilities. Trace consumers, behavior, data and compatibility before deletion; remove superseded code and its unused wiring in the same change when verified safe. If a consumer remains uncertain, record the concrete dependency in the existing debt owner rather than leave an unexplained competing path.
+- Prefer repairing the mechanism producing a bug; inspect equivalent call paths. Choose source repair, bounded local repair or containment against benefit, risk, cost, time and authority. A local causal fix may suffice; neither root repair nor urgency grants redesign authority. Explain material remaining causes and revisit conditions when a constrained repair leaves a real limitation.
+- Quality words such as perfect, long-term, general, or must not affect anything constrain results but do not expand scope. Without an approved roadmap, real consumer/second use case, proven bottleneck, or explicit replacement/isolation/reuse/test pressure, do not add a platform, abstraction, plugin/rule system, general DSL, configuration surface, compatibility mode, placeholder module, or unplanned feature. Judge one-implementation interfaces, one-product factories, forwarding wrappers, and dynamic frameworks for static configuration by the same evidence.
+- If the user says a proposal is excessive or too heavy, stop expanding and return to the minimum approved result. Remove unauthorized parts while retaining protections required for security, privacy, permissions, payments, data, law, irreversible actions, release integrity, and approved compatibility; do not defend the abandoned design.
+- Preserve necessary calibration, fault tolerance, and observability for unavoidable variation in inputs, devices, networks, or hardware; do not hard-code an accidental sample in the name of simplicity.
+- When a loop or repeated operation rebuilds the same collection, reloads the same file or repeats the same lookup for unchanged inputs, consider scoped reuse, indexing, batching or streaming. Preserve ordering, freshness, permissions, transaction scope and memory bounds. Do not hoist work across changing state or introduce a global cache merely to reduce a local count; first remove demonstrably redundant work and verify the affected behavior and workload assumption.
+
+### 2.1 Abstraction Value
+
+Before adding or removing a layer at a meaningful design decision, ask: if this layer vanished, would complexity disappear, or would permissions, cancellation, retries, compatibility and error handling spread back to callers? This is a thought experiment, not deletion authority.
+
+Judge total responsibility and knowledge across callers, implementation and operations. An interface includes relevant ordering, failure, state and side-effect contracts, not just method count. Simplify a pass-through only when it owns no justified responsibility. Keep a boundary justified by security, ownership, compatibility, testing or framework contracts even with one production implementation. Do not make modules larger for appearance, conceal effects, require two adapters, or delete useful lower-level tests merely because a higher-level test exists.
+
+## 3. Value-First Staging
+
+- Reassess value and complexity at material design decisions, scope growth or newly discovered risk, not before every action. Do work that advances the requested result or supplies necessary evidence. Avoid bookkeeping that creates no usable decision or recovery value, while preserving records required for product behavior, compliance, authorization, external-effect reconciliation or release truth. Routine execution does not need a compliance narration.
+- Define the phase's minimum value slice before implementation: authoritative input through the real core path to observable result, matching verification, and deliverable output. Scaffolding, abstractions, generic platforms, or check systems alone are not a value slice.
+- Leave every phase runnable, verifiable, handoff-ready, and—with data, deployment, or external side effects—recoverable. Do not open many incomplete branches for a later long session to reconcile.
+- Prefer improving the production path so correctness is easier, rather than front-loading validators, checklists or approvals. Retain controls for material residual risk; necessary containment may precede root repair. A documented, bounded repair can also be rational under non-emergency constraints. Do not present mitigation as proven root-cause removal.
+- When repeated reads, failures, or scope growth yield no new evidence, stop and redefine cause, smallest next step, and stop condition. Do not create runtime counters or fixed tool/token caps.
+- Security, privacy, authorization, payments, production data, irreversible actions, and release integrity must ship with the first affected value slice, never as later decoration.
+- Multi-stage tasks record phase completion, state, evidence, and recovery in the declared Durable Task State Owner. Task state supports delivery and does not duplicate specialist facts.
+
+### 3.1 G1 Contract-Preserving Fast Path
+
+A `contract-preserving local change` has known, locally reversible impact and preserves product meaning/acceptance, user actions/information hierarchy, interaction affordance/accessibility, state/data, authorization, interfaces, cross-step workflow, external side effects, and delivery/runtime boundaries. Classification depends on contracts, not file count, lines, or “looks like UI.”
+
+A `presentation-equivalent change` is a subset: styling, wording, or local layout may change while all those contracts remain equivalent. A change to meaning, information priority, operation, responsive/accessibility outcome, or explicit acceptance exits this subset.
+
+The fast path also requires one known owner/release unit and excludes security, privacy, authorization, payments/billing, production data, paid external effects, destructive operations, and formal release. Any exclusion exits the path.
+
+- With clear project rules, implement through the project entrypoint without loading a BuildOS Skill. If an engineering contract gap, conflict, change or explicit review correctly triggered Engineering, it remains the sole primary Skill for this lightweight decision. User visibility, future commit intent, or steps in code do not automatically compose Product, Delivery, or Workflow.
+- Read affected code, project-local rules, and nearest matching tests only. Do not load unrelated references, the full product system, or release standards merely to restate local contracts.
+- Make the requested local change and matching verification. Do not create unrelated Task, TD, ADR, PRD, Changelog or release records; G1 normally needs no Work Log. Explicitly requested corrections to an existing rule/document and navigation changes actually caused by the task may update their original owner within authority; they do not require a new governance chain.
+
+The software-testing standard owns batch and test timing; this standard creates no second closeout rule.
+
+## 4. Semantic-Fit Gate
+
+Before adopting an existing/standard/native capability, confirm:
+
+- It covers the required contract, not a similarly named subset. A parser is not a validator, a formatter is not a sanitizer, and component defaults are not product acceptance.
+- Errors, boundaries, internationalization, accessibility, compatibility, performance, and data semantics meet project needs.
+- Integration does not bypass authorization, transaction, state, ownership, or release boundaries.
+- The current version/runtime truly provides it. Read project dependencies and official current material at task time rather than freezing volatile APIs here.
+- For a framework public extension point, test the real contract and failure path first. Bypassing public APIs, observing internal DOM, calling private interfaces, or duplicating framework state is allowed only as an evidenced minimum adapter with isolation, compatibility risk, and exit condition. Passing custom tests alone does not prove it is better than framework capability.
+
+When a mature capability covers only part of the requirement, retain an explicit narrow adapter rather than distort the business contract for “zero custom code.”
+
+## 5. Protections Simplicity Cannot Remove
+
+Retain risk-proportional protection for security, privacy, authorization, payments, production data, irreversible operations, data integrity, transactions, idempotency, compatible migration, compensation, rollback, accessibility, law, explicit acceptance, public contracts, known critical boundaries, regression tests, runtime observation, and release gates.
+
+Verification is minimum sufficient by risk. A low-risk obvious change may need one visible check; a high-risk cross-boundary change may need layered tests and a real flow. Do not universalize “one test.”
+
+## 6. Intentional Simplification and Debt
+
+When the team deliberately chooses a smaller implementation with a known limit, record in `engineering/TECH_DEBT.md`, the issue system, or equivalent:
+
+- the simplification boundary and impact;
+- observable upgrade/repayment triggers;
+- owner and acceptance method;
+- a stable debt ID referenced by TODOs or compatibility branches.
+
+Do not create a Skill-private comment format or second debt ledger. Without a real limit and continuing maintenance cost, do not label ordinary design explanation as debt.
+
+## 7. Implementation and Review Output
+
+Report material implementation choices, actual verification and remaining gaps. Explain reuse, custom code or retained complexity when a real tradeoff was made; a routine local edit does not need a fixed reuse scorecard or a defense of every layer not added. Read-only review may use an `implementation economy` lens when relevant:
+
+- unused code, dependencies, files, and old entrypoints safe to delete;
+- duplicate implementation replaceable by an existing owner, platform/standard capability, or installed dependency;
+- abstraction, wrapper, configuration, or scaffolding without real change pressure;
+- implementation/call chains reducible without changing contracts.
+
+Label these complexity opportunities separately from correctness, security, and business risk. Estimate removable lines, files, or dependencies only from actual diffs, dependency graphs, or reviewable paths; never infer project savings from generic benchmarks. Passing complexity review does not mean the overall code review passes.

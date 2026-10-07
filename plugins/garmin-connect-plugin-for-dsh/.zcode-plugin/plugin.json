@@ -1,0 +1,15 @@
+{
+  "name": "garmin-connect",
+  "version": "0.1.0",
+  "description": "在 WorkBuddy 中下载并配置 dsh-plugin-garmin-connect npm 包，通过 MCP 工具分析 Garmin 活动、睡眠、步数、心率、体重、训练库、跑步趋势和有限的恢复信息，也可按用户要求创建 Garmin 训练或下载活动 FIT 文件。适用于 Garmin 配置、回顾、比较和明确授权的写操作；不用于医疗诊断。",
+  "author": {
+    "name": "Likenttt",
+    "url": "https://github.com/Likenttt"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "在 WorkBuddy 中下载并配置 dsh-plugin-garmin-connect npm 包，通过 MCP 工具分析 Garmin 活动、睡眠、步数、心率、体重、训练库、跑步趋势和有限的恢复信息，也可按用户要求创建 Garmin 训练或下载活动 FIT 文件。适用于 Garmin 配置、回顾、比较和明确授权的写操作；不用于医疗诊断。",
+    "zh-CN": "Garmin Connect 集成:浏览器安全 MFA 的技能+MCP(DSH 生态兼容)"
+  }
+}

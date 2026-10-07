@@ -1,0 +1,61 @@
+entities:
+  用户:
+    owner: local-store
+    fields:
+      id: { type: string, cardinality: one }
+      display_name: { type: string, cardinality: maybe, absent_means: "未设置昵称时显示默认名" }
+  书签:
+    owner: local-store
+    fields:
+      id: { type: string, cardinality: one }
+      url: { type: string, cardinality: one }
+      title: { type: string, cardinality: maybe, absent_means: "页面无标题时回退显示 URL 本身" }
+      created_at: { type: datetime, cardinality: one }
+  标签:
+    owner: local-store
+    fields:
+      id: { type: string, cardinality: one }
+      name: { type: string, cardinality: one }
+  抓取快照:
+    owner: fetcher
+    fields:
+      content: { type: string, cardinality: maybe, absent_means: "抓取失败的书签仅存链接，全文搜索跳过它" }
+      fetched_at: { type: datetime, cardinality: one }
+  同步记录:
+    owner: sync-engine
+    fields:
+      item_id: { type: string, cardinality: one }
+      status: { type: string, cardinality: one }
+      attempted_at: { type: datetime, cardinality: many }
+operations:
+  save_bookmark:
+    boundary: internal
+    input: { url: string, title: string, tags: list }
+    output: { bookmark_id: string }
+    errors: [ invalid_url, snapshot_failed ]
+  push_sync:
+    boundary: ipc
+    input: { item_id: string }
+    output: { status: string }
+    errors: [ network_down, conflict ]
+  export_file:
+    boundary: file
+    input: { format: string }
+    output: { path: string }
+    errors: [ disk_full ]
+errors:
+  invalid_url:
+    meaning: url is empty or malformed
+    user_sees: '输入框下方提示「链接格式不正确」'
+  snapshot_failed:
+    meaning: page content could not be fetched
+    user_sees: '保存成功但提示「正文抓取失败，全文搜索将跳过此条」'
+  network_down:
+    meaning: sync peer unreachable
+    user_sees: '书签进入「待同步」状态，恢复网络后自动重试'
+  conflict:
+    meaning: peer holds a diverging version of the same item
+    user_sees: '提示「与对端版本冲突」，由用户选择保留哪个版本'
+  disk_full:
+    meaning: no space for the export file
+    user_sees: '提示「磁盘空间不足」'

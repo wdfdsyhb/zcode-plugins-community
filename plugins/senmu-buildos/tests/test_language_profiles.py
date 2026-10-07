@@ -1,0 +1,57 @@
+import re
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+ENGINEERING = ROOT / "skills/senmu-build-engineering"
+ENTRY = ENGINEERING / "SKILL.md"
+COMMON = ENGINEERING / "references/source-code-quality-and-ai-collaboration.md"
+BEHAVIOR = ROOT / "tests/behavior/senmu-buildos-trigger-matrix.md"
+
+PROFILES = {
+    "typescript-engineering-profile.md": ("strict", "unknown", "stable discriminator", "import type"),
+    "go-engineering-profile.md": ("%w", "goroutine", "context.Context", "go test -race"),
+    "java-engineering-profile.md": ("AutoCloseable", "try-with-resources", "suppressed exceptions", "Maven/Gradle"),
+}
+
+
+class LanguageProfileContractTests(unittest.TestCase):
+    def test_behavior_invariant_identifiers_are_unique(self) -> None:
+        behavior = (ROOT / "tests/behavior/skill-entry-invariants.md").read_text(encoding="utf-8")
+        identifiers = [
+            match.group(1)
+            for line in behavior.splitlines()
+            if (match := re.match(r"^\|\s*([A-Z]+-\d+)\s*\|", line))
+        ]
+        self.assertEqual(len(identifiers), len(set(identifiers)))
+
+    def test_each_profile_has_one_direct_entry_route_and_unique_owner(self) -> None:
+        entry = ENTRY.read_text(encoding="utf-8")
+        validator = (ROOT / "scripts/validate_package.py").read_text(encoding="utf-8")
+        for filename in PROFILES:
+            with self.subTest(filename=filename):
+                self.assertEqual(entry.count(f"references/{filename}"), 1)
+                self.assertEqual(validator.count(f'"{filename}": "senmu-build-engineering"'), 1)
+
+    def test_profiles_preserve_language_specific_decisions_without_source_library(self) -> None:
+        forbidden = ("https://", "aws.amazon.com", "google.github.io", "go.dev/")
+        for filename, required in PROFILES.items():
+            with self.subTest(filename=filename):
+                text = (ENGINEERING / "references" / filename).read_text(encoding="utf-8")
+                for signal in required:
+                    self.assertIn(signal, text)
+                for source_locator in forbidden:
+                    self.assertNotIn(source_locator, text)
+
+    def test_language_and_retry_scenarios_are_behaviorally_discriminated(self) -> None:
+        common = COMMON.read_text(encoding="utf-8")
+        behavior = BEHAVIOR.read_text(encoding="utf-8")
+        for signal in ("One layer owns retry", "capped backoff", "stable intent key", "different parameters under one key"):
+            self.assertIn(signal, common)
+        for scenario in ("TypeScript API", "goroutine 泄漏", "Java 服务", "五层服务链", "同一幂等键"):
+            self.assertIn(scenario, behavior)
+
+
+if __name__ == "__main__":
+    unittest.main()

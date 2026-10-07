@@ -1,0 +1,14 @@
+{
+  "name": "lazyzcode",
+  "version": "0.1.0",
+  "description": "AI coding-workflow discipline layer for ZCode: plan, execute, take evidence, never stop half-done.",
+  "author": {
+    "name": "Acfufu",
+    "url": "https://github.com/Acfufu"
+  },
+  "license": "MIT",
+  "description_i18n": {
+    "en": "AI coding-workflow discipline layer for ZCode: plan, execute, take evidence, never stop half-done.",
+    "zh-CN": "编码工作流纪律层:计划/执行/取证,不半途而废"
+  }
+}

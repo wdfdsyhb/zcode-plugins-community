@@ -1,0 +1,14 @@
+entities:
+  Widget:
+    owner: api
+    fields:
+      name: { type: string, cardinality: maybe }
+  Gadget:
+    owner: api
+operations:
+  make_widget:
+    boundary: api
+    errors: [ exploded ]
+errors:
+  disk_full:
+    meaning: no space

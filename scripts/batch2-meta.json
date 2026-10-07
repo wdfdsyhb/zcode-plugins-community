@@ -1,42 +1,307 @@
 {
-  "ZCode-Agent-Kit": { "category": "dev-tools", "author_github": "ZepiGit", "display_zh": "ZCode token 多 harness 复用工具集" },
-  "zcode-git-worktrees": { "category": "dev-tools", "author_github": "agallardol", "display_zh": "Git worktree 并行工作流:隔离工作区+快照+自动会话隔离+保留清理" },
-  "zcode-session-manager": { "category": "productivity", "author_github": "Mia0a-hi", "display_zh": "会话管理与跨端记忆中继:<20ms 内存映射检索,合盖后手机 IM 无缝接续对话" },
-  "zcode-workspace-guard": { "category": "dev-tools", "author_github": "XieZongChen", "display_zh": "工作区沙箱:让 ZCode 在项目内执行时有类似 DSH 的隔离效果" },
-  "zcode-fence": { "category": "dev-tools", "author_github": "Momenttttt", "display_zh": "确定性围栏插件:灾难性命令门禁+项目写围栏,Windows-first,仅询问式,零依赖" },
-  "zcode-gpt-image2": { "category": "creative", "author_github": "cv-superding", "display_zh": "自动生成项目图标、GitHub banner 与 README 插图" },
-  "OhMyZcode": { "category": "dev-tools", "author_github": "djt889", "display_zh": "多 agent 并行编排:访谈式规划、独立评审与双证据验收,core 零侵入" },
-  "multi-agent-mailbox": { "category": "dev-tools", "author_github": "WQMYH", "display_zh": "多智能体信箱:CLI/MCP 本地消息互通,实测 Codex/ZCode/OpenClaw 等" },
-  "novelist": { "category": "docs-writing", "author_github": "GlotTale", "display_zh": "网文写作基础设施:一条命令部署全部写作设施,8 个 Hook 自动注入记忆/细纲/文风,零全局污染" },
-  "arkpilot": { "category": "dev-tools", "author_github": "taobaoaz", "display_zh": "鸿蒙 NEXT(ArkTS)开发驾驶舱:30 个 MCP 工具覆盖环境检查/构建/设备/UI 自动化" },
-  "zcode-remotion": { "category": "creative", "author_github": "AIwork4me", "display_zh": "Remotion 视频可靠性层:官方技能+环境预检+视觉 QA+已验证渲染" },
-  "zcode-ext-stats": { "category": "productivity", "author_github": "winterallen", "display_zh": "非官方会话统计扩展" },
-  "zcode-command-code-usage": { "category": "productivity", "author_github": "Jovan1666", "display_zh": "订阅用量显示:5 小时与每周滚动窗口、月度额度或余额" },
-  "zcode-extensions": { "category": "dev-tools", "author_github": "notmike101", "display_zh": "抗更新扩展宿主(ZCode 桌面 Electron)" },
-  "zcode-powerpack": { "category": "dev-tools", "author_github": "imserhatdemir", "display_zh": "ZCode 增强合集:技能/插件/MCP/手册" },
-  "pstack-zcode": { "category": "dev-tools", "author_github": "Luks3110", "display_zh": "pstack 移植版:skills+playbooks+原则库" },
-  "zcode_skills": { "category": "dev-tools", "author_github": "tony-apan", "display_zh": "外贸 AI 员工团:找客户、写开发信、做 SEO、盯友商、审内容、验网站,18 个岗位" },
-  "Context-Budget": { "category": "productivity", "author_github": "SoftArax", "display_zh": "上下文预算压缩:一个回合打包多动作,最小化输入 token 成本" },
-  "crawl-content-skill": { "category": "dev-tools", "author_github": "JJ188-coder", "display_zh": "中文社媒内容与评论爬取(B站/小红书/抖音/微博/快手/知乎),多平台并行,仅限学习研究并遵守平台条款" },
-  "literature-review-skill": { "category": "education", "author_github": "openkills", "display_zh": "论文(DOI/链接/文件)一键转可直接粘贴的文献综述" },
-  "academic-search": { "category": "education", "author_github": "pisen233", "display_zh": "任意主题学术文献自动追踪与周报生成" },
-  "experiment-report": { "category": "education", "author_github": "warter666", "display_zh": "实验报告截图批处理:批量裁剪+终端提示左对齐" },
-  "project-architecture-analyzer": { "category": "dev-tools", "author_github": "WhQ-cc", "display_zh": "企业级 Java 项目架构逆向:单文件可视化看板,接口档案/调用链/数据流,每个结论带代码证据" },
-  "vmctl": { "category": "dev-tools", "author_github": "realweng", "display_zh": "VMware Workstation 控制技能:vmrun 开关机/挂起/快照" },
-  "feynman-learning": { "category": "education", "author_github": "Zeppeli777", "display_zh": "费曼学习法对话教练:你讲,模型只挑错和追问,直到真讲通" },
-  "concept-mastery": { "category": "education", "author_github": "Zeppeli777", "display_zh": "知识点精讲:保留并解释专业名词本身,而不是替换成通俗说法" },
-  "lessonry": { "category": "education", "author_github": "zryshuaige", "display_zh": "把任何主题变成单文件交互式课程" },
-  "equity-research-vn": { "category": "data-science", "author_github": "Thanhtran-165", "display_zh": "越南股票研究:76 项证据核查清单" },
-  "rathena-scripting": { "category": "fun", "author_github": "jack021124", "display_zh": "rAthena/BetterRA NPC 脚本开发:编写/审查/调试" },
-  "theory-refine-loop-skill": { "category": "education", "author_github": "openkills", "display_zh": "理论打磨循环:review-fix-recheck 直到论证通过" },
-  "ai-skill-engine": { "category": "dev-tools", "author_github": "mikasaw", "display_zh": "AI skill 引擎:洋葱模型中间件核心+Multica 小队派单/验收" },
-  "ZcodeTouchBar": { "category": "fun", "author_github": "GreendaMi", "display_zh": "给 ZCode 增加 MacBook TouchBar 支持(macOS)" },
-  "dev-flow": { "category": "dev-tools", "author_github": "yzhai002", "display_zh": "按任务规模路由:小修全自动流水线,大任务人工介入" },
-  "testcase": { "category": "dev-tools", "author_github": "xtieume", "display_zh": "从需求到交付:审计 spec→生成真实测试→构建直到全部通过" },
-  "repo-cleanup-skill": { "category": "dev-tools", "author_github": "peetwan", "display_zh": "先报告后删除的仓库清理:过时文档/陈旧分支" },
-  "learn-skill": { "category": "education", "author_github": "gtbwpkwjnb-alt", "display_zh": "一个链接→AI 总结/亮点/术语/评分/图谱/深度 OCR 入库" },
-  "frontend-design": { "category": "dev-tools", "author_github": "anthropics", "display_zh": "Anthropic 官方前端设计技能:高质量 UI 产出指导" },
-  "anthropic-creative-pack": { "category": "creative", "author_github": "anthropics", "display_zh": "Anthropic 官方创意四件套:算法艺术/画布设计/主题工厂/Web Artifacts 构建" },
-  "mcp-builder": { "category": "dev-tools", "author_github": "anthropics", "display_zh": "Anthropic 官方 MCP 服务器构建技能" },
-  "disk-scanner": { "category": "productivity", "author_github": "wdfdsyhb", "display_zh": "Windows 磁盘空间扫描分析:目录体积/文件类型分布/最大文件清单" }
+  "ZCode-Agent-Kit": {
+    "category": "dev-tools",
+    "author_github": "ZepiGit",
+    "display_zh": "ZCode token 多 harness 复用工具集"
+  },
+  "zcode-git-worktrees": {
+    "category": "dev-tools",
+    "author_github": "agallardol",
+    "display_zh": "Git worktree 并行工作流:隔离工作区+快照+自动会话隔离+保留清理"
+  },
+  "zcode-session-manager": {
+    "category": "productivity",
+    "author_github": "Mia0a-hi",
+    "display_zh": "会话管理与跨端记忆中继:<20ms 内存映射检索,合盖后手机 IM 无缝接续对话"
+  },
+  "zcode-workspace-guard": {
+    "category": "dev-tools",
+    "author_github": "XieZongChen",
+    "display_zh": "工作区沙箱:让 ZCode 在项目内执行时有类似 DSH 的隔离效果"
+  },
+  "zcode-fence": {
+    "category": "dev-tools",
+    "author_github": "Momenttttt",
+    "display_zh": "确定性围栏插件:灾难性命令门禁+项目写围栏,Windows-first,仅询问式,零依赖"
+  },
+  "zcode-gpt-image2": {
+    "category": "creative",
+    "author_github": "cv-superding",
+    "display_zh": "自动生成项目图标、GitHub banner 与 README 插图"
+  },
+  "OhMyZcode": {
+    "category": "dev-tools",
+    "author_github": "djt889",
+    "display_zh": "多 agent 并行编排:访谈式规划、独立评审与双证据验收,core 零侵入"
+  },
+  "multi-agent-mailbox": {
+    "category": "dev-tools",
+    "author_github": "WQMYH",
+    "display_zh": "多智能体信箱:CLI/MCP 本地消息互通,实测 Codex/ZCode/OpenClaw 等"
+  },
+  "novelist": {
+    "category": "docs-writing",
+    "author_github": "GlotTale",
+    "display_zh": "网文写作基础设施:一条命令部署全部写作设施,8 个 Hook 自动注入记忆/细纲/文风,零全局污染"
+  },
+  "arkpilot": {
+    "category": "dev-tools",
+    "author_github": "taobaoaz",
+    "display_zh": "鸿蒙 NEXT(ArkTS)开发驾驶舱:30 个 MCP 工具覆盖环境检查/构建/设备/UI 自动化"
+  },
+  "zcode-remotion": {
+    "category": "creative",
+    "author_github": "AIwork4me",
+    "display_zh": "Remotion 视频可靠性层:官方技能+环境预检+视觉 QA+已验证渲染"
+  },
+  "zcode-ext-stats": {
+    "category": "productivity",
+    "author_github": "winterallen",
+    "display_zh": "非官方会话统计扩展"
+  },
+  "zcode-command-code-usage": {
+    "category": "productivity",
+    "author_github": "Jovan1666",
+    "display_zh": "订阅用量显示:5 小时与每周滚动窗口、月度额度或余额"
+  },
+  "zcode-extensions": {
+    "category": "dev-tools",
+    "author_github": "notmike101",
+    "display_zh": "抗更新扩展宿主(ZCode 桌面 Electron)"
+  },
+  "zcode-powerpack": {
+    "category": "dev-tools",
+    "author_github": "imserhatdemir",
+    "display_zh": "ZCode 增强合集:技能/插件/MCP/手册"
+  },
+  "pstack-zcode": {
+    "category": "dev-tools",
+    "author_github": "Luks3110",
+    "display_zh": "pstack 移植版:skills+playbooks+原则库"
+  },
+  "zcode_skills": {
+    "category": "dev-tools",
+    "author_github": "tony-apan",
+    "display_zh": "外贸 AI 员工团:找客户、写开发信、做 SEO、盯友商、审内容、验网站,18 个岗位"
+  },
+  "Context-Budget": {
+    "category": "productivity",
+    "author_github": "SoftArax",
+    "display_zh": "上下文预算压缩:一个回合打包多动作,最小化输入 token 成本"
+  },
+  "crawl-content-skill": {
+    "category": "dev-tools",
+    "author_github": "JJ188-coder",
+    "display_zh": "中文社媒内容与评论爬取(B站/小红书/抖音/微博/快手/知乎),多平台并行,仅限学习研究并遵守平台条款"
+  },
+  "literature-review-skill": {
+    "category": "education",
+    "author_github": "openkills",
+    "display_zh": "论文(DOI/链接/文件)一键转可直接粘贴的文献综述"
+  },
+  "academic-search": {
+    "category": "education",
+    "author_github": "pisen233",
+    "display_zh": "任意主题学术文献自动追踪与周报生成"
+  },
+  "experiment-report": {
+    "category": "education",
+    "author_github": "warter666",
+    "display_zh": "实验报告截图批处理:批量裁剪+终端提示左对齐"
+  },
+  "project-architecture-analyzer": {
+    "category": "dev-tools",
+    "author_github": "WhQ-cc",
+    "display_zh": "企业级 Java 项目架构逆向:单文件可视化看板,接口档案/调用链/数据流,每个结论带代码证据"
+  },
+  "vmctl": {
+    "category": "dev-tools",
+    "author_github": "realweng",
+    "display_zh": "VMware Workstation 控制技能:vmrun 开关机/挂起/快照"
+  },
+  "feynman-learning": {
+    "category": "education",
+    "author_github": "Zeppeli777",
+    "display_zh": "费曼学习法对话教练:你讲,模型只挑错和追问,直到真讲通"
+  },
+  "concept-mastery": {
+    "category": "education",
+    "author_github": "Zeppeli777",
+    "display_zh": "知识点精讲:保留并解释专业名词本身,而不是替换成通俗说法"
+  },
+  "lessonry": {
+    "category": "education",
+    "author_github": "zryshuaige",
+    "display_zh": "把任何主题变成单文件交互式课程"
+  },
+  "equity-research-vn": {
+    "category": "data-science",
+    "author_github": "Thanhtran-165",
+    "display_zh": "越南股票研究:76 项证据核查清单"
+  },
+  "rathena-scripting": {
+    "category": "fun",
+    "author_github": "jack021124",
+    "display_zh": "rAthena/BetterRA NPC 脚本开发:编写/审查/调试"
+  },
+  "theory-refine-loop-skill": {
+    "category": "education",
+    "author_github": "openkills",
+    "display_zh": "理论打磨循环:review-fix-recheck 直到论证通过"
+  },
+  "ai-skill-engine": {
+    "category": "dev-tools",
+    "author_github": "mikasaw",
+    "display_zh": "AI skill 引擎:洋葱模型中间件核心+Multica 小队派单/验收"
+  },
+  "ZcodeTouchBar": {
+    "category": "fun",
+    "author_github": "GreendaMi",
+    "display_zh": "给 ZCode 增加 MacBook TouchBar 支持(macOS)"
+  },
+  "dev-flow": {
+    "category": "dev-tools",
+    "author_github": "yzhai002",
+    "display_zh": "按任务规模路由:小修全自动流水线,大任务人工介入"
+  },
+  "testcase": {
+    "category": "dev-tools",
+    "author_github": "xtieume",
+    "display_zh": "从需求到交付:审计 spec→生成真实测试→构建直到全部通过"
+  },
+  "repo-cleanup-skill": {
+    "category": "dev-tools",
+    "author_github": "peetwan",
+    "display_zh": "先报告后删除的仓库清理:过时文档/陈旧分支"
+  },
+  "learn-skill": {
+    "category": "education",
+    "author_github": "gtbwpkwjnb-alt",
+    "display_zh": "一个链接→AI 总结/亮点/术语/评分/图谱/深度 OCR 入库"
+  },
+  "frontend-design": {
+    "category": "dev-tools",
+    "author_github": "anthropics",
+    "display_zh": "Anthropic 官方前端设计技能:高质量 UI 产出指导"
+  },
+  "anthropic-creative-pack": {
+    "category": "creative",
+    "author_github": "anthropics",
+    "display_zh": "Anthropic 官方创意四件套:算法艺术/画布设计/主题工厂/Web Artifacts 构建"
+  },
+  "mcp-builder": {
+    "category": "dev-tools",
+    "author_github": "anthropics",
+    "display_zh": "Anthropic 官方 MCP 服务器构建技能"
+  },
+  "disk-scanner": {
+    "category": "productivity",
+    "author_github": "wdfdsyhb",
+    "display_zh": "Windows 磁盘空间扫描分析:目录体积/文件类型分布/最大文件清单"
+  },
+  "Game-Studios-Plugin": {
+    "category": "game-dev",
+    "author_github": "HunLuanZhiZhu",
+    "display_zh": "游戏工作室多 agent 框架:50+ agents + 70+ skills + 守护 hooks"
+  },
+  "ai-ui-aesthetics": {
+    "category": "dev-tools",
+    "author_github": "Jaye2610",
+    "display_zh": "前端美学技能:教 AI 设计精致、有层次、一致性的 UI"
+  },
+  "bufatechno-webgamedev": {
+    "category": "game-dev",
+    "author_github": "bufatechno",
+    "display_zh": "网页游戏开发技能"
+  },
+  "chuigong": {
+    "category": "productivity",
+    "author_github": "rouyiemei",
+    "display_zh": "垂拱:主对话只编排,廉价子代理执行,节省模型配额"
+  },
+  "claritykit": {
+    "category": "dev-tools",
+    "author_github": "maxi3777",
+    "display_zh": "需求澄清工具:通过问答与 Mermaid 图理清应用创建过程"
+  },
+  "dragon-agents": {
+    "category": "dev-tools",
+    "author_github": "VirInvictus",
+    "display_zh": "六个只读研究子代理:仓库测绘/文档漂移审计/共享库级联分析"
+  },
+  "fun-code": {
+    "category": "fun",
+    "author_github": "temmeik",
+    "display_zh": "恶作剧模式:agent 扮演过度自信的新手,在简单部分埋 silly 彩蛋"
+  },
+  "garmin-connect-plugin-for-dsh": {
+    "category": "productivity",
+    "author_github": "Likenttt",
+    "display_zh": "Garmin Connect 集成:浏览器安全 MFA 的技能+MCP(DSH 生态兼容)"
+  },
+  "multi-model-bridge": {
+    "category": "dev-tools",
+    "author_github": "Et3rW",
+    "display_zh": "多模型协同桥:主模型缺能力(图像/视觉)时把子任务路由给外部模型"
+  },
+  "senmu-buildos": {
+    "category": "dev-tools",
+    "author_github": "SenMuShare",
+    "display_zh": "AI 原生 BuildOS:产品发现→UI/UX 设计→软件工程全流程,多宿主适配"
+  },
+  "software-project-governance": {
+    "category": "dev-tools",
+    "author_github": "peterwangze",
+    "display_zh": "软件项目治理:证据支撑的规划/评审/风险/质量/发布控制"
+  },
+  "taskswarm": {
+    "category": "productivity",
+    "author_github": "Wersky",
+    "display_zh": "任务树多级拆解+按依赖波次并行派发子代理+共享 MCP 看板,123 tests 90.3% 覆盖"
+  },
+  "zcode-toolkit": {
+    "category": "dev-tools",
+    "author_github": "c80361619",
+    "display_zh": "桌面客户端增强:思考档位/用量图表/TPS 状态栏/一键增强提示词,纯 Python 标准库"
+  },
+  "zcode-autoresearch": {
+    "category": "dev-tools",
+    "author_github": "luochang212",
+    "display_zh": "自主实验循环:基于固定度量让 agent 自动迭代优化"
+  },
+  "zcode-token-meter": {
+    "category": "productivity",
+    "author_github": "alixntuyt-eng",
+    "display_zh": "Windows 置顶悬浮窗:实时 tok/s + prompt 缓存命中率,无控制台窗口"
+  },
+  "zcode-tokline": {
+    "category": "productivity",
+    "author_github": "nengong-ai",
+    "display_zh": "每轮回复末尾注入速率行:首字/本轮/轮均 tok/s,零依赖"
+  },
+  "zcode-repo-wiki": {
+    "category": "docs-writing",
+    "author_github": "Acfufu",
+    "display_zh": "本地仓库 wiki:agent 读代码写分页 wiki,文件级证据+一次构建单页概览"
+  },
+  "zcode-websearch": {
+    "category": "productivity",
+    "author_github": "Yoahoug",
+    "display_zh": "Tavily 联网搜索:只回链接与短摘要(MCP+技能)"
+  },
+  "lazyzcode": {
+    "category": "productivity",
+    "author_github": "Acfufu",
+    "display_zh": "编码工作流纪律层:计划/执行/取证,不半途而废"
+  },
+  "zcode-session-mailbox": {
+    "category": "productivity",
+    "author_github": "mkosinov",
+    "display_zh": "ZCode 会话间消息交换(内置 session mailbox)"
+  },
+  "fusion-zcode-plugin": {
+    "category": "dev-tools",
+    "author_github": "roman-ryzenadvanced",
+    "display_zh": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换"
+  }
 }

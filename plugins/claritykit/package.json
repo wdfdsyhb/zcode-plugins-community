@@ -1,0 +1,35 @@
+{
+  "name": "claritykit",
+  "version": "2.1.0",
+  "type": "module",
+  "main": ".opencode/plugins/claritykit.js",
+  "description": "Turn vague design into reviewable artifacts — direction, requirements, architecture candidates, behavior models, data contracts, UI prototypes — with tool-derived paths, an optional explicitly-activated design flow, and a managed preview site.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxi3777/claritykit.git"
+  },
+  "bin": {
+    "clarity": "tools/clarity"
+  },
+  "keywords": [
+    "specification",
+    "clarification",
+    "agent-skills",
+    "pi-package",
+    "mermaid",
+    "diagrams",
+    "behavior-model",
+    "prototype",
+    "adr",
+    "opencode",
+    "claude-code",
+    "cursor",
+    "codex",
+    "zcode",
+    "devin"
+  ],
+  "pi": {
+    "skills": ["./skills"]
+  }
+}

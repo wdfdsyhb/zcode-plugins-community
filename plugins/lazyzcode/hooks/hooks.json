@@ -1,0 +1,74 @@
+{
+  "description": "LazyZCode goal-loop hooks (six events): trigger-word bootstrap, session bootstrap, Stop continuation (budget-capped, sessionId-isolated), comment-checker advisory (goal-gated, inject-only), the same-tool failure-streak tripwire (PostToolUseFailure, MCP-only, TTL window, warn-once) and the dormant H3R command-layer gate (PreToolUse, Bash-only, drive-scoped via the injected LZY_SEGMENT_ID, deny + hit marker; asleep unless LZY_ABLATE_H3R_PRETOOL is exactly \"1\"). All commands run via the run-hook launcher so node resolves even when the engine spawns hooks with a PATH that has no node; the extensionless sh file serves POSIX and cmd.exe resolves the same line to run-hook.cmd via PATHEXT on Windows.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook\" h3r-pretool.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook\" comment-checker.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "^mcp__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook\" tripwire.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook\" trigger.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook\" session-start.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${ZCODE_PLUGIN_ROOT}/hooks/run-hook\" stop.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

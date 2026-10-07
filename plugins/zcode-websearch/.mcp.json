@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "zcode-websearch": {
+      "command": "node",
+      "args": [
+        "${ZCODE_PLUGIN_ROOT}/server/index.mjs"
+      ]
+    }
+  }
+}

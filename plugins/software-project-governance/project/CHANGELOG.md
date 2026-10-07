@@ -1,0 +1,3574 @@
+# 变更日志
+
+本文件记录 `software-project-governance` 的每个版本变更。
+
+## [0.95.0] - 2026-10-05
+<!-- 发布日期回填（FIX-349 口径）：M-7 annotated tag `v0.95.0`→1ee500a（transition commit），taggerdate 2026-10-05 20:55:53 +0800 权威。 -->
+
+### 0.95.0 - **次版本线：「做薄·开放·主动探索」演进第一批（Minor Line: Thin, Open & Proactive Exploration — First Batch）**：载荷五票（AUDIT-157/158 + FEAT-085/086 + FIX-432 / DEC-312 用户裁定预留 0.95.0 / 发布链 REL-099）
+
+0.95.0 为 0.94.0 的次版本线（「做薄·开放·主动探索」五阶段演进的 **Phase 0 基线与止增 + 有界 Phase 1 最小行为修复** 单轮交付）：Phase 0 交付基线四件套（R5 回溯基线 12 样本三判定——应探索 4/可跳过 8/记录未知率 100% 单独披露；checks 146 项四分层分类 L1 36/L2 25/L3 10/L4 2；W1~W7 越界责任清单三要素全覆盖；注入与架构基线快照——止增纪律随基线生效）；Phase 1 交付 M10 主动生态探索协议 + 三类前瞻样本 5 例行为验收 + 全仓 M0-M9→M10 称谓统一与引文同步守卫。版本载荷经 **DEC-312(7) M-0 冻结为五票**（FEAT-087/088 新票与 FEAT-084 Slice-3 缓存子集均走 0.96.0 候选池——DEC-315/DEC-303(4)，M-0 逐项核算见 `docs/release/m-0-assembly-0.95.0.md`）；无破坏性变更（CLI 接口与 JSON schema 零变更、manifest 新键 additive、1047 unittest 零回归实证——FIX-432 R1 后 1052 待发布门复跑确认）、无机制激活翻转、无 `.governance` schema 变更（exploration 区块复用既有 evidence 载体四字段）；版本载荷窗口 `6da8d04（v0.94.0 tag peel）..641e935`（M-4 版本面组装 commit——M-8 批回填终值），发布链 REL-099 组装于 2026-10-05（+0800）。
+
+### Added
+
+- **M10 主动生态探索协议（FEAT-085——新任务行为面）**：`references/behavior-protocol.md` 新增 M10 节（851→897 行）——M10.1 EXP-01~05 条款表**唯一规范源**；M10.2 exploration 四字段 schema（判定/理由/动作+资源引用/结果状态——复用既有 evidence 载体，不建独立子系统）；M10.3 discover/inspect/consult/validate 四通道行为语义+宿主映射；M10.4 触发入口锚+预算收缩纪律。SKILL.md 薄触发入口一行（L364，零条款复制）。效果：新任务事务初步分解后/路径承诺前有了**探索适用性判断**（应探索/可跳过/受限三态）——应探索时经宿主通道有预算探测并落 exploration 区块，外部输出为候选信息无执行授权。
+- **四通道六平台 exploration_channels 声明（FEAT-086 F-3）**：六平台（claude/codex/gemini/opencode/chrys/dsh）adapter manifest 物理化宿主通道映射与**诚实降级**（consult 不含 draw；dsh native 声明行为兜底 degraded_mode+EXP-03）——通道能力声明与实际一致。
+- **前瞻样本行为验收（FEAT-086）**：三类前瞻样本 5 例（S1 应探索无遗漏/S2 不可联网无越权/S3~S5 可跳过不强制联网）行为全部正确，探索轨迹可辨识回指 evidence 载体（`docs/research/feat-086-prospective-samples-2026-10-04.md`；不回填历史）。
+- **Phase 0 基线与止增纪律（AUDIT-157/158）**：checks 四分层分类底座（准入/退休机制+退役七步流程+批次上限）+W1~W7 责任清单（调用证据/责任人/处置结论）+注入/架构基线快照（resident 4244/6000 tok、M1+M2 342/370）——「做薄」演进有了可验收的分类底座；**止增纪律生效**（新增 check 准入登记条款）。
+
+### Changed
+
+- **M0-M9→M10 全仓称谓统一（FIX-432）**：滞后描述 19 处 sweep（behavior-protocol.md/SKILL.md/governance-init.md/verify_workflow.py 存在性锚/VERSIONING.md/e2e 副本等；豁免披露：冻结 fixture 4+历史记录 6）——规则称谓与 M10 新增节一致。
+- **M10.2 判定↔样本类映射补行（FEAT-086 F-2）+ EXP-04 设计输入 validate 细化（F-6）**：判定值与样本类同轴互查；validate 场景对齐 R5 五要素。
+- **quote_sync 引文同步守卫（FIX-432 F-4）**：`check-cross-references` 新增引文同步维度——规范源丢标记/转述 note 丢标记/引文行漂移**三维负向验证均触发**（check-cross-references 新增 PASS 行）。
+- **六平台 manifest note 规范标记（FIX-432 F-A2）**：note 规则转述携带规范源标记并纳入 quote_sync 监控面——note 同步债务从无守卫转机器拦截。
+
+### Fixed
+
+- **Check 28b 投影漂移（组装期）**：0.95 窗口组装期 Projection Sync Guard 滞后（EVD-1315 时点「28b 待 commit 2」）随载荷 commit 落地闭环——check-governance 基线回落 1 issue（28n 预存，零新增——EVD-1316）。
+- **manifest note 同步债务（F-A2）**：六平台 adapter-manifest note 规则转述漂移（REVIEW-FEAT-086-R0 F-A2）闭合——note 增规范标记+守卫看护（DEC-315① 并入 FIX-432 承载）。
+
+### Breaking changes
+
+**无**——依据：①CLI 接口与 JSON schema 零变更（quote_sync 为既有子命令检查维度扩展；消费点 `.get` 兼容旧结果形——EVD-1316/1317 实证）；②无 MUST 规则删除/重命名（M10 为纯新增节；M0-M9→M10 为称谓统一非判定语义变更——DEC-316(1) 裁定 MANDATORY 后缀为历史视觉锚无规范效力）；③manifest `exploration_channels`/note 规范标记为 additive 新键（check-manifest-consistency 1021 一致 PASS）；④无 Gate 行为语义改变、无 governance 文件字段格式变更（exploration 区块复用既有 evidence 载体）；⑤**1047 unittest 零回归实证**（EVD-1316 时点）——FIX-432 R1 新增 5 用例（QuoteSyncGuardTests）后预期 **1052**，发布门 M-2 复跑闭合（review-FIX-432-CODE-R1 BM-R1-3 残余移交）。
+
+**行为变更（用户可感知，非旗标面——本版无 feature flag 债务）**：agent 新任务多一步探索适用性判断（应探索时经宿主通道有预算探测并落 exploration 区块；可跳过不强制联网；不可联网无越权访问）——回退 = git revert 发布 commit 序列（无 flag 清理面；见 `docs/release/rollback-plan-0.95.0.md`）。
+
+**版本面再生纪律**：本版版本面经 `release-projection --write` 确定性再生（权威源 bump → written=17 → write_then_probe=PASS，sd_integrity 28 scanned/0 unreadable → 幂等复跑 PASS@0.95.0）+ 双根 entry sync（repo root + e2e fixture 的 AGENTS.md/CLAUDE.md bootstrap 段经 sync_entry_projection.py --write 再生，root 10238B/full + 2816B/thin）+ 引擎锚同步（REQUIRED_SNIPPETS 六面版本针脚 0.95.0）+ STATIC_PIN_EXEMPTIONS 0.95.0 bump-time 登记（test_archive.py L5862——FEAT-076 Q6 夹具行经 0.94.0 休眠后恰一次浮现，FIX-361 双信号；0.85~0.89 先例披露口径恢复，闭合 REL-098 M-3a F-2 一句之差）。
+
+**决策链**：DEC-312（演进总纲 A1~A14+0.95.0 用户预留）/ DEC-313（Phase 0 基线裁定通过）/ DEC-314（FEAT-085 拆票与闭环口径）/ DEC-315（FEAT-086 R0 findings 承载归属——F-A6 bump 提醒）/ DEC-316（F-5/F-A5 规则姿态定夺）；**证据**：EVD-1312~1317 + REVIEW-FEAT-085-R0 / REVIEW-FEAT-086-R0 / REVIEW-FIX-432-R0·R1（全 APPROVED_WITH_NOTES/unresolved_blockers=0）——截至组装时点，发布链证据由 REL-099 收口补齐。
+
+**准备态注记**：本段为 REL-099 组装时点（2026-10-05 +0800）的**准备态**——发布日期不预填（发布收口按 FIX-349 口径以 M-7 annotated tag `v0.95.0` taggerdate 权威落字）；发布终账、Commit 区间终值与发布验证结论随发布链 M-2+ 补记。
+
+## [0.94.0] - 2026-10-04
+<!-- 段头回填（REL-099 M-8b，review-REL-099-REL-R0 F-1 残留修正）：tag `v0.94.0`→6da8d04（transition commit），taggerdate 权威——原「未发布（准备态）」为 REL-098 M-8b 未落字残留。 -->
+<!-- 发布日期占位（FIX-349 口径）：发布日期零预填；M-7 annotated tag `v0.94.0` 落地后以 taggerdate 权威回填本行日期单元格。 -->
+
+### 0.94.0 - **次版本线：治理信号可信与元机制闭环批（Minor Line: Signal Trustworthiness & Meta-Mechanism Closure）**：载荷十票（FEAT-081/082/083/084 + FIX-421~426 / 用户 ask 授权 2026-10-03 启动发布链 REL-098）
+
+0.94.0 为 0.93.1 的次版本线（新特性四件 + 根因修复六件）：M2 元机制执法面闭环（ADR-021 B4 词集检测三件套 + B4′ behavior 面闭环率指标——DEC-288 M2 生效判据不可平凡满足）与治理信号可信度根因修复（Check 28c 版本表解析 / bootstrap fabricated-overdue 族 / 预存 pytest 失败六件归因）单轮交付；无破坏性变更、无机制激活翻转（M2 词集检测 WARN 姿态起步）、无 `.governance` schema 变更（写侧台账三键格式为 0.88.0 FEAT-060 既有面，face-5 观测族按既有格式追加）；版本载荷窗口 `84f8819..af7cfbd`（11 commits = 十票 + FEAT-084 立项评估 memo docs 件），发布链 REL-098 组装于 2026-10-03（+0800）。
+
+### Added
+
+- **FEAT-081（commit `2aa2377`）**：ADR-021 B4 M2 词集检测三件套——`checks/loop_gate_processor.py` 新建（词集 12 字面+1 正则 / 双向否定语境窗口 DEC-301 / 三键台账 / SKIP 分态分类器，stdlib 纯叶子）+ 引擎 face-5 接线（deferred_registration WARN 姿态 + 采集器 3 元组 + Check 42 盒重构 + guard CLI 面台账 I/O）+ 19 新用例 TDD 红绿——DEC-288 M2 生效判据获得真实信号路径（deferred_detections 非恒 0 可测）。
+- **FEAT-082（commit `5de8548`）**：ADR-021 B4′ governance-bootstrap behavior 面闭环率指标——session_closure 嵌套子面（10 叶键，DEC-302 键位裁定）+ 判定口径单源导入（provenance_domain.session_closure_rate + loop_gate_processor.classify_observation_face 零重算）+ 7-fixture 差分镜像守护——M2 闭环率从 Check 42 专属面扩展到每次 bootstrap 可见。
+- **FEAT-084（commit `0377b78`）**：quick-scan 接线会话健康摘要（DEC-303 形态 B / RISK-044 处置主票）——`--scope quick|full` 显式契约 + 会话协议消费 quick + 深检/发布门固定 full + 缺省 full 字节等价 BYTE-IDENTICAL + legacy 第 5 项 performance 回退；健康摘要墙钟 62-70s→14.1/13.4s（≤15s 达标，宿主 3.2s≤5s）+ 四态诚实披露；REQ-145.7 二次修订落表。立项评估 memo 随窗入档（commit `9a527cb`，docs/research/quickscan-wiring-evaluation-0.94.0.md）。
+
+### Changed
+
+- **FEAT-083（commit `c00d70c`）**：closure 采集纯函数提取入 `checks/provenance_domain.py` 双端单源——引擎 155 行采集体→18 行薄委托（签名 byte-for-byte 保留）+ bootstrap ~200 行镜像整体回收 + SessionClosureMirrorTests→接口等价测试 + F-P3-1/2/3 收口 + R7 regen rider（RISK-063 镜像漂移收敛路径落地，零行为变化）。
+
+### Fixed
+
+- **FIX-421（commit `8568b1b`）**：Check 28c 版本表状态列格式漂移解析修复——`FIX_105_SNAPSHOT_RELEASE_VERSION_RE` 状态列放宽为已发布前缀+装饰尾巴（0.93.x 行漏识致 latest_release 回退 0.92.0 / session-snapshot 误报）+ HotFact+3 TDD 回归 + static-pin/archguard/metadata_contract 三强制 rider——检查器信号可信度恢复。
+- **FIX-422（commit `768021b`）**：bootstrap 风险面 fabricated overdue 根因修复（文本漂移→机器误报族治本）——deadline 纯 ISO 日期前置门 fail-safe（复评流水不再产假逾期）+ committed 终态渲染 ✅ 完成标记与 refresh-suffix 重渲染（Check 36 假 FAIL 清零）+ 关闭态词表纳入已缓解/已收窄/降级注记形态；DEC-304 三口径固化；3 类 15 新用例。
+- **FIX-423（commit `9018006`）**：预存 6 pytest 失败逐项归因处置——①②④⑤合法演进→snapshots regen rider（FEAT-081 deferred_observation 键+M2 台账 WARN 变体）+ ③防护网真缺陷→pin 分条修复（result_pass_line_wellformed 双态 PASS 行分条）+ ⑥第三镜像失同步→R4 FACTS_PRINT_TOTAL 1341 再锚（bisect 演化链归因）；DEC-305 pin 双态口径；verify_workflow.py 零修改；全量 4659P/0F 双跑一致——发布门红绿信号即时可信。
+- **FIX-424（commit `3883407`）**：doc-sync 微票——provenance_domain docstring 函数计数 Three→Four + loop_gate_processor purity 契约 I/O 表述现状口径修正（FEAT-083 R0 P3-1/P3-2 闭环）；纯 docstring 零行为变更。
+- **FIX-425（commit `b0075d8`）**：裁决①微票——provenance_domain L6 纯谓词总括改写（judgement functions 限定 + 采集核披露 + purity contract 指针）+ 第 4 bullet 补 ADR-021 §3.2.3 (W(session)) verbatim 锚（review-FIX-424-R0 F1/F2 闭环）；纯 docstring 零行为变更。
+- **FIX-426（commit `af7cfbd`）**：裁决②探索票——docstring 口径 source-pinning 测试（bullet :func: 名实存+属 __all__+计数词互检 + loop_gate_processor I/O-free 姿态 assertNotIn 钉死 + ast 模块级 import 面 {__future__,json,re}），2 类 4 用例零生产码变更——docstring 口径漂移族转机器拦截。
+
+**版本面再生纪律**：本版版本面经 `release-projection --write` 确定性再生（权威源 bump → written=17 → write_then_probe=PASS，sd_integrity 28 scanned/0 unreadable → 幂等复跑 PASS@0.94.0）+ 双根 entry sync（repo root + e2e fixture 的 AGENTS.md/CLAUDE.md bootstrap 段经 sync_entry_projection.py --write 再生）+ 引擎锚同步（REQUIRED_SNIPPETS 六面版本针脚 0.94.0）。
+
+**决策链**：DEC-301（否定语境窗口消歧+B4′ 拆批）/ DEC-302（behavior 嵌套子面键位）/ DEC-303（quick-scan 形态 B 立项）/ DEC-304（FIX-422 三口径固化）/ DEC-305（FIX-423 pin 双态口径）；**证据**：EVD-1292~1305（截至组装时点；发布链证据由 REL-098 收口补齐）。
+
+**准备态注记**：本段为 REL-098 组装时点（2026-10-03 +0800）的**准备态**——发布日期不预填（发布收口按 FIX-349 口径以 M-7 annotated tag `v0.94.0` taggerdate 权威落字）；发布终账、Commit 区间终值与发布验证结论随发布链 M-2+ 补记。
+
+## [0.93.1] - 已发布（tag v0.93.1@0e277af；taggerdate 2026-10-01 22:44:14 +0800 权威——FIX-349 口径回填）
+<!-- 发布日期占位（FIX-349 口径）：发布日期零预填；M-7 annotated tag `v0.93.1` 落地后以 taggerdate 权威回填本行日期单元格。 -->
+
+### 0.93.1 - **补丁线：验证根因修复批与归档健康收口（Patch Line: Verification Root-Cause Fix Batch & Archive Health Closure）**：六件根因修复+卫生批（FIX-414~419 载荷 / arch 顾问 D1-D7 裁决集 / 用户 2026-09-30 预授权令 + 0.93.1 M-0 决策）
+
+0.93.1 为 0.93.0 的补丁线版本（无新特性、无机制激活翻转、无破坏性变更、无 `.governance` schema 变更）：按用户 2026-09-30 预授权令（「我授权发布版本承载这次修改」）与 0.93.1 M-0 决策单轮交付，修复范围经 arch 顾问 D1-D7 裁决集界定；版本载荷窗口 `aa405c7..693fea8`（8 commits = 六件 + docs 迁移否证回退对），发布链 REL-097 组装于 2026-10-01（+0800）。
+
+### Fixed
+
+- **FIX-414（commit `65cf188`）**：测试期望与 FIX-413 契约对齐——released 复跑 1F 消除（历史豁免臂 WARN→PASS，静默契约口径一致）。
+- **FIX-415（commit `fe0afcb`）**：HotFact cwd 根因修复——HOST_PROJECT_ROOT import 期绑定在 FIX-270 plugin-scope 门下钉根 + SD 虚构损伤路径补齐，热事实检查不再随运行目录漂移假红。
+- **FIX-416（commit `2fa1ebd`）**：归档触发判定与 CLI 口径对齐——`archive.py migrate --auto` 默认 ALL row-family（Check 27 口径）+ ALL 守卫修正 + 完整分解消息，归档永续红消除。
+- **FIX-417（commit `b12eee1`）**：archive.py 最小内聚拆分 6016→4241 行（28n 阈值 ERROR 清零）+ 7 超限函数分解 + archive_parsing(1435)/archive_indexing(870) 伴随模块——AST 依赖闭包证明 + CLI 字节等价，零行为变化。
+- **FIX-418（commit `693fea8`）**：infra-cwd 11F 分类根治（全数判定为测试隔离面，零产品缺陷）——双 cwd 串行全席 4591/4591 OK、收集集一致。
+- **FIX-419（commit `bdc037e`）**：release_docs 阈值重校准 80→100（arch D4 政策口径）+ 21 周实测速率依据（~4.0-5.5/周，~3-4 周余量）+ TOOLS.md 同步。
+
+**卫生批（对账台账 `docs/reconciliation-0.93.1.md`）**：
+
+- **ragged 根因闭环**：Check 31 ragged 全表 44 行管道审计归零（mismatch=0）。
+- **风险面三态对账**：arch 顾问元裁决三态口径（已修复/历史已对账/裁定闭环）落入对账台账，风险面非证据式关闭如实披露。
+- **28q/28m 消解**：hooks_drift（prepare-commit-msg 重装）+ release_docs_versions 政策口径承载（FIX-419）。
+- **docs 迁移否证回退对（`263779f`↔`7d6c4a7`）**：release docs 归档子目录化经 claim-gate 会计注册表锚原路径证伪并整体回退（28q 改走阈值重校准路径）。
+
+**版本面再生纪律**：本版版本面经 `release-projection --write` 确定性再生（权威源 bump → written=17 → write_then_probe=PASS，sd_integrity 28 scanned/0 unreadable → 幂等复跑 PASS@0.93.1）+ 双根 entry sync（repo root + e2e fixture 的 AGENTS.md/CLAUDE.md bootstrap 段再生）+ 引擎锚同步（REQUIRED_SNIPPETS 六面版本针脚 0.93.1）。
+
+**准备态注记**：本段为 REL-097 组装时点（2026-10-01 +0800）的**准备态**——发布日期不预填（发布收口按 FIX-349 口径以 M-7 annotated tag `v0.93.1` taggerdate 权威落字）；发布终账、Commit 区间终值与发布验证结论随发布链 M-2+ 补记。
+
+## [0.93.0] - 2026-09-30（taggerdate 权威〔FIX-349 口径〕）
+<!-- 发布日期占位（FIX-349 口径）：发布日期零预填；M-7 annotated tag `v0.93.0` 落地后以 taggerdate 权威回填本行日期单元格。 -->
+
+### 0.93.0 - **元机制执法双件与例外清偿终局（Meta-Mechanism Enforcement Pair & Exception Ledger Finality）**：需求源执法与发现即闭环两大元机制落地为引擎面，EXC 三例外全部终局，证据分层物理清偿与 SD 完好性根修（DESIGN-021/FEAT-077~080/FEAT-076/FIX-403~409 载荷 / DEC-286(7)+290~296 / EVD-1240~1264 截至组装时点）
+
+0.93.0 按 DEC-292 批授权与 DEC-293 用户裁定单轮交付：元机制双件（M1 需求源执法/M2 发现即闭环——ADR-021 经 DESIGN-021 R0 NEEDS_CHANGE→23 处返工→R1 AWN/0 采纳）+ 例外账本终局（EXC-001 重校准 DEC-295 / EXC-002 关闭 DEC-294 / EXC-003 删除 DEC-296 记账——**三例外全部终局，发布准入零例外承载**）+ 证据分层物理清偿（FEAT-076：1087 行三腿迁移、热表 −70.9%、C-3 91 ID 清偿、Q6 日期窗回退）+ SD 完好性根修（FIX-405 发布门扫描 + FIX-409 投影 writer ACL 三层根修与 write-then-probe——RISK-061 损伤类自此产出自检）。0.92 遗留的两容量问题（decision-log 超 250K 阈/archive.py 超 5K 行）前者已由 FIX-407 物理收敛（259K→177K），后者仍为披露面（0.94 拆分候选——no-overclaim）。
+
+**载荷双窗（12 commits 审查链全闭合，R0/R1 全 AWN/0；终窗 `4f52c6b`）**：
+
+- **DESIGN-021（commit `130ed19`）**：ADR-021 元机制双件设计——M1 优先级执法（需求源标注+同优先级反倒挂）+ M2 发现即闭环（触发点当场闭环纪律）；R0 NEEDS_CHANGE→23 处返工→R1 AWN/0；DEC-290/291 采纳。
+- **FEAT-077（commit `f297eeb`）**：M1-B2 demand_source 字段+优先级加权+provenance_domain 模块+修订通道（NF-1）；R0/R1 AWN/0。
+- **FEAT-078（commit `3544d09`）**：M1-B1a 契约四面注入（M1 条款 5+M2 闭环纪律，实测 348 tok/DEC-291）；R0 AWN/0，零漂移 17/17、30+9 锚。
+- **FEAT-079（commit `2ef9fc2`）**：M1-B1b 分层锚注册（9 锚，部分注入 fail-closed）+ 逐面反走私预算断言（DEC-291 M1≤180/M1+M2≤370）；R0 AWN/0。
+- **FEAT-080（commit `2f3ecd4`+`344ec8c` regen rider）**：M1-B3 接线——Check 41/42 入 check-governance（INV-1 同优先级+INV-X）、CLI `--demand-source` 必填（窗口关闭）、发布门 provenance 子检查、freeze-line、zerodrift 持久测试、execution-packet 增量合并；rider：ArchGuard 26478→26921、R4 1318→1338、contract_matrix 98 键；R0 AWN/0（439 tests）。
+- **FEAT-076（commit `15e0a6d`）**：证据分层迁移与稳态治理——1087 行三腿迁移（热表 −70.9%）、C-3 91 ID 清偿、GovernanceDataSource 家族读取门面、Check 28s 三轨、Q6 日期窗回退；R0 AWN/0 零内容损失；EXC-002 关闭（DEC-294）/EXC-001 重校准（DEC-295）。
+- **FIX-405+FIX-406（commit `d22a4f9`）**：SD 完好性门（RISK-061 扫描+takeown/icacls 处置模板）、Check 17/intake-mirror 谓词统一、INV else 拆分+BLOCKED 收集器、SKILL freeze-line 2866B/预算 3072（DEC-295）、track-1 逐文件重校准（EXC-001 移除）、anchor 27133；R0/R1/R1b AWN/0。
+- **FIX-407（终窗 `4f52c6b`）**：EXC-003 终局——narrative DEC 行族解析器（DEC 锚+日期锚行级识别，fail-closed 四重）+ Q6 日期窗迁移 58 行：decision-log 259,053→**177,202B**（169→111 热行，索引守恒 185）；R0 AWN/0。
+- **FIX-408（终窗 `4f52c6b`）**：SD 测试 hermetic 加固+**归因勘误**（两用例为纯 mock 受害者非加害者——`check_release_readiness` 内未 mock 的 `check_projection_sync` 读真实投影为崩溃路径）+ 模拟路径虚构性守卫；R0 AWN/0。
+- **FIX-409（终窗 `4f52c6b`）**：投影 writer ACL 根修（RISK-061 真实根因）——journal 由 mkdtemp-0700 改 uuid 默认模式、rename 前 SD 归一、**write-then-probe** 拒读显式 FAIL 不静默（与 FIX-405 发布门=根修+检测双保险）+ fixture 沙箱安全化（7/7 绿）；R0 AWN/0。
+- **FIX-403/FIX-404（commit `0ba86ce`/`f627c57`）**：identity fixture TemporaryDirectory 清理崩溃热修（never-crash 契约恢复）+ 清理族扫荡（7 ERROR→0）；R0 AWN/0。
+
+**已知边界披露（发布时点，零例外承载——EXC-001/002/003 全终局）**：advisory 面仅余 plan-tracker/evidence-log 容量 WARN（DEC-295 校准域）与 archive.py **5,959 行/274,228B**（实测 2026-09-29 组装时点）越阈 5,000 行（0.94 拆分候选）；`.pytest_cache` 与两个历史 `spg-projection-*` 拒读目录为环境残留（普通终端可清，新 writer 不再产出）。
+
+**版本面再生纪律**：本版版本面经 `release-projection --write` 确定性再生（权威源 bump → written=17 → 幂等复跑 written=0 → **write_then_probe=PASS**——FIX-409 首个经探针收口的版本面）+ 双根 entry sync（repo root + e2e fixture）；仓库根 `CLAUDE.md` 因历史 SD 受损经 harness 通道字节级复原（10115B，与 sync 计算目标逐字节一致）。
+
+**升级注意**：入口 bootstrap 版本戳已升至 0.93.0（CLAUDE.md/AGENTS.md 双根 + e2e fixture）——已有工作区经 /plugin update 后由 FEAT-035 升级确认门自升级（用户未响应前零写操作）；无破坏性变更、无机制激活翻转（M1/M2 为引擎执法面，行为变更经 DEC-290/291 授权链）。
+
+**决策链**：DEC-286(7)（需求源执法前序）/ DEC-290/291（ADR-021 采纳与注入预算）/ DEC-292（0.93 批授权）/ DEC-293（用户裁定单轮）/ DEC-294（EXC-002 关闭）/ DEC-295（EXC-001 重校准+校准域）/ DEC-296（EXC-003 终局记账）；**证据**：EVD-1240~1264（截至组装时点；发布链证据由 REL-096 收口补齐）。
+
+### Added
+
+- **M1 需求源执法引擎面（FEAT-077/078/079/080）**：demand_source/demand-revision 通道、契约四面注入（30+9 锚零漂移）、分层锚注册反走私预算（M1≤180/M1+M2≤370）、Check 41 反倒挂/Check 42 闭环率、CLI `--demand-source` 必填、发布门 provenance 子检查、zerodrift 持久测试。
+- **SD 完好性门（FIX-405/406）**：RISK-061 扫描（os.access 探测+逐路径处置模板）+ Check 17/intake-mirror 谓词统一 + INV BLOCKED 收集器。
+- **narrative DEC 行族解析器（FIX-407）**：行级 DEC 锚+日期锚识别与 Q6 日期窗裁决（fail-closed：撞号/无日期/不可证 ref/超窗均留热）。
+
+### Changed
+
+- **全仓版本面 0.92.0→0.93.0（REL-096）**：SKILL.md frontmatter 权威源先 bump → `release-projection --write` 单次写入 17 面一次收敛（write_then_probe=PASS）→ 幂等复跑 written=0；双根 entry sync（repo root + e2e fixture 的 AGENTS.md/CLAUDE.md bootstrap 段再生）。
+- **投影 writer 产出面根修（FIX-409）**：journal uuid 默认模式 + rename 前 chmod 0o644 + write-then-probe 拒读显式 FAIL + 清理前归一——受限令牌沙箱自产自检闭环。
+- **证据分层物理迁移（FEAT-076 + FIX-407）**：1087 行三腿迁移 + narrative DEC 58 行迁移；热表/decision-log 双收敛（−70.9% / 259K→177K）。
+
+### Fixed
+
+- **identity fixture TemporaryDirectory 清理崩溃（FIX-403）**：mkdtemp+finally+rmtree(ignore_errors=True) 恢复受限令牌下 never-crash 契约（Py3.14 onexc 转义经 stdlib 源码验证）——契约测试红绿闭环。
+- **TemporaryDirectory 清理族扫荡（FIX-404）**：21038/21601 两处+fixture 加固——环境性 ERROR 7→0，沙箱内测试面全绿。
+- **Check 17/intake-mirror 谓词统一与 INV BLOCKED 收集器（FIX-405）**：SD 完好性门（RISK-061 扫描+takeown/icacls 处置模板）落地——损伤在造成时刻与每次发布门可见，非下次随机访问。
+- **SKILL freeze-line 与 track-1 逐文件重校准（FIX-406）**：freeze-line 2866B/预算 3072（DEC-295）；EXC-001 移除——28s 容量面转逐文件校准域。
+- **EXC-003 终局：narrative DEC 行族迁移（FIX-407）**：行级解析器（DEC 锚+日期锚，fail-closed 四重）+ Q6 日期窗迁移 58 行——decision-log 259,053→177,202B，索引守恒 185；EXC-003 删除。
+- **SD 测试 hermetic 加固与归因勘误（FIX-408）**：两用例补 `check_projection_sync` mock（隔离声明自洽）+ 模拟路径虚构性守卫；勘误：用例为纯 mock 受害者非加害者。
+- **投影 writer ACL 根修（FIX-409）**：journal uuid 默认模式替代 mkdtemp-0700 + rename 前 SD 归一 + **write-then-probe** 拒读显式 FAIL + 清理前归一——RISK-061 损伤类产出自检（本版版本面为首例经探针收口）。
+
+**准备态注记**：本段为 REL-096 组装时点（2026-09-29 +0800）的**准备态**——发布日期不预填（发布收口按 FIX-349 口径以 taggerdate 权威落字）；发布终账、Commit 区间与发布验证结论随发布链 M-2+ 补记。
+
+## [0.92.0] - 2026-09-29（taggerdate 2026-09-29 01:54:45 +0800 权威〔FIX-349〕；tag v0.92.0 object peel=transition 041c0c4；ledger NATIVE released 本地+remote 双 PASS；event integrity sha256:dac5fe13）
+<!-- 发布日期占位（FIX-349 口径）：发布日期零预填；M-7 annotated tag `v0.92.0` 落地后以 taggerdate 权威回填本行日期单元格。 -->
+
+### 0.92.0 - **预算优化、验证稳定性与证据分层结构性解锁（Injection Budget Relief, Verification Stability & Evidence-Layer Structural Unlock）**：strict 注入预算优化、发布与运行时验证稳定性修复，证据分层结构性解锁与本轮明确遗留项收尾（FEAT-073/FIX-400/FIX-401/FEAT-074/FEAT-075/FIX-402 载荷 / DEC-269~285 / EVD-1216~1236）
+
+0.92.0 按 DEC-282 批准的版本口径交付：strict 注入预算优化、发布与运行时验证稳定性修复，证据分层结构性解锁与本轮明确遗留项收尾。结构性解锁已完成；容量问题未技术消除。本轮不执行 EVD 物理迁移，按限期例外控制，后续迁移以读取契约闭合为前提（DEC-282(7) no-overclaim 附加句——精确口径：178 行历史证据面未迁移由 EXC-002 纸质例外治理，18 行有界迁移〔2 任务+18 EVD〕属 DEC-284 补完成授权，非「本轮不执行」矛盾）。
+
+**载荷六票**（DEC-282(1) M-0 冻结边界内，功能载荷锚 `dc45e24`；全部 committed，审查链全部闭合）：
+
+- **FEAT-073（commit `e65b317`）**：strict 注入预算 A+B 组合实施——persona 单源化+薄指针压缩，strict 余量 9→391 tok（三档实测 5609/5337/3859 全 PASS），30/30 契约锚保留；R0/R1 双 AWN/0。
+- **FIX-400（commit `a7bcd5f`+`f06a2bf`）**：release-gate 墙钟预算 180→2333s 再校准（DEC-262 先例——release 执行门 unittest 子进程确定性超时消解）+ archguard R1 anchor 再锚定 26385→26413；R0 AWN/0。
+- **FIX-401（commit `136d65e`）**：loop_runtime 计时断言去环境化（墙钟→进程 CPU）——并行负载假红消除，RISK-048 收窄；R0 AWN/0。
+- **FEAT-074（commit `c90768f`）**：证据行实体解析与分类修复（DEC-278 单元一）——五态实体感知分类替代 live_or_unresolvable 单桶，Check 28s 结构性解锁；R0 NEEDS_CHANGE→R1 AWN/0 闭合。
+- **FEAT-075（commit `16a5157`+`484dd77`）**：四行族只读 dry-run（scan-families）+ 发布聚合层例外标注（DEC-278 单元二）+ archguard R1 anchor 再锚定 26413→26478；R0 NEEDS_CHANGE→R1 AWN/0。
+- **FIX-402（commit `dc45e24`）**：确定性数据校正与存量清偿台账（DEC-278 单元三）——160 唯一 ID 八类逐 ID 归因终态（2 可修/155 登记/3 留热）；R0/R1 NEEDS_CHANGE→R2 AWN/0。
+
+**已知边界披露（发布准入=双例外+B2 豁免——EXC-001 与 EXC-002 条款摘要并列，DEC-282(4)/DEC-285）**：
+
+**EXC-001（Check 28s evidence-log 容量机注例外）**：
+
+- **基线与上限**：基线 1,786,197B@post-dc45e24（scan-families 锚 e3972847）；growth_control=绝对上限 2,036,197B（基线+250K，不滚动重置，非新阈值）；发布时点重测（2026-09-29 M-5 落稿 @HEAD `a31b878`，`check-governance-data-size` 实跑）：热表现值 **1,757,633B**（1716.4KB）≤ 上限，机注两层同屏（原始 ERROR 真实字节+exception accepted 同行——时点演进 1,753,848〔EVD-1235〕→1,755,371→1,755,693〔M-3 双半面〕→1,756,021〔M4R4〕→1,757,633B〔本测〕，增量=机录行追加可归因）。
+- **有效期**：expires 2026-10-12（14 自然日）不自动续期；0.93.0 准入前必须先失效/撤销再重评，禁继承放行。
+- **义务**：每周冷热/总量/积压指标；11 行留热记录口径=「已完成本轮复验，因读取兼容门未闭合而留热，尚未物理迁移」，禁记「自然清偿完成」。
+- **后续迁移前提**：0.93 重新授权最低五条件（消费者矩阵/查询等价证明/统一入口或过渡适配/清单绑定输入锚漂移即停/回读验收+恢复演练）；91 物理未归档 ID 转 0.93 候选池。
+
+**EXC-002（Check 27 证据面 178 行纸质限域例外，DEC-285）**：
+
+- **覆盖面**：Check 27 剩余 178 行历史证据面=160 已归档任务债+4 FEAT-001 双在+14 裸 ID（≤0.90 远期；scan-families [0.1.0,0.90.0] 双源复现 178）；仅覆盖该封闭清单致 should_archive=True 的发布门禁接受面；原始 FAIL 保留不改为通过。
+- **承载体**：纸质例外（DEC-285+基线附件）——**机注不可达**（Check 27 走独立通路无例外机制接线，基线附件 L222 注记）；不覆盖新增任务候选/清单外证据/0.91+ 近周期/其他完整性失败/其他检查/EXC-001 与 B2 条件。
+- **增长容忍 0**：清单外新增容忍 0；候选减少须逐项授权；禁净零兑换；输入锚变→重跑复评（身份级清单绑定，非仅数字 178）。
+- **期限**：min(0.93 准入评审开始, 2026-10-12 绝对截止)——不自动续期，延期须重审批；明文不延长 EXC-001 的 10-12 到期。
+- **基线附件**：`docs/governance/rel-095-exc002-baseline-178-20260928.md`（222 行——稳定身份键+内容摘要+分类+引用任务+判定理由；输入锚 `40eb6f7`+sha256 2365c01c）。
+- **0.93 承接**：FEAT-076（读取契约五条件+91 物理未归档 ID 回填 C-3）；Owner 四角色实名（债务=Coordinator 清单周报/验证=独立复核人/发布批准=DEC-274 预授权链/FEAT-076=兼容证明与后续迁移交付）。
+
+**B2 单条精确豁免（loop-claims 豁免账本第 5 条——非例外面）**：`LRC-EXEMPT-FIX401R0-79-1`（review-FIX-401-R0.md F-3 元文本误判对象；DEC-283 题 2 一次性授权；commit `df26f7e`）——发布门禁 BLOCKED→PASS 逐条披露（详见 M-2 整改叙事与行为变更 B-5）。
+
+**advisory 两面（发布时点重测 2026-09-29 @HEAD `a31b878`，无例外登记）**：decision-log **254,420B** 超阈 250,000B（CR-F1——M-8 补披露后入 0.93 池）；archive.py **5,508 行** 越阈 5,000（CR-F2——0.93 拆分候选）。
+
+**版本面再生纪律**：本版版本面经 `release-projection --write` 确定性再生（非手改——M-1：权威源 bump → written=17 → 幂等复跑 written=0）。
+
+**决策链**：DEC-269（0.92 批启动）/ DEC-270（FEAT-073 ADR-020 研究+R0 审查入账）/ DEC-271/272（FEAT-073 路线裁决与完成入账）/ DEC-273（FIX-400 完成入账）/ DEC-274（0.92.0 收尾批+发布链总授权）/ DEC-275（收尾批框架裁决）/ DEC-276（FIX-396/397 交付状态核对）/ DEC-277（FIX-401 完成入账）/ DEC-278（28s 结构性解锁三单元）/ DEC-279~281（三单元完成入账）/ DEC-282（0.92.0 M-0 条件冻结）/ DEC-283~285（M-2 整改三裁决——受控回退+B2 授权/有界迁移扩展授权/EXC-002 限域例外）；**证据**：EVD-1216~1236（含发布链 EVD-1230~1236）。
+
+### Added
+
+- **scan-families 只读 dry-run 与发布聚合层例外标注机制（FEAT-075）**：四行族只读入口（分类核单源抽取零漂移——EVD 面与 FEAT-074 差异档字节级一致）+ 例外标注；例外登记机制就绪（EXC-001 首例 live 验证）。
+- **存量清偿台账（FIX-402）**：160 唯一 ID 八类逐 ID 归因台账 + active 12 行复核（11 不可信 open_markers 假阳性/1 可信）。
+
+### Changed
+
+- **全仓版本面 0.91.0→0.92.0（REL-095 M-1）**：SKILL.md frontmatter 权威源先 bump → `release-projection --write` 单次写入 17 面一次收敛 → 幂等复跑 written=0；双根 entry sync（repo root + e2e fixture 的 AGENTS.md/CLAUDE.md bootstrap 段再生）。
+- **strict 注入预算 persona 单源化+薄指针压缩（FEAT-073）**：strict 余量 9→391 tok（三档实测 5609/5337/3859 全 PASS）；字节钉 secondary-thin 2859→2766（deliberate rebase，FEAT-040/041 先例纪律）。
+
+### Fixed
+
+- **release-gate 墙钟预算再校准（FIX-400）**：`_RELEASE_GATE_TIMEOUT_DEFAULT` 180→2333s（ceil(1554.78×1.5)，DEC-262(1) 先例）——check-release unittest 子进程确定性超时消解，发布链 M-2 门禁信号恢复可信。
+- **loop_runtime 计时断言环境敏感假红（FIX-401）**：perf_counter→process_time（墙钟→进程 CPU）——环境噪声从测量中删除而非容纳。
+- **证据行实体解析与分类（FEAT-074）**：五态实体感知分类（task/requirement/other_entity/missing/ambiguous）替代单桶——结构性错误状态（FEAT 90 行永不可迁移/REQ 40 ID 误门控/FX 历史映射缺失）消除。
+- **确定性数据校正（FIX-402）**：2 可修项落修 + 155 登记类逐 ID 处置留痕；11 行 would_archive 留热（读取兼容门未闭合，口径见 EXC-001）。
+
+### 行为变更
+
+- **B-1（FEAT-073）** strict persona 单源化+薄指针压缩——strict 注入余量 **9→391 tok**（三档实测 lightweight 3859/standard 5337/strict 5609，/6000 全 PASS），strict 档会话更轻；回滚 `git revert e65b317`（无 breaking，回退即恢复 0.91 行为）。
+- **B-2（FIX-400）** release-gate 超时预算 **180→2333s**（=ceil(1554.78×1.5)——DEC-262 先例同式）——门禁信号恢复可信（墙钟预算与实测时长匹配，假超时消除）；回滚 `git revert f06a2bf a7bcd5f`（恢复 180s——假红面回归，不建议单独执行）。
+- **B-3（FIX-401）** loop 计时断言**墙钟→process_time**——并行负载假红消除（RISK-048 收窄，预算 27.0→27.8）；回滚 `git revert 136d65e`（环境敏感面恢复——风险 reopen，不建议）。
+- **B-4（FEAT-075）** 发布聚合层**例外标注机制 exception_registry**——EXC-001 两层同屏（原始 ERROR 真实字节+exception accepted 同行）；**annotation-only** 不改原始结果/字节/退出码；dry-run 零写入代码级强制（`Scan REFUSED` exit 1）；回滚 `git revert 484dd77 16a5157`（机制面；EXC-001 条目属 `.governance/exceptions.json` 治理数据面，随 DEC 处置撤销——非 revert 面）。
+- **B-5（DEC-283 题 2 一次性授权，commit `df26f7e`）** **LRC 豁免账本第 5 条 `LRC-EXEMPT-FIX401R0-79-1`**——发布门禁 BLOCKED→PASS **逐条披露**（九键实测+双锚 re-pin digest 4f8a6cc8→d47f5d16+正负因果测试）；回滚 `git revert df26f7e` 单提交自洽（锚与账本同提交，无悬挂——回退后 LRC 如实恢复 BLOCKED 判定）。
+- **B-6（DEC-284 扩展授权）** 数据面**有界迁移 18 EVD 出热**（2 任务+18 EVD）——消费者读取=**`archive/index.md`**（bootstrap 协议既有——读取契约不变，归档证据=有效证据口径维持）；回滚=迁移面序①（journal 逐 ID 复原+archive.py rollback——EVD-1233 隔离副本实弹演练已证可达基线）。
+- **B-7（`f06a2bf`+`484dd77`——DEC-260 分离提交纪律）** archguard R1 锚**两次 sanctioned regen 26385→26413→26478**——载荷增长受控入锚（fatal gate 全绿 @26478；R6 advisory 205 模块 Δ0；regen deterministic）；回滚=锚随对应功能票 revert 对称回退（分离提交同序）。
+- **回滚总说明**：完整回滚次序（先数据后 git：迁移面→B2→版本面）见 `docs/release/rollback-plan-0.92.0.md` §回滚三序；本版**无破坏性变更、无机制激活**（RB-2/B-12/B-13 出厂姿态不变，翻转留独立授权票）；legacy 通道不覆盖本版行为变更面（`GOVERNANCE_LEGACY_BEHAVIOR` 只回退性能行为——FEAT-040）。
+
+**发布态注记（M-5 改写时点 2026-09-29 +0800；承接 M-1 准备态注记）**：发布日期已按 FIX-349 口径以 taggerdate 权威回填（2026-09-29 01:54:45 +0800，tag object peel=041c0c4）；M-6 ledger 双 PASS/M-7 tag+push 已闭环（EVD-1238）；M-8 released 验证与零迁移验证（EVD would=178=EXC-002 基线不变）见 EVD-1239。以下为发布链 M-2~M-5 补记面（RL-F1 全项）。
+
+**M-2 整改叙事（发布链 M-2/M-2R 补记——EVD-1233/1234/1235）**：M-2 首跑四失败面 → **DEC-283 受控回退 6 归期行**（tasks would_archive 8→2；面 A 两残留〔REL-086 两格拆分+FEAT-047 解析器修复使预存版本行首次可解析〕经裁决=正确修复暴露的历史归档债务不回退；B2=唯一语义阻断→单条精确豁免一次性授权）→ **DEC-284 扩展授权有界迁移**（2 任务 REL-086/FEAT-047+18 EVD——4 随行+14 历史义务补完成〔14 任务已归档，EVD 因旧 FEAT 前缀解析缺陷滞留热表=0.86~0.88 发布被中断的归档随行义务〕；EVD-1233 验收 5/6：18/18 精确归档零残留热表/守恒〔evidence 2939→2921 行、plan-tracker 524→522 行〕/幂等复跑 0 动作/journal 逐 ID 可溯〔区分 4 随行 vs 14 补完成〕/隔离副本回滚演练可达基线；第 6 项=Check 27 证据面 178 行非本授权对象）→ **EXC-002 限域例外**（DEC-285——Check 27 剩余 178 行历史证据面=160 已归档任务债+4 FEAT-001 双在+14 裸 ID；纸质承载体〔机注不可达——Check 27 无例外接线〕；增长容忍 0；期限 min(0.93 准入, 2026-10-12)；基线附件 docs/governance/rel-095-exc002-baseline-178-20260928.md）→ **B2 单条精确豁免**（LRC-EXEMPT-FIX401R0-79-1——review-FIX-401-R0.md F-3 元文本误判；九键实测+双锚 re-pin digest 4f8a6cc8→d47f5d16+正负因果测试；EVD-1234 六项验收 6/6；commit `df26f7e`）→ **M-2R 复测有条件收口**（EVD-1235@`df26f7e`：verify/unit/e2e/loop 原生全绿——loop PASS semantic=PASS·identity=PASS·candidates 1096/豁免 5 条全披露；非原生面=28s EXC-001 机注+archive EXC-002 纸质承接+遗留格式面 EVD-702/1194/1198〔0.91 既有披露非本版引入〕——「有条件收口/例外接受（非原生全绿）」原文如实登记）。
+
+**发布终账（M-5 时点补记；尾账随 M-6~M-8 收口续记）**：
+
+- **M-3 双半面审查**：R2 CODE 聚合终审（AWN/0——P2×2 advisory〔CR-F1/F2〕+P3×5；51 文件对账无夹带）+ R3 RELEASE 发布审查（AWN/0 **有条件 GO**——放行条件①~⑩产出）——盘上 `docs/reviews/review-REL-095-CODE-R0.md` / `review-REL-095-RELEASE-R0.md`（commit `a31b878`）。
+- **M-4④ 发布文档四件套**：`docs/release/release-plan-0.92.0.md` / `release-checklist-0.92.0.md` / `rollback-plan-0.92.0.md` / `feature-flags-0.92.0.md`（commit `a31b878`；M4R4 审查 AWN/0——P3×2〔M4R4-F1 区间限定词/F-2 面级计数粒度〕由 M-5 本批顺修 release-plan 两处）。
+- **M-5 本步（本提交批，提交 hash 由 M-5 提交生成，不预写）**：candidate manifest `skills/software-project-governance/core/releases/0.92.0.json` 创建（lifecycle=candidate，NATIVE_CANDIDATE——`candidate_commit` 以 `git_commit_adding_path` derivation 指向本提交批）+ 本段发布态改写（RL-F1 全项）+ release-plan M4R4-F1/F2 两处 P3 顺修。
+- **Commit 区间与发布验证结论**：`git rev-list --count bd9bfc1..HEAD` = **14**（2026-09-29 M-5 落稿时点实测，HEAD=`a31b878`；区间下界 `bd9bfc1`=v0.91.0 tag peel，taggerdate 2026-09-28 05:24:03 +0800 权威；本 M-5 提交批入区后发布终值 M-8 批回填）；发布 tip=M-5b transition 提交（生成后回填）；发布日期按 taggerdate 权威回填（FIX-349 口径）。
+
+## [0.91.0] - 2026-09-28
+<!-- 发布日期 = taggerdate 权威回填：v0.91.0 taggerdate 2026-09-28 05:24:03 +0800（FIX-349 口径，REL-094 M-8 批回填）。 -->
+
+### 0.91.0 - **推荐契约与误报消解（Recommendation Card Contract & False-Positive Fix）**：完成必推荐三要素推荐卡契约 + Check 28c 装饰日期误报修复（FEAT-072 + FIX-399 载荷 / DEC-265~267 / EVD-1204/1205/1207）
+
+0.91.0 完善推荐呈现的三要素推荐卡契约，并修复 Check 28c 对路线图装饰日期解析导致的误报。两项变更均已完成独立审查。已知限制包括 strict 注入预算余量较小，以及 evidence-log 尺寸的既有结构性约束；详见发布验证与后续治理记录。
+
+**载荷两票**（DEC-267 M-0 冻结边界内；均 R0 **APPROVED_WITH_NOTES/0**，全部 committed）：
+
+- **FEAT-072（commit `196894a`，2026-09-27）**：完成必推荐三要素推荐卡契约（DEC-266）——M7.4 6b/6c 推荐呈现重写 + 四注入面投影 + 机检锚 canonical 三标签 + 负例测试；persona 净增 +76B（注入预算 standard/strict 两档 PASS）。
+- **FIX-399（commit `9bafdf6`，2026-09-28；M-0 冻结时点 HEAD 即此 commit——DEC-267 冻结记录含合并态 HEAD 证明，含两票）**：Check 28c 发布日期解析器装饰日期单元格健壮性——正则容忍装饰尾巴 + 多日期取发布日（末日期）语义 + 6 测试用例；同数据 A/B 净效果 **−1 误报零新增**。
+
+**已知限制（发布态措辞，arch 分层表）**：
+
+- **strict 注入预算余量 9 tok**：strict 档 **5991/6000**（M-1 实测；M-5 发布态复测 2026-09-28 04:15 +0800 同值）——当前口径下净增超过 9 tok 即越界；**计量或生成内容变化也可能越界**（DEC-267(2) 义务措辞；最终发布态必须再重测）；0.92 治理票已登记（FEAT-073，DEC-268(2)——含计量器/范围/基线/责任人/验收指标）。
+- **evidence-log 尺寸**：1,753,446 bytes（≈1713KB，M-5 提交前最后读取 2026-09-28 05:05 +0800 实测——含 M-5 EVD 机录行增量；早前 1,750,295B@04:15 为 CHANGELOG 首测时点）——DEC-264 既有结构性约束。
+- **28c 正则畸形 markdown 跨行加固延期**：REVIEW-FIX-399-R0 P2-1——0.91+ 候选池。
+- **版本面再生纪律**：本版版本面经 `release-projection --write` 确定性再生（非手改——M-1：权威源 bump → written=17 → 幂等复跑 written=0）。
+
+**决策链**：DEC-265 / DEC-266（三要素推荐卡契约授权）/ DEC-267（0.91.0 M-0 载荷冻结）/ DEC-268（M-4 风险窗复评留痕 + FEAT-073 登记面收口）；**证据**：EVD-1204/1205/1207；TRIAGE ×3。
+
+### Added
+
+- **完成必推荐三要素推荐卡契约（FEAT-072）**：M7.4 6b/6c 推荐呈现重写 + 四注入面投影 + 机检锚 canonical 三标签 + 负例测试；persona 净增 +76B。
+
+### Changed
+
+- **全仓版本面 0.90.0→0.91.0（REL-094 M-1）**：SKILL.md frontmatter 权威源先 bump → `release-projection --write` 单次写入 17 面一次收敛 → 幂等复跑 written=0；注入预算实测 strict 5991/6000、lightweight 4241/6000，均 PASS。
+
+### Fixed
+
+- **Check 28c 路线图装饰日期误报（FIX-399）**：发布日期解析器正则容忍装饰尾巴 + 多日期取发布日（末日期）语义；同数据 A/B −1 误报零新增；6 测试用例看护。
+
+### 行为变更
+
+- **B-15 完成必推荐呈现形态升级（FEAT-072）**：任务完成后的推荐呈现从依赖理由单要素升级为**三要素推荐卡**（服务目标 / 解决问题 / 方案要点 + 依赖理由），正文卡与短选项一一对应；属 **agent 行为契约面**（M7.4 6b/6c 重写），非 CLI 接口面（`task-priority-analysis` 命令行签名不变）。依据状态三态如实呈现：依据充分给完整推荐卡、依据缺失明示且不编造、依据影响执行先澄清（FEAT-072 契约面）。无破坏性变更、无数据迁移。
+- **回滚说明**：`git revert 196894a` 单提交回退（无数据迁移；revert 后 `release-projection --write` 再生版本面）。
+- **legacy 通道不覆盖本面**：`GOVERNANCE_LEGACY_BEHAVIOR` 不回退推荐卡呈现（FEAT-040 legacy 只回退性能行为；本面属 agent 行为契约面）。
+
+**发布终账（M-5 时点补记；尾账已随发布收口续记——REL-094 M-8 批回填）**：
+
+- **M-4④ 发布文档四件套**：`docs/release/release-plan-0.91.0.md` / `release-checklist-0.91.0.md` / `rollback-plan-0.91.0.md` / `feature-flags-0.91.0.md`（commit `5277ca5`）。
+- **M-5 本步（本提交批，提交 hash 由 M-5 提交生成，不预写）**：candidate manifest `skills/software-project-governance/core/releases/0.91.0.json` 创建（N-4 义务；lifecycle=candidate，NATIVE_CANDIDATE——`candidate_commit` 以 `git_commit_adding_path` derivation 指向本提交批）+ 本段发布态改写（本节）。
+- **Commit 区间与发布验证结论**：`git rev-list --count 3f87459..bd9bfc1` = **8**（2026-09-28 发布 tip 实测；`git describe` = v0.91.0 精确命中——HEAD 即 v0.91.0 peel）。8 提交（旧→新）：`8d25101` 0.90.0 收尾披露批 → `196894a` FEAT-072 → `9bafdf6` FIX-399 → `bc3f052` REL-094 M-1 版本面 → `98104cb` REL-094 M-1R 基线面 → `5277ca5` REL-094 M-4 四件套 → `fed2f53` REL-094 M-5 candidate manifest+发布态改写 → `bd9bfc1` REL-094 M-5b transition（发布 tip）。发布日期已按 taggerdate 权威回填本段标题（2026-09-28——FIX-349 口径）。
+
+## [0.90.0] - 2026-09-27
+
+### 0.90.0 - **结构切换第一批：迁移验证与已知缺陷收口（Loop Migration Validation & Known-Defect Closeout, Batch 1）**：RB-2 授权票前置批 + E-1 unit 锚定混合方案（人工清单+结构影子）+ 迁移链健壮性自愈（FEAT-069/070/071 + FIX-398 载荷 / FIX-397 搭车 / DEC-252~263 / EVD-1196~1201）
+
+0.90.0 是 **MINOR** 发布，承载 REL-093（0.90.0 M-0 载荷冻结经 arch 顾问 GO——DEC-263；DEC-253 用户授权链 + DEC-255 载荷框架）+ **DEC-252（ADR-019 循环结构切换五步路径）第一批**。版本定义（DEC-263 最终措辞）：**「0.90.0 完成 DEC-252 范围内迁移验证、已知缺陷阶段性收口及切片前置；未完成纵向切片、权威翻转和行为级终态验收」**。B-12/B-13 **不随版翻转**（出厂 WARN-only，RISK-059 未关闭——翻转留独立授权票）。
+
+**载荷四票**（全 R0 APPROVED_WITH_NOTES/0，全部 committed）：
+
+- **FEAT-069（commit `f0999f7`）**：分族授权票前置批——RB-2 敏感动作阻断接线（factory WARN-only，翻转臂 enforced 已验证可达）+ 宿主激活前置判据（模板默认值契约宿主→WARN 六字段穿透明细）+ C-10 八分支 pytest 看护 28 测试（fixture 真走 planner 链零 mock）+ F-2 边界收紧（红→绿实证）。全量 4251P/2F（基线 6→2）。E-6 MIGRATION_VERSION 升戳经 arch 裁决移出（DEC-257：发布版本≠迁移协议版本，随真实迁移授权票）。
+- **FEAT-070（commit `8767858`）**：E-1-B unit 权威清单人工确认路径——`--record-unit-approval/--record-unit-block` 链路 + 版本化 manifest（`schema_version`+`revision`+`entries_digest` NFC/SHA-256 直写检出）+ dry-run 消费接线 + 本仓 28 unit 逐条落盘（**2 confirmed / 26 blocked**——blocked 含 A 组散文伪影 19/B 组多候选 6/撤回物 1，处置 DEC-258/259）。隔离副本三面绿（dry-run/apply/rollback，清单字节前后不变）。
+- **FIX-398（commit `48d21d9`+`0d31ea2`）**：迁移链健壮性——E-4 SIGKILL 提交窗**自愈重入**（勘察证伪提交序调整=假审计轨迹；wc6d 240ms 实证点复演 16/16 零部分态）+ E-5 孤儿备份清扫（四重无信息证明+引用保护）+ E-7 ADR §7 勘误 + F-6 `plan_rederive_failed` 独立 WARN 分流。**RISK-060 关闭**（复评锚 M-4 保持）。
+- **FEAT-071（commit `e61e267`+`12f2ea7`）**：E-1-A 结构锚定派生**影子流水线**——三源结构证据→候选→§2.6 唯一性三态→对照人工清单：**28 行对照零分歧**（2 confirmed 结构存在但机证不可复现→人工权威保持；26 blocked 结构宇宙零产生——散文伪影机检消解）；manifest SHA 五次运行恒等+幂等。**B→A 切换判据成文：4 绿 3 红→当前不可切换**（CJ-1 确认可复现 0/2、CJ-4 结构覆盖 30/32 悬置、CJ-5 外部宿主未验——差距=证据面与决策面未重合，非管线缺陷）。八场景+C-10 副本复跑零劣化；R0 遗留小修面 7 项（FEAT-070-R0 P2-1/P2-2/P3-4/P3-5 + FIX-398-R0 P2-1/P3-1/P3-2）；DEC-261/262 校准（candidate-bytes 24→32MiB、adapter timeout 26→36s，均实测溯源+登记）。
+
+**搭车（非载荷治理修正，DEC-263②）**：FIX-397（commit `8f1f5c3`）——风险计数口径对齐（DEC-256：bootstrap 首屏 4→18=risk-log 非关闭行事实；fail-closed 未知态披露）+ 治理表行 ragged/schema 归一修复；docs 审查报告 ×5（四票 R0+FIX-397-R0——DEC-263② 的 ×4 指载荷四票，计数口径注记）。
+
+**已知边界（逐项归因，DEC-263④ 披露口径）**：
+
+- **RB-2 阻断面出厂 WARN-only**——敏感动作「would-block」可观测但零拦截；翻转条件=B-12/B-13 授权票（RISK-059 关闭为前置）。
+- **影子判据三红**——结构派生当前**不可切换**权威清单（见 FEAT-071）；30 悬置结构单元清单为后续确认链工作底稿。
+- **全量测试基线**——M1 门禁实测留痕（REL-093 行）；既有族失败逐项归因披露（M0 pin 漂移族=DEC-249 先例延续；墙钟 tripwire 族已 DEC-262 校准）；不宣称全绿。
+- **RISK-059 未关闭**——权威翻转的前置风险维持打开（09-27 窗内复评：RISK-036 维持打开/039 维持收窄/047/048 维持观察——M-4 锚引用既有留痕）。
+- **卫生批残留（0.91 池）**——FEAT-071-R0 P3×4、FIX-397 残留（RISK-052~059 语义归位等）、F-4/F-5、C 组延期项（DEC-255）。
+
+**行为变更**：无破坏性变更；无机制激活（B-12/B-13 出厂姿态不变）；**无依赖变更**（零新增/升级外部依赖——stdlib-only 纪律维持）。回滚：tag 级回滚按 release-checklist 纪律（历史 tag 变更需独立 DEC）；迁移工具 apply/rollback 语义与退出码不变（FEAT-070/071 向后兼容钉）。
+
+## [0.89.0] - 2026-09-26
+
+### 0.89.0 - **治理精度与健康面收口（Governance Precision & Health Closeout）**：任务状态词表收敛 + 终态行刷新 + 检查器判据结构化 + closure 版本感知门禁 + 标准链锁腿真释放（REL-090/091 / FIX-390~395 / FEAT-065 / DEC-244~248 / EVD-1171~1181）
+
+0.89.0 是 **MINOR** 发布，承载 REL-090（0.89.0 M-0 规划双审闭环——`docs/planning/version-plan-0.89.0.md` 设计半面 **R0 APPROVED_WITH_NOTES/0** + 发布半面 **R0 APPROVED_WITH_NOTES/0**，双 GO 2026-09-25）+ **DEC-244（0.89.0 版本范围授权：必选六项——09-30 风险窗履行 + FIX-390/391/392 披露面消解 + FIX-393/394 深检新票 + FEAT-045 P-a（FEAT-065）；B-12/B-13 五前置核验只核验不激活、激活授权票不捆绑）+ DEC-245（0.89.0 执行与发布授权：M-1 版本 bump 启动→批次执行→M-2~M-8 直至版本事务闭环；过程决策点经架构顾问协议——DEC-240 先例延续；安全语义不因授权削减）**。版本主题：**治理精度与健康面收口**——0.88.0 发布后治理健康深检暴露的三类工作按 DEC-246① 主序列交付：状态面收口（FIX-393→FIX-394）→ 披露面消解检查器族（FIX-390+FIX-392，同文件串行）→ closure 链健康面（FIX-391→FEAT-065，同文件串行）；census 收窄承诺前置票 FIX-395 随批次二同窗交付。**本版无新增功能激活**（B-12/B-13 机制 0.88 已交付、出厂姿态不变——见「行为变更」节）。
+
+**七票交付**（DEC-244 六票 + FIX-395 census 收窄前置票；批次间同文件串行约束——version-plan §2 批次排布 + DEC-246①）：
+
+**批次一：状态面收口（2 票）**
+
+- **FIX-393（任务状态词表收敛，commit `8a94d64`）**：三解析器（task-priority / parse_current_active_tasks / archive）终态判据对齐写入器契约——识别写入器终态 committed（ops 台账权威状态源），活体误推荐已交付票（FEAT-060）与 FEAT-061/064/063/385 误 blocked 根因收敛到单一定义。新测试 17/17；定向 377P/0F；活体 tpa `--force` 零已交付票推荐+Blocked=None+40 completed；消费方 3 失败经 git stash 真 HEAD 基线对照完全同形=既有基线红非本票引入；DEC-246① 退出条件（三解析器一致+零推荐+零误 blocked+终态/非终态/未知 token 不放宽不绕过 FIX-390 证据检查）。EVD-1172。
+- **FIX-394（终态行文本刷新机制+13 行一次性对齐，commit `3cb4048`；运行时机制与数据对齐分开验收——DEC-246⑤）**：task-row-update 落状态 token 时刷新状态列进度后缀（B~E 批 10 票+发布链 REL-087/088/089 共 13 行 committed 终态行不再滞留翻转前中途文本）+ 13 行存量一次性后缀对齐（Coordinator 机录凭证：13 张 suffix_refresh 收据落 plan-tracker.md.ops.jsonl 逐行可对账——EVD-1174；committed 审查中/开发中/收尾中 3 词形剩余 0 命中）。新测试 28P+12 subtests；回归 293P+archive 243P；全量 4144P/7F 经 HEAD 干净基线逐一复跑全部复现=既有基线非本票引入。EVD-1173/1174。
+
+**批次二：披露面消解——检查器族（3 票，同文件 `verify_workflow.py` 串行）**
+
+- **FIX-390（Check 18/18b 结构化状态判据，commit `def9508`；DEC-241 例外消解票——REL-089 条件②）**：三态完成判据（writer-committed+锚 / ✅ legacy 前缀 / 未知不猜——按身份复用 FIX-393 谓词）+ Check 18 basis 列回退读位解耦（完成态判定与显示前缀解耦——机录行按 DEC-168 契约落列即被如实判定）+ Check 18b DEC-168 机器凭证接纳（JSON 优先/畸形 op 不认/违规 JSON 不开脱）。机制消解在 fixture 面红绿实证（pre-fix 19F→post-fix 18P+11 subtests；0.88 例外两行活体形状复现——EVD-1140/EVD-1164）；豁免面差分归因 drops=∅ expansion=17 全 writer-committed 逐行留档。**申报勘正（EVD-1176——Coordinator 采纳 Reviewer）**：live census 75→75 逐字节零增量如实更正（live Check 18/18b 入集=0——窗口键控取 0.77 时代 token，0.89.0 窗口未激活；M-2 窗口激活后复测由 REL-092 checklist 席承载）；archguard 引擎 26318 LOC 超锚 26193 处置路由=随 0.89 M-2 统一 sanctioned regen（载荷票未完不中途 regen）。EVD-1175/1176。
+- **FIX-392（Check 30 复合键判据，commit `65c8e4b`；DEC-242③ 消解票；判据语义 DEC-247 落字）**：V3 熔断判据从任务全局轮号修正为链内轮次——①读取侧链归属推导 `_review_chain_attribution`（证据行文本+镜像 report: 双通道；排除 round 镜像/reviewer 命名空间/跨任务引用）②chains 复合键视图（task+chain+round；canonical 零漂移回退）③V3 链内分段（BLOCKED 依 M7.4 闭链终态语义作链段边界——升级后重开段轮次归零）。红先行 6F/3P→9 passed+13 subtests；census Check 30 面 30→25 WARN（V3×5 例外消解，25 条真实缺陷逐行恒等）；熔断三守卫恒绿；review_record.py 零触碰。EVD-1177；DEC-242③ 闭环+DEC-247（前向义务：V2 改链内判定须先补 REL-086 RELEASE-M3 R1 机录行——边缘①）。
+- **FIX-395（Check 28c HotFactSource 终态判定对齐，commit `7795f59`；census 收窄前置票——FIX-393 同族第四消费方）**：`_hot_status_cell_is_delivered` = legacy 字面（S_old 字节不变）∪ 按身份直呼 FIX-393 写入器判据（`_status_is_writer_committed_cell`+写入器链+ops 锚）；三处 28c 判定点换用；版本行映射既有语义（FIX-339 any-cell recall）文档化+测试 pin。TDD 红 4F→绿 8/8；活体 A/B check-hot-fact-source 20→0（0.88.0 roadmap 行 20 条伪 FAIL 簇——18 missing-task+2 overstate——消解）；全量 strict A/B 差分恰=−20 FAIL。**申报勘正（EVD-1179——采纳 Reviewer P1-1）**：R0 时 +23 未豁免字面致 static-pin WARN 27→50 且契约测试 FAIL——R1 derive 修复后 WARN 27=27 恒等/static-pin 0=0/契约 25P。EVD-1178/1179。
+
+**批次三：closure 链健康面（2 票，同文件 `closure_chain.py` 串行——FEAT-065 四红线保持）**
+
+- **FIX-391（closure journal 版本感知读取器，commit `c9b7415`；REL-089 条件③消解）**：`_journal_version_conflict` 在任一恢复副作用前分类完整原始 journal——未知事件类型/出窗 schema_version → schema_violation 零写拒绝+机器清单，四写入口全覆盖（run/resume+finalize+cancel+reopen）；写入器防占用 backstop（seq 碰撞向量机器不可达）；读 fail-safe 半面不变；0.87 兼容矩阵五格红绿逐格（正常链路不误拒）。回退 worlds 的 closure 面从人工运行手册门禁升级为机器门禁（DEC-246⑥ 披露义务兑现——旧 journal 支持范围与未知事件处置路径见「行为变更」节）。路径 B backport 候选保留。TDD 红 13F/4P→绿 17P；全量 87P→104P；test_rel089_release_compat 11P。EVD-1180。
+- **FEAT-065（标准链锁腿真释放升级，commits `ab7a8e1`+`b950fef`；DEC-248 拆分后链内面——FEAT-045 P-a）**：shrink-locks→release-locks 步接线既有 locks-release（cancel 腿同款 argv）+ gate 闭集 lock_ttl_le→task_locks_released 后置条件判定（任务索引+文件锁归属双面扫描、损坏/不可读/归属不明 fail-closed、后继任务锁不计入不误删）+ 三处 no locks-release 过时披露勘正 + lock_ttl 死默认输入移除。四红线集成级实证（释放前同文件互斥/只释放本任务锁/释放后不改受锁文件/提交串行隔离）；中断遗留锁仍依赖人工恢复（受控流程——DEC-248④）；acquire TTL 判定面拆出 FEAT-066（0.90 池，depends_on=FEAT-065——DEC-248②）。TDD 红 13F/99P→绿 112P；既有基线 104P 零回归。收尾批 `b950fef`：R0 审查报告 APPROVED_WITH_NOTES/0 + DEC-248 version-plan §2 行 6 勘正（验收拆分入账——原 triage JSON 原始性保留）。EVD-1181。
+
+**M-0 规划 + 发布链窗口内收尾 + M-1 bump（非批次票）**
+
+- **REL-090（M-0 规划双审+范围入账，commit `76c86a9`）**：version-plan-0.89.0 九节全（范围零扩缩）+ 双审 APPROVED_WITH_NOTES/0×2 + 收口落字批 v1.1（F-1 批次间三票共面串行/F-2 §5 五前置核验回填（③口径漂移 3≠11 如实登记）/F-3 §7 双锚勘正/P2-1 CHANGELOG canonical 继承/F-4 RISK-048 登记/F-5F-6 M-2M-3 注记）+ 六票 triage 机录入账 + roadmap 0.89.0 行。EVD-1171。
+- **REL-086 收尾批（M-6 修复批 `2dac7af` + M-8 收口批 `9347c11`——tag v0.88.0 后落库的前版发布链收尾，载荷归属 0.88.0 闭环）**：checklist 载荷表勘正+projection 再收敛（LRC ragged 消解）+ plan-tracker 工作流版本 0.88.0 三面一致（check-version-consistency PASSED 零 WARN）+ 发布终账 EVD-1170。
+- **REL-091（M-1 版本 bump，本票）**：0.88.0→0.89.0 全仓（SKILL.md frontmatter 权威锚+REQUIRED_SNIPPETS 六锚+投影 28 面+双根 entry sync——REL-087 先例形态）+ CHANGELOG 0.89.0 段（**单 canonical=本文件——DEC-242① 0.88 M-3 裁决直接继承，不复刻双位过渡**）+ static-pin 账本消解（见「如实披露」③）。
+
+**⑥ 治理面**：窗口内 **5 决策**（**DEC-244 0.89.0 范围授权**〔必选六项+五前置核验不激活；激活授权票不捆绑——行为变更需逐项明示授权；挂起 0.90+ 清单七项〕/ **DEC-245 执行与发布授权**〔M-1→M-8 全链推进+arch 顾问决策点协议+安全语义不削减〕/ **DEC-246 链首 arch 顾问咨询 Conditional GO 八条采纳**〔主序列+派发解锁条件+census 以问题身份集合验收+Check 28s 方案 A 前置归档+组合测试四组+⑥无激活措辞收紧+⑦pytest 基线口径+⑧manifest—ledger—tag 绑定 M-5/M-6 核验〕/ **DEC-247 Check 30 V3 链内轮次判据**〔自 0.89.0 起复合键判定——DEC-242③ 消解闭环〕/ **DEC-248 FEAT-065 验收拆分**〔真释放链内面+acquire TTL 拆出 FEAT-066+四红线保留+中断遗留锁人工恢复受控流程〕）+ **11 EVD**（EVD-1171~1181——M-0 规划面+七票交付/数据对齐/申报勘正审查链机器写入延续）+ 审查报告留档（review-REL-090-DESIGN-R0/RELEASE-R0、review-FIX-390-CODE-R0、review-FIX-391-CODE-R0、review-FIX-392-CODE-R0、review-FIX-393-CODE-R0、review-FIX-394-CODE-R0/R1、review-FIX-395-CODE-R0/R1、review-FEAT-065-CODE-R0——docs/reviews/）。**例外消解闭环**：DEC-241 例外×4（FIX-390）、DEC-242③ V3×5（FIX-392）、REL-089 条件③（FIX-391）按各自消解条件在案闭环。
+
+### Added
+
+- **closure journal 版本感知读取器（FIX-391）**：未知事件类型/出窗 schema_version 零写拒绝机器门禁，四写入口全覆盖+seq 防占用 backstop；0.87 兼容矩阵红绿看护。
+- **标准链锁腿真释放（FEAT-065；DEC-248①）**：release-locks 接线+task_locks_released 后置条件 gate（双面扫描 fail-closed）——正常收口路径下同文件族下一票不再撞人工解锁步。
+- **终态行文本刷新机制（FIX-394）**：task-row-update 落 token 刷新状态列进度后缀+13 行存量一次性对齐工具面（机录收据可对账）。
+- **Check 28c 写入器终态判据收敛（FIX-395）**：热事实源按身份直呼 FIX-393 写入器判据，legacy 字面语义字节不变。
+
+### Changed
+
+- **全仓版本面 0.88.0→0.89.0（REL-091）**：SKILL frontmatter 权威源+28 投影面+双根 entry bootstrap+REQUIRED_SNIPPETS 六锚统一再生（REL-087 先例形态——`release-projection --write` 单次收敛，written=17+check 28/28）。
+- **任务状态词表单一事实源（FIX-393）**：三解析器识别写入器终态 committed——ops 台账权威状态源；活体误推荐/误 blocked 面消解。
+- **Check 18/18b 完成态判定与显示前缀解耦（FIX-390；DEC-241 例外消解）**：三态判据+basis 列读位+DEC-168 机器凭证接纳——机录证据行不再假 FAIL，严检面不松动。
+- **Check 30 V3 熔断判据链内轮次化（FIX-392；DEC-247；DEC-242③ 消解）**：复合键（task+chain+round）判定+读取侧链归属推导+BLOCKED 闭链段边界；canonical 零漂移回退。
+
+### Fixed
+
+- **活体任务状态误判（FIX-393）**：已交付票误推荐+四票误 blocked 根因收敛（DEC-246① 退出条件全达成）。
+- **13 行终态滞留装饰文本（FIX-394+EVD-1174）**：运行时刷新机制+存量一次性对齐，热事实源显示面恢复真实。
+- **0.88.0 roadmap 行 20 条伪 FAIL 簇（FIX-395）**：Check 28c 终态判定对齐，活体 20→0。
+- **三处 no locks-release 过时披露+lock_ttl 死输入（FEAT-065 行为修正面）**：披露文本与实现一致+死默认输入移除（见「行为变更」节如实披露）。
+
+**行为变更（DEC-246⑥ 口径——无新增功能激活；含行为修正如实披露，MUST 出现在升级说明）**：
+
+- **无新增功能激活**：**B-12**（write-guard 分族 BLOCK）机制 0.88 已交付（FEAT-064）、出厂全 WARN——0.89 **无 `--activate-block` 执行**；**B-13**（decision-log JSON 权威化）协议层 0.88 已交付（FEAT-061）、权威标记缺省 MD_ACTIVE epoch0——0.89 **无真实切换**（version-plan §8 规划口径；激活授权票独立决策不捆绑——DEC-244）。
+- **行为修正面（如实披露——DEC-246⑥ 措辞收紧）**：① **FEAT-065 gate 闭集替换**：closure gate kind lock_ttl_le→task_locks_released——自定义 spec 链声明 lock_ttl_le 自 0.89.0 起 **fail-closed 拒绝**（闭集纪律，非静默降级）；lock_ttl 死默认输入移除。② **FIX-391 零写拒绝面**：旧版读取器对新版/未知 journal 事件的语义误读与 seq 碰撞双向量由人工处置路径变为写入口零写拒绝——正常链路零感知（兼容矩阵实证不误拒）；跨版本 in-flight closure resume 会 digest 失配拒绝（会话内运营态无跨版本 resume 契约——EVD-1181 迁移指南；路径 B backport 候选保留）。③ **判据收敛面（不放宽）**：FIX-393/394/395 终态/非终态/未知 token 判据收敛不放宽、不绕过 FIX-390 证据检查（DEC-246① 退出条件）；误推荐/伪 FAIL 消失属判据修正非检查弱化。
+
+**如实披露**：① **披露面基线**：check-governance 实测 49 issues（M-1 时点）；REQ-092×6+EVD-1146×1 维持披露（外部依赖零豁免红线/DEC-227 路线 a 不动+披露）；FIX-390 live 面 0.89.0 窗口未激活（窗口键控——M-2 窗口激活后复测，REL-092 checklist 席承载）；archguard 引擎 26318 LOC 超锚 26193（+125=HEAD 既有+本票 +86 归因 EVD-1176）——随 0.89 M-2 统一 sanctioned regen（0.88 M-2 先例同型）。② **09-30 风险窗履行注记**：RISK-036/039/046 复评 + RISK-047/048 同窗观察义务在案（DEC-244 必选项；version-plan §6 时序纪律——不迟于 2026-09-30；M-4 消费其结论，若 M-4 晚于窗口则窗内独立先行入账——DEC-243 先例形态）；**本 M-1 时点尚未履行，无预填未生成事实**。③ **static-pin bump-time 双信号**（FIX-361 设计语义）：0.89 窗口票写入的 then-future 0.89.0 字面量在本 bump 激活 **9 WARN**（test_fix390_structured_status_judgment.py:190/202/306、test_fix393_writer_terminal_states.py:103/174/311/313、test_fix394_progress_suffix_refresh.py:100/500）——全部为 fixture 任务表行/模板 scenario payload 零等值比较，逐行归因登记豁免（bump-time rows 先例同型）；四行 0.88.0 bump-time rows（test_verify_workflow.py:12742、test_archive.py:4586/4595、test_governance_store.py:493）self-dormant **删除**（REL-087 先例同型——fixture 行本体不动）；test_release_projection.py L30/test_static_version_pins.py L158 FUTURE_TARGET 豁免行 dormant **保留**（FIX-361 设计语义「goes dormant afterwards」）；test_fix395_hot_fact_source_writer_terminal.py L19 0.89.0 token 在模块 docstring 内——扫描器注释面按设计跳过，实测零 WARN 无需豁免。④ **plan-tracker `工作流版本` 过渡态 WARN**：0.88.0→0.89.0 由 Coordinator 随发布收口更新（REL-086 M-8 先例同型——本版 verify 唯一预期 WARN）。⑤ **CHANGELOG 单 canonical**：DEC-242①（0.88 M-3 裁决——根 `changelog.md` 为投影面）直接继承：本版段仅落本文件，仓库根 `changelog.md` 不再同步（0.88 双位过渡不复刻——version-plan §3b M-1 RELEASE-R0 P2-1 收口）。⑥ **no-overclaim 边界**：FEAT-065 发布验证两面演示义务（正常收口后继票可获取/中断遗留锁明确拒绝+恢复指引）留 M-2——本版不主张已完成演示；B-12/B-13 激活授权票未决策；RISK-036 维持打开，do not claim 1.0.0 production-ready；§5 五前置核验=只核验不激活（③勘误行计数口径漂移 3≠11 如实登记于 version-plan §5）。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` 口径：无 MUST 规则删除/重命名、无外部 CLI 契约变更、无 governance 文件字段格式变更；FIX-391/FEAT-065 新增拒绝面均属 fail-closed 门禁而非既有契约删除——自定义 lock_ttl_le spec 声明被拒见行为修正①；判据收敛不放宽）。**MINOR bump 依据**：version-plan-0.89.0（M-0 双 GO——AWN/0×2 终态）——载荷 = 治理精度与健康面收口（解析判据收敛/检查器结构化/门禁自动化/锁腿真释放）；非纯 bug fix。版本号未占用预留（0.88.0 已发布顺延 +1；无 0.89.x tag/预留冲突；1.0.0 预留位未触碰）。
+
+版本投影 0.88.0 -> 0.89.0：由 M-1 统一执行（REL-087 先例形态）——SKILL frontmatter 权威锚先 bump（0.88.0→0.89.0），REQUIRED_SNIPPETS 六锚手钉（防循环验证独立期望面），`release-projection --write` 单次写入 28 个 registry 投影面一次收敛（written=17+幂等镜像；check 模式 28/28 PASS 零 issue、declared_legacy_snapshots 10 pass）——FIX-366 两遍 plan 正道延续，零回滚震荡；双根 entry bootstrap（repo-root + e2e-fixture，AGENTS.md/CLAUDE.md `@bootstrap-version`）经 `sync_entry_projection --write` 再生（双根 4 文件 PASS）；static-pin 账本消解（披露③——删 4 self-dormant+登记 9 bump-time+保留 2 dormant FUTURE_TARGET）。`.governance/plan-tracker.md` `工作流版本` 随发布收口由 Coordinator 更新（过渡态 WARN 如实呈现——披露④）。
+
+**发布时点**：本条目日期取 M-1 候选落库时点（2026-09-26 +0800）；若 M-5 transition/tag 的 taggerdate 与之不同，按 FIX-349 口径（**taggerdate 权威**）勘误对齐，不预填未生成的 tag 事实。
+
+**Commit 区间（v0.88.0〔peel `33d19b0`〕..M-1 tip）**：git rev-list 实测 11 commits（M-1 候选落库时点，新→旧）——`b950fef` FEAT-065 收尾批 / `ab7a8e1` FEAT-065 / `c9b7415` FIX-391 / `7795f59` FIX-395 / `65c8e4b` FIX-392 / `def9508` FIX-390 / `3cb4048` FIX-394 / `8a94d64` FIX-393 / `76c86a9` REL-090 M-0 立项收口 / `9347c11` REL-086 M-8 收口批 / `2dac7af` REL-086 M-6 修复批；区间终点随本段所在 M-1 候选 commit 落库后延伸。
+
+## [0.88.0] - 2026-09-25
+
+### 0.88.0 - **执法硬化 + 存储架构首表 + 能力铺开（Enforcement Hardening & Storage Separation First Table）**：write-guard 分族 BLOCK + decision-log JSON 权威化首表 + closure 取消/重开/接管 + 回合心跳 + B-7 三拆票（REL-086 / FIX-373~389 / FEAT-060~064/044/045 / DEC-229~239 / EVD-1134~1163）
+
+0.88.0 是 **MINOR** 发布，承载 REL-086（0.88.0 M-0 规划双审闭环——`docs/planning/version-plan-0.88.0.md` 设计半面 R0 NEEDS_CHANGE/4→修复→**R1 APPROVED_WITH_NOTES/0** + 发布半面 R0 NEEDS_CHANGE/3→修复→**R2 APPROVED_WITH_NOTES/0**，双 GO）+ **DEC-229（0.88.0 标准链预授权 + 架构顾问协作协议：用户 2026-09-23「把已经登记的任务一次性推进闭环，我授权 Coordinator 按照推荐进行推进，授权发布版本承载修改。过程中的决策多和『架构与疑难问题顾问』进行讨论。」——预授权不免除 M-2 门禁实测与 M-3 双半面审查）**。版本主题：**执法硬化 + 存储架构首表 + 能力铺开**——0.87.0 收口后热表全清（25/25），本版承载 DEC-226 出槽清单 + 审查留票族全部已登记项，按 arch 顾问修正案（gpt-6-astra 2026-09-23，DEC-229③ 协作协议兑现）**按不可逆边界与依赖排序**五阶段交付：A 契约与卫生（可逆性高，先行）→ B 恢复与执法基础（BLOCK 前置基座，WARN 姿态）→ C 单点存储切换（独立可验证/可恢复边界 #1）→ D 执法激活（边界 #2）→ E 能力与剩余。**核心风险对冲（arch 总体提醒——本版最高优先不变量）**：guard 依赖基线/台账 → 台账依赖写入器 → 写入器正迁移存储 → 发布依赖检查结果——系统正在用被修改的机制证明自己正确；对冲 = FEAT-061 独立迁移/恢复证明包（旧 md 解析器裁决、切换前校验器、独立性声明必填节——独立性操作化三条）+ 跨票组合测试集（version-plan §3 条 2）。
+
+**24 票交付**（git log v0.87.0..M-1 tip 实测——阶段 A 14 票〔含 0.87 出槽先落 3 票 + 调查票派生 3 票〕→ B 2 票 → C 1 票 → D 1 票 → E 6 票）：
+
+**阶段 A：契约与卫生（14 票）**
+
+- **FIX-373（共享切分器状态泄漏，commit `3c3218d`——0.87.0 出槽票）**：quote 分支补 not in_code_span 守卫——EVD-248 形状 code-span 内引号折叠误报消解（TDD 红 3F→绿 6/6；消费方指定套件 120 用例 0 失败）。REVIEW-FIX-373-CODE-R0 APPROVED_WITH_NOTES/0；EVD-1134/1135。
+- **FIX-374（9-cell 豁免消歧，commit `6845756`——0.87.0 出槽票）**：format check 9-cell 豁免与截断 LIVE 行内容启发式消歧——cells[6] 日期形状判据（_EVIDENCE_DATE_SHAPE_RE）区分合法历史行与缺 Date 截断 LIVE 行，fail-blind 消除。
+- **FIX-378（e2e 副本守卫同步，commit `44cb534`——0.87.0 出槽票）**：e2e legacy 快照副本切分器守卫与主仓同型同步 + backport docstring（REVIEW-FIX-373-CODE-R0 F-1 承接；副本 git 忽略——declared_legacy_snapshots 非投影目标，收敛即红排除再生）；本票同时落 FIX-381 制度化首条台账。EVD-1136/1137。
+- **FIX-375（writer 族三边缘收口，commit `04b7a42`）**：①引擎分发返回码透传（verify_workflow.py L25502 红态 exit 0 假绿→exit 2——8 return-style handlers 全透传，DEC-230/231 口径）②畸形 --operation-id 结构化 schema_violation+exit 2 无裸 traceback ③locks-release 三恢复腿 released_files 审计一致（pre-read 移入 _TargetLock 堵并发）。TDD 6 红→9 绿；R0→R1 APPROVED/0 终态；EVD-1140/1141。
+- **FIX-376（FIX-371 遗留候选合并处置，commit `3d31c49`）**：F-3 状态 cell 改自右向左扫描（豁免面零变化=定理+活体双证：130 行全等/diff=0，DEC-232 裁定窄口径维持）+F-4/F-5 零调用 helper 删除+F-6 legacy REQ 形态+混合 fan-out 判别用例+F-7 docstring 勘正。REVIEW-FIX-376-R0 APPROVED_WITH_NOTES/0；EVD-1142。
+- **FIX-386（0.87 未承载遗留小项包，commit `d6dd300`）**：AUDIT-152 账本写回（clock_window_sensitive 家族 8→9+FIX-364 resolved 19→20）+ADR-011/012 勘误注记（300,000→指向 361,923 公式，历史结论零改写）+REVIEW-FIX-370 F-2 验证（acquire 无 record-target 锁 TOCTOU 窗口确认→RISK-046 缓解列扩展）。R0 NEEDS_CHANGE/1→R1 APPROVED/0；EVD-1143。
+- **FIX-377（调查票闭环，commit `17e5663`）**：FACTS_PRINT_TOTAL 1306→1316 +10 漂移归属（10/10 全归 a6d3bfb FIX-371 豁免披露输出——census walk 双端 1306/1316）+28+2 失败四类归类+修复候选 triage（FIX-387/388/389 机录入账）。REVIEW-FIX-377-R0 APPROVED_WITH_NOTES/0（11 点 census 全等+决定性复现坐实）；EVD-1144。
+- **FIX-387（套件内全局态污染修复，commit `0840876`——P1 插队票）**：FIX-375 进程内 main() 全局重绑泄漏——EngineDispatchExitCodeTests 改 setUp 快照/tearDown 恢复完整重绑面（12 全局量）+HostRootRebindCanaryTests 防回归 canary（负面对照 13/13 漂移检出）。REVIEW-FIX-387-R0 APPROVED/0（全套件 913s+HEAD 存档树对照）；EVD-1145。
+- **FIX-389（LRC 文档面清账，commit `9df2381`+闭环 `cdc3a0a`）**：REL-086-R2 五处 ragged row 修复+FIX-376-R0 L42 断言面改引用——两文档使真实树扫描 fail-closed（loop-runtime 5+2 红）消解。REVIEW-FIX-389-R0 APPROVED_WITH_NOTES/0（语义完整性字符级+根因修正坐实）；EVD-1148。
+- **FIX-388（static-pin 账本重审计，commit `b3577c8`）**：12375→12550 重锚（FIX-373 插入漂移——rot-guard 活体实证）+12674 补登（FIX-376 出生未豁免）+env_failure_classification 定向刷新（+7/−7 限 review_doc_claim；触发源轮换登记）。方案 A 行号锚保持（dynamize 否决）。REVIEW-FIX-388-R0 APPROVED_WITH_NOTES/0（git 考古三位点闭环）；EVD-1146/1147。
+- **FIX-379（量测边缘观察四项打包，commit `b7df86c`）**：journal detail 透传根因修复（governance_store 顶层扁平 refusal 第三来源识别）+governance id family 词表派生单一来源化（DEC-233）+conflict 退出码差异 epilog 明示+pre-probe 时序语义注记。REVIEW-FIX-379-R0 APPROVED_WITH_NOTES/0；EVD-1149。
+- **FIX-380（P3 杂项包，commit `c349f8e`）**：_format_issues 三副本提取模块级单源（7 调用点迁移，零行为差 945+132 全等）+fixture-engine reason 补 backport 溯源注记+e2e 副本切分器钉归类不适用（四理由）。REVIEW-FIX-380-R0 APPROVED_WITH_NOTES/0；EVD-1150。
+- **FIX-381（切分器 backport 政策制度化，commit `b03a0b4`——⑨定案）**：五制度件落 legacy_snapshot_backport_policy 机读块（触发三判据/快照清单/补丁台账八字段/双运行 parity 契约/隐性耦合检查+可再生性——DEC-234 裁定）+守卫精化（policy/台账空洞红+stale-ledger 机检红）+重放 9/9 实跑。REVIEW-FIX-381-R0 APPROVED_WITH_NOTES/0；EVD-1151。
+- **FIX-382（9-cell 消歧组合判据扩展，commit `ce93eb3`——A 阶段收官）**：11 项形态决策表（R4/R5 落地 c7 日期机证——假阳性消除；R1/R2/R3 显式不修+披露——DEC-235）+静默集不变量（30 输入穷举差分实测 S_new=S_old）+真实数据差分 IDENTICAL。REVIEW-FIX-382-R0 APPROVED_WITH_NOTES/0；EVD-1152。
+
+**阶段 B：恢复与执法基础（2 票）**
+
+- **FEAT-060（write-guard 违规持久状态机+hook 消费权台账，commit `c515776`——B1）**：811 行实体模块——12 字段违规记录+三态转移+消费权闭集（v1 单消费者 guard CLI）+ops 可恢复消费事务（journal 三段+resume 三分支 fail-closed）+DEC-236 口径三条（R2「WARN 不改基线」机制面口径）。活体首捕 born-live：WV-62097f（FIX-382 手工翻转无凭证）→补凭证→守卫自动消费闭环。REVIEW-FEAT-060-R0 APPROVED_WITH_NOTES/0（7/7 独立复验+字节恒等双验）；EVD-1153。
+- **FIX-383（B-7c 发版管线自举，commit `0ff12f3`）**：release-window-bootstrap 内置链（--check-only 前探针 reconcile-vs-execute）+write-guard-bootstrap 子命令（五检查只读世界判定+converge=守卫工件恢复治理零写入）+三类中间态恢复映射+双故障点 kill→resume 零人工修复。REVIEW-FIX-383-R0 APPROVED_WITH_NOTES/0；EVD-1154。
+
+**阶段 C：单点存储切换（1 票——本版最高风险票）**
+
+- **FEAT-061（decision-log 存储分离首表，commit `61618a5`——C1 阶段性交付）**：六层落地——权威状态机（闭表+epoch fencing 端到端+唯一线性化点）/双后端写入路由（MD 字节零变化+JSON 同 CAS/幂等）/迁移编排（freeze 四闭合+activate 三段 journal+rollback 对称复检）/独立校验器（禁导入自签拒绝+旧解析器逐字符镜像+三类完整性证明+负向注入 7 例）。DEC-237 arch 前置复核（有条件不通过——P0×5 补齐后派发）+DEC-238 口径裁定。R0 NEEDS_CHANGE/2（**P0-F1 竞窗数据丢失+P0-F2 砖化——均活体复现**）→修复（锁内 fenced 重读+键集存活+seam 钉）→R1 APPROVED_WITH_NOTES/0。真实 179 行演练 round_trip（独立性三规则活体实证）；切换授权前置三条件入 RISK-059。EVD-1155。
+
+**阶段 D：执法激活（1 票）**
+
+- **FEAT-064（write-guard 分族 BLOCK 激活，commit `a8afcbf`——D1 机制交付，真实翻转留 Coordinator）**：五族裁定（evidence/review/decision/ops_ledger 四族 BLOCK+task_status WARN 后置——DEC-239）+BLOCK 写后执法+R2 逐面钳制（DEC-236① 兑现）+break-glass 四件套（五限定+use 审计不可静默）+FEAT-060 遗留三件（hook_identity/A-B-A 会话累计/SESSION_ID 接线）+FIX-383 registry 收口（96→97+contract-matrix 指令化再生）。REVIEW-FEAT-064-R0 APPROVED_WITH_NOTES/0（八焦点全符合+双版本探针）；EVD-1156。
+
+**阶段 E：能力与剩余（6 票）**
+
+- **FEAT-062（closure 取消纵切，commit `14797be`——E1）**：限定入口（状态/授权/undetermined/外部副作用/管道符换行零写门）+CAS 单终态（run lock 线性化+竞争恰一终态）+DEC 经写入器登记+仅释放自有锁（ARCH-09 同型）+对账（世界是真相）；中断恢复=终态先行+双腿幂等重放。R0 APPROVED_WITH_NOTES/0→F-1~F-3 修→R1 APPROVED/0 终态（真锁竞争注入 92.86s+CLI 探针双面+逐行 diff 无夹带）；EVD-1157。
+- **FIX-384（B-7a 归档 index-rebuild，commit `6360ab1`）**：rebuild_index 闭环（快照→确定性重建→integrity 校验）+损伤分类+errors=replace 容错（U+FFFD 四类探针零伪造）+无条目非结构化登记+CLI。R0 NEEDS_CHANGE/1（P1-1 Check3 口径不对称死循环）→修复（_extract_decisions/risks 共享函数单一来源）→R1 APPROVED_WITH_NOTES/0；EVD-1158。
+- **FEAT-045（串行链路并行段识别审计闭环，commit `467fb55`——E4 纯审计票零源码修改）**：三段清单（批量化已由标准链交付/commit 批量化不适用 D4+对账粒度/预备段不适用/真断点=标准链锁腿 TTL 收缩非真释放——三处过时披露+四点独立互证）+DEC-220 勘正双落。REVIEW-FEAT-045-R0 APPROVED_WITH_NOTES/0；EVD-1159。
+- **FEAT-063（closure 重开+异常接管，commit `d68355f`——E2）**：重开 lineage（closure_reopened 事件+单一后继+零擦除实证）+执行代际 fencing（sidecar+写端三面校验+旧代际零效果+closure_fenced 幂等）+TOCTOU 修复（锁内 re-read 三形态拒绝——R0 P0-1 活体 7/7→R1 三形态实测+红相双钉+探针翻转确认）。R0 NEEDS_CHANGE/1→R1 APPROVED_WITH_NOTES/0 终态；EVD-1160。
+- **FEAT-044（subagent 回合预算与收尾心跳，commit `d7b9add`——E3）**：resolve_round_budget 三层参数化 fail-closed+heartbeat_should_fire/payload（N=3 无产物上报——stop_proof=False 全链钉死）+interrupt_recovery_payload 恢复产品化（事实绑定+防扩面守卫+有界 escalation）+compute_stall_report 等待税遥测+33 新测试。REVIEW-FEAT-044-R0 APPROVED_WITH_NOTES/0（9 MUST 全过+17 独立探针）；EVD-1161。
+- **FIX-385（B-7b 大表断点续迁，commit `3fb42c0`）**：journal 相位机+批游标+单线性化 commit（同路径锁互斥）+resume 世界判定（三 crash 窗可续+终态等价+守恒）+单源抽取+DecisionStoreAuthorityConflict fail-closed+F-1 TOCTOU 修复（投影重写临界区化+同锁域互斥+in-lock 重判零写入）。R0 APPROVED_WITH_NOTES/0→F-1 修复（2 红绿）→R1 APPROVED_WITH_NOTES/0；159P+286P 相邻；RED 16F/manifest 882 勘正入 EVD；EVD-1163。
+
+**M-0 规划 + M-1 bump（非五阶段票）**
+
+- **REL-086（M-0 规划双审，commits `266c32b`/`7d6ff6a`/`0233f49`）**：version-plan-0.88.0 双半面审查链（Design R0 NEEDS_CHANGE/4→修复→R1 APPROVED_WITH_NOTES/0；Release R0 NEEDS_CHANGE/3→修复→R2 APPROVED_WITH_NOTES/0——F-1~F-13 全闭环）+arch 顾问协作（三次尝试两失败一成功——成功轮意见全量消化：批次重排/⑨政策化/guard 持久状态机/存储读适配先行/取消纵切先行/⑩拆票）+A4 自依赖环数据勘正（非票 M1.2 通道——原拟票 ID「FEAT-001」与热表终态行冲突勘误）。EVD-1162。
+- **REL-087（M-1 版本 bump，本票）**：0.87.0→0.88.0 全仓（SKILL.md frontmatter 权威锚+REQUIRED_SNIPPETS 六锚+投影 28 面+双根 entry sync——FEAT-059 先例形态）+CHANGELOG 0.88.0 段+static-pin 账本消解（见「版本投影」段）。
+
+**⑥ 治理面**：窗口内 **11 决策**（**DEC-229 预授权+架构协作协议** / **DEC-230/231 FIX-375 退出码透传口径+缺陷落点更正** / **DEC-232 FIX-376 豁免判据窄口径维持** / **DEC-233 FIX-379 id 词表单一来源** / **DEC-234 FIX-381 backport 政策裁定** / **DEC-235 FIX-382 9-cell 取舍** / **DEC-236 FEAT-060 三条口径** / **DEC-237 FEAT-061 前置复核有条件不通过（P0×5）** / **DEC-238 FEAT-061 阶段性交付口径** / **DEC-239 FEAT-064 五族执法裁定**）+ **30 EVD**（EVD-1134~1163——交付审查链机器写入延续；EVD-1132/1133 为 0.87.0 M-8 收口〔窗口内 `fc69196`，属前版收尾〕）+ 审查报告留档（review-FIX-375~389 / review-FEAT-060~064 / review-REL-086 系列——docs/reviews/）。审查链含 NEEDS_CHANGE→修复→R1/R2 转化五票（FIX-375/386/384/063/385）+ FEAT-061 P0×2 活体复现修复，全部 0 unresolved blockers 终态。
+
+### Added
+
+- **closure 取消/重开/异常接管路径（FEAT-062/063；行为变更 B-14）**：限定入口→CAS 单终态→cancellation op 登记→仅释放自有锁→对账；重开保留原 closure 新尝试编号不擦历史；接管=执行代际 fencing 写入端校验。纯新增能力面，无删除。
+- **write-guard 违规持久状态机+消费权台账（FEAT-060）**：12 字段违规记录+三态转移+guard CLI 消费权闭集+ops 可恢复消费事务（journal 三段+resume 三分支 fail-closed）。
+- **decision-log JSON 权威化首表（FEAT-061 阶段性交付；行为变更 B-13）**：DecisionRepository 六层（权威状态机/双后端路由/迁移编排/独立校验器）；decision-append 外部 CLI 契约不变。
+- **subagent 回合预算与收尾心跳（FEAT-044）**：resolve_round_budget 三层参数化+heartbeat 上报+interrupt_recovery 恢复产品化+compute_stall_report 遥测。
+- **归档 index-rebuild CLI（FIX-384）**：快照→确定性重建→integrity 校验闭环+损伤分类。
+- **发版管线自举（FIX-383）**：release-window-bootstrap 内置链+write-guard-bootstrap 子命令（只读世界判定+converge 恢复）。
+- **guard 分族 BLOCK 执法（FEAT-064；行为变更 B-12）**：evidence/review/decision/ops_ledger 四族 WARN→BLOCK+break-glass 恢复通道（限定留痕不可静默）。
+
+### Changed
+
+- **全仓版本面 0.87.0→0.88.0（REL-087）**：SKILL frontmatter 权威源+28 投影面+双根 entry bootstrap+REQUIRED_SNIPPETS 六锚统一再生（FEAT-059 先例形态——`release-projection --write` 单次收敛）。
+- **CHANGELOG 双位过渡（REL-087）**：本版段同时落 `project/CHANGELOG.md`（历史连续判据面）与仓库根 `changelog.md`（triage-normalized 锁面交付物）；canonical 归属留 M-3 审查裁决。
+- **writer 族失败退出码透传（FIX-375；DEC-230/231）**：红态 exit 0 假绿→exit 2——迁移=读退出码。
+- **governance id family 词表单一来源化（FIX-379；DEC-233）**：task 族词表派生自 task_priority._TASK_FAMILY_PREFIXES，additive-only 补齐 13 前缀可引用性。
+
+### Fixed
+
+- **共享切分器 quote 分支状态泄漏（FIX-373）**——EVD-248 形状误报消解；e2e 副本同步（FIX-378）。
+- **format check 9-cell 豁免消歧（FIX-374+FIX-382）**——缺 Date 截断 LIVE 行漏报消除+组合判据扩展（假阳性消除、静默集不变量穷举实证）。
+- **writer 族三边缘（FIX-375）+套件全局态污染（FIX-387）**——返回码透传/结构化 schema_violation/恢复腿审计章；进程内 main() 重绑泄漏修复。
+- **LRC 文档面 ragged rows（FIX-389）+账本写回与勘误（FIX-386）**——真实树扫描 fail-closed 消解；ADR 历史值勘正注记。
+- **static-pin 账本重审计（FIX-388）+量测边缘观察四项（FIX-379）**——漂移重锚+出生补登；journal detail 透传根因修复。
+
+**行为变更（用户可感知，B-12~B-14 —— MUST 出现在升级说明）**：
+
+- **B-12**（FEAT-064·write-guard 分族 BLOCK 激活）：evidence/review/decision/ops_ledger 四族写入 WARN→BLOCK（task_status 族维持 WARN 后置；启用族由写路径覆盖率裁定——DEC-239）。回退 = 族级 flag 回 WARN（数据级）经 break-glass 通道（限定对象/操作者/理由/有效期/次数+不可静默记录——guard 自指场景同样适用）。
+- **B-13**（FEAT-061·decision-log JSON 权威化）：md 转派生投影；外部 decision-append CLI 契约零变化；旧工具对新格式明确拒绝（非静默误读）。回退 = 反向转换方案+切换前快照（**仅备份不算可回滚**——须覆盖迁移后新增行的反向转换；切换授权前置三条件见 RISK-059）。
+- **B-14**（FEAT-062/063·closure 取消/重开/接管路径新增）：纯新增能力面，无删除；外部 CLI 契约不变。
+
+**如实披露**：① **REQ-092 blocked 面 Check 16/17 FAIL 维持**（EVD-476/473/423 3 FAIL = REQ-092 预期披露非豁免——外部依赖零豁免红线内维持，version-plan §3 条 5 F-8 显式登记）。② **EVD-1146 目标对齐字段写入失败残留**（FIX-388 首次 evidence 写入目标对齐仅 13 chars→Check 16 FAIL；EVD-1147 为合格重写。按 DEC-227 路线 a 否决先例〔补录=编造风险违反 P1〕**不补录历史行、不动+披露**；由 M-3 审查复核处置口径）。③ **static-pin bump-time 双信号**（FIX-361 设计语义）：0.87 窗口票写入的 then-future 0.88.0 字面量在本 bump 激活 4 WARN（test_archive.py:4586/4595〔FIX-384 fixture 世界〕、test_governance_store.py:493〔FIX-379 夹具行〕、test_verify_workflow.py:12742〔FIX-376 legacy REQ fixture〕）——全部为 scenario payload 零等值比较，逐行归因登记豁免（bump-time rows 先例同型）；test_verify_workflow.py 两行 0.87.0 self-dormant 豁免（L12614/12738 旧锚）按 version-plan L75 errata F-1+FIX-388 EVD 迁移指南**删除**；test_release_projection.py L30 FUTURE_TARGET 豁免行保留 dormant（0.85.0/0.86.0 bump-time rows 先例同型——FIX-361 设计语义「goes dormant afterwards」，实测零 WARN）。④ **FEAT-061 为阶段性交付**（C1 六层落地+真实 179 行演练 round_trip；存储分离其余表〔evidence-log 等〕与主文件大拆解出槽 0.89+——version-plan §6）。⑤ **FEAT-064 BLOCK 为机制交付**——真实翻转（基线登记→激活）留 Coordinator 按 DEC-239 裁定执行，本版不主张全族已 BLOCK 运行。⑥ **CHANGELOG 双位过渡**：根 `changelog.md` 为 triage-normalized 锁面交付物，`project/CHANGELOG.md` 为历史连续判据面——canonical 归属未裁决前双位同段维护，漂移风险由 M-3 复核。⑦ **no-overclaim 边界**：official approval / marketplace approval / universal runtime support / external first-session pilot success 均未被主张；非 Windows 平台未验证，本版验收全部在仓库内完成；RISK-036 继续打开，do not claim 1.0.0 production-ready；RISK-036/039/046 窗裁决 2026-09-30 到期即裁决（F-13 口径），RISK-050（10-31）维持打开。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无 MUST 规则删除/重命名、无外部 CLI 契约变更〔decision-append 契约不变〕、无 governance 文件字段格式变更；B-12 为 DEC-224 双约束内的执法硬化升级〔FEAT-060 持久状态机+B-11 三面留痕为前置基座，非判定语义弱化——BLOCK 姿态即 0.86.0 DEC-224 登记方向的兑现〕；B-13 旧工具明确拒绝非静默误读；B-14 纯新增）。**MINOR bump 依据**：version-plan-0.88.0（M-0 双半面 APPROVED_WITH_NOTES/0×2 终态）——载荷 = write-guard WARN→BLOCK 分族激活（执法硬化）+ decision-log 存储分离首表（新增受治理能力面）+ closure 路径新增 + 回合心跳；非纯 bug fix。版本号未占用预留（0.87.0 已发布顺延 +1；无 0.88.x tag/预留冲突；1.0.0 预留位未触碰）。
+
+版本投影 0.87.0 -> 0.88.0：由 M-1 统一执行（FEAT-059 先例形态）——SKILL frontmatter 权威锚先 bump（0.87.0→0.88.0），`release-projection --write` 单次写入 28 个 registry 投影面一次收敛（written=17+幂等镜像；check 模式 28/28 PASS 零 issue、declared_legacy_snapshots 10 pass）——零回滚震荡延续；双根 entry bootstrap（repo-root + e2e-fixture，AGENTS.md/CLAUDE.md `@bootstrap-version`）经 `sync_entry_projection --write` 再生（双根 4 文件 PASS）；手工钉 `verify_workflow.py` `REQUIRED_SNIPPETS` 六个版本锚与 JSON 声明面一致；static-pin 账本消解（披露③——删 2 self-dormant+登记 4 bump-time+保留 1 dormant FUTURE_TARGET）。`.governance/plan-tracker.md` `工作流版本` 随发布收口由 Coordinator 更新（过渡态 WARN 如实呈现——本版 verify 唯一预期 WARN）。
+
+**发布时点**：本条目日期取 M-1 候选落库时点（2026-09-25 +0800）；若 M-5 transition/tag 的 taggerdate 与之不同，按 FIX-349 口径（**taggerdate 权威**）勘误对齐，不预填未生成的 tag 事实。
+
+**Commit 区间（v0.87.0〔peel `602f8f3`〕..M-1 tip）**：git rev-list 实测 29 commits（M-1 候选落库时点，新→旧）——`3fb42c0` FIX-385 / `d7b9add` FEAT-044 / `d68355f` FEAT-063 / `467fb55` FEAT-045 / `6360ab1` FIX-384 / `14797be` FEAT-062 / `a8afcbf` FEAT-064 / `61618a5` FEAT-061 / `0ff12f3` FIX-383 / `c515776` FEAT-060 / `ce93eb3` FIX-382 / `b03a0b4` FIX-381 / `c349f8e` FIX-380 / `b7df86c` FIX-379 / `cdc3a0a` FIX-389 闭环 / `b3577c8` FIX-388 / `9df2381` FIX-389 / `0840876` FIX-387 / `17e5663` FIX-377 / `d6dd300` FIX-386 / `3d31c49` FIX-376 / `04b7a42` FIX-375 / `0233f49` REL-086 M-0 收口 / `7d6ff6a` REL-086 M-0 追加 / `266c32b` REL-086 M-0 / `6845756` FIX-374 / `44cb534` FIX-378 / `3c3218d` FIX-373 / `fc69196` REL-084 M-8（前版收尾）；区间终点随本段所在 M-1 候选 commit 落库后延伸。
+
+## [0.87.0] - 2026-09-21
+
+### 0.87.0 - **治理健康收口（Governance Health Closeout）**：热事实源回填 + 引擎解析缺陷消除 + 门禁容量重定标 + 投影两遍 plan 正道化 + 锁治理 governed 化（REL-084 / FIX-367/368/364/369/366/372/370/371 / DEC-226~228 / EVD-1122~1128）
+
+0.87.0 是 **MINOR** 发布，承载 REL-084（0.87.0 M-0 规划双审闭环——`docs/planning/version-plan-0.87.0.md` 设计半面 R0→R1 + 发布半面 R0 双 **APPROVED_WITH_NOTES/0**）+ **DEC-226（0.87.0 标准链预授权：用户 2026-09-20「我授权 Coordinator 按照推荐进行推进，直到最新规划版本发布」——聚焦集裁定，预授权不免除 M-2 门禁实测与 M-3 双半面审查）**。版本主题：**治理健康收口**——0.86.0 单日双发布收尾后治理健康深检暴露 6 面 FAIL（45 issues），本版收口：热事实源回填（Check 28c×3，FIX-367）/ 引擎列偏移误 FAIL 消除（Check 16/17，FIX-368）/ 快照校验午夜窗时间敏感（FIX-364）/ LRC 语义预算容量重定标（Check 31，FIX-369）/ projection 两遍 plan（FIX-366——**M-1 绕开手法终结**）/ evidence 列约定统一（Check 20 fail-open 恢复，FIX-372）/ 锁清理 governed 化（locks-release writer，FIX-370）/ Check 16/17 历史豁免账本（DEC-227 路线 b，FIX-371），对应 EVD-1122~1128。
+
+**九票交付**（批 1 并行收口修复三票 → 批 2 串行引擎修复两票 → M-0 规划 + 批 1 前置治理票）：
+
+- **FIX-367（热事实源回填，Check 28c×3）**：roadmap 0.86.0 行 / 0.85.0 勘正 / 总览 0.86.0 三面回填（task-row-update 机录 op-98c0f7f6）——0.86.0 发布当日 Check 28c 族缺口按 DEC-226 收口；复发预防 = M-5/M-8 内建 roadmap 0.87.0 行回填义务（R0-DESIGN-F8）。
+- **FIX-368（引擎列偏移，commit `5e56021`）**：`parse_impact_analysis_entries` evd_type/description 列 [4]/[5]→[3]/[4]——EVD-1118 误 FAIL Check 16/17 消除；file_location 红线不动；3 项回归测试 + 4 处 fixture LIVE 迁移。REVIEW-FIX-368-R0 双审 APPROVED_WITH_NOTES/0；EVD-1122。
+- **FIX-364（午夜窗时间敏感，commit `9aa27a6`）**：snapshot freshness fixture 以引擎同口径取日期粒度 + stdlib 时钟注入 + 午夜窗正例/负例双钉。REVIEW-FIX-364-R0 APPROVED_WITH_NOTES/0；EVD-1124。
+- **FIX-369（LRC 预算重定标，commit `a7f89ac`）**：Check 31 SEMANTIC_BUDGET_EXCEEDED 门禁面收口——max_semantic_units **300,000→361,923 = ceil(301,602×1.2)**（**重定标非豁免**——B-9；provenance 注释 + 公式钉值/反豁免 fail-closed 双测试；基线经 FEAT-047 baseline-register 机制登记）。REVIEW-FIX-369-R0 APPROVED_WITH_NOTES/0；EVD-1123。
+- **REL-084（M-0 规划双审，commit `80069a2`）**：version-plan-0.87.0 双半面 APPROVED_WITH_NOTES/0×2（DESIGN R0→R1 / RELEASE R0）+ 批 1 全清治理记录 + roadmap 0.87.0 行；M-1 绕开手法退路预声明（R1-N2）随 FIX-366 落地失效——本版 M-1 走两遍 plan 正道。
+- **FIX-366（projection 两遍 plan，commit `2ab3847`）**：byte_copy source = 同批 transformed target 耦合 → **内存 resolve 一次收敛**；CRLF 连带根因修复（`read_text`→`read_bytes().decode`——transformed target 保留原生换行）；4 测试含 CRLF 护栏双断言。REVIEW-FIX-366 R0 APPROVED_WITH_NOTES→R1 APPROVED；EVD-1125。**0.86.0 披露③ 技术债清偿**：本版 M-1 bump 首次单次 `release-projection --write` 收敛（FEAT-053/058 两版绕开手法撤除——M-0 验收面「绕开手法可撤」兑现）。
+- **FIX-372（evidence 列约定统一三处，commit `aa72c37`）**：Check 20（check_agent_activation）同型 off-by-one 漏检 fail-open 恢复 + evidence format check LIVE 对齐 + entry_method 语义修正；9 处 evidence 列读取点全量排查清单留档。REVIEW-FIX-372-R0 APPROVED_WITH_NOTES/0；EVD-1126。
+- **FIX-370（locks-release writer，commit `dd4537b`）**：governance_store 锁清理 governed 化——task 锚定真删除（active_tasks + file_locks + ops 台账登记）+ B-10 先登记后删除 + released_files 审计章 + 三态/幂等 fail-closed；96 键 CLI 分发面重定基线（FEAT-355 同型）。REVIEW-FIX-370-R0 APPROVED_WITH_NOTES/0；EVD-1127；**批 2 全清**；锁经 locks-release 自释放活体验证（op-7c866828）。
+- **FIX-371（Check 16/17 历史豁免账本，commit `a6d3bfb`）**：DEC-227 路线 b——✅ 终态历史行豁免 + **三面留痕不静默**（result 字典 / 子命令面 / 主运行面——F-1 修复后主运行面 26=8+18 对账闭合）；双形态状态定位（紧凑 7 列 + legacy REQ 行）+ 单扫描源；交付时点真实面 **31→5 FAIL** + exempted 26 显式；REQ-092 blocked 保持 FAIL（零豁免红线活体实证）；R0 NEEDS_CHANGE（F-1）→R1 APPROVED/0；DEC-228 记录面修订；EVD-1128。
+
+**⑥ 治理面**：窗口内 **3 决策**（**DEC-226 0.87.0 标准链预授权**〔聚焦集 = FIX-367/368/LRC 重定标/FIX-366/FIX-364/locks-release；出槽 0.88+ = write-guard WARN→BLOCK 升级/存储分离 JSON 化/closure 铺开/FEAT-044+045/B-7/量测边缘观察 4 项；Check 28s 由 M-8 归档消解不占工程票〕/ **DEC-227 FIX-371 路线 b 历史豁免账本**〔豁免账本仅容纳 2026-09-20 前存量历史行，新增行零豁免全严检；路线 a 数据补录被否——补录=编造风险违反 P1；路线 c 披露基线被否——M-2 门禁仍红；机录行不合格子字段登记时逐条披露〕/ **DEC-228 DEC-227 记录面修订（R0 审查裁决要求）**〔豁免账本三消费方明列：Check 16 / Check 17 / Check 18 事实依据取数 wrapper；Check 18 历史面静默明示承认；主运行面 historical_exempted 计数+有界清单披露义务〕）+ **7 EVD**（EVD-1122~1128——七票交付审查链全部机器写入 governance-store evidence-append，写入器时代自举延续）+ REL-084 双半面审查报告留档（review-REL-084-DESIGN-R0/R1、review-REL-084-RELEASE-R0）；产品任务全部 change-triage 机录 + Developer→Reviewer 审查链（七票全闭环含 NEEDS_CHANGE→R1 转化三票〔FIX-366/370/371〕，0 unresolved blockers）。
+
+### Added
+
+- **locks-release 子命令（FIX-370；行为变更 B-10）**：governance_store 锁清理 governed 化——task 锚定真删除 + 先登记后删除 + released_files 审计章；shrink-locks 保留。用户视角：过期锁悬挂（Check 26 活体——REL-082 过期锁 4 blocking 实证）首次拥有可对账的释放路径。
+- **Check 16/17 历史豁免账本（FIX-371；DEC-227/228）**：✅ 终态历史行豁免 + 活跃行零豁免全严检 + 三消费方留痕——豁免计数与逐行清单可审计。
+
+### Changed
+
+- **Check 31 语义预算容量重定标（FIX-369；行为变更 B-9）**：max_semantic_units 300,000→361,923 = ceil(301,602×1.2)——基线机制设计内数值重定标（FEAT-047 baseline 承载），非 Gate 结构/判定语义变更（VERSIONING L11 显式处置——R0-RELEASE-F3）。
+- **projection 两遍 plan 正道化（FIX-366）**：版本 bump 单次 `release-projection --write` 一次收敛（byte_copy source = 同批 transformed target 耦合消除）；M-1 绕开手法（FEAT-053/058）终结。
+- **全仓版本面 0.86.0→0.87.0（FEAT-059）**：SKILL frontmatter 权威源 + 28 投影面 + 双根 entry bootstrap + REQUIRED_SNIPPETS 引擎锚统一再生。
+
+### Fixed
+
+- **parse_impact_analysis_entries 列偏移（FIX-368）**——EVD-1118 误 FAIL Check 16/17 消除；file_location 红线不动。
+- **snapshot freshness 午夜窗时间敏感（FIX-364）**——fixture 与引擎同口径日期粒度 + 时钟注入 + 正例/负例双钉。
+- **evidence 列约定三处统一（FIX-372）**——Check 20 fail-open 恢复 + format check LIVE 对齐 + entry_method 语义。
+- **热事实源回填（FIX-367）**——roadmap 0.86.0 行 / 0.85.0 勘正 / 总览 0.86.0（Check 28c×3 清零；task-row-update 机录 op-98c0f7f6）。
+
+**行为变更（用户可感知，B-9~B-11 —— MUST 出现在升级说明）**：
+
+- **B-9**（FIX-369·Check 31 容量重定标）：语义预算上限 300,000→361,923（公式 = ceil(实测×1.2)，provenance 基线登记）——**重定标非豁免**（门禁语义不弱化：BLOCKED→有据 PASS；反豁免 fail-closed 双测试钉死重定标必须走公式）。回退通道：还原预算值 + 基线注销（数据级、可执行、双向自洽）。
+- **B-10**（FIX-370·locks-release 释放语义）：新增 release 真删除 + 登记（shrink-locks TTL 收缩保留、语义不变）；先登记后删除（ops 台账先行，删除动作携带 operation_id 审计痕迹）；误删补偿 = acquire 幂等重取（锁条目可重建，不触任务数据）；不可逆面 = 零。
+- **B-11**（FIX-371·Check 16/17 历史豁免账本）：✅ 终态历史行（2026-09-20 前存量）豁免入账本，**新增行零豁免全严检**；豁免在三消费方留痕不静默（Check 16 / Check 17 / Check 18 取数 wrapper——DEC-228①；主运行面打印 historical_exempted 计数 + 有界清单）。回退通道：账本可增删可回滚（DEC-226 非-T2 裁定）。
+
+**如实披露**：① **REQ-092 blocked 面 Check 16/17 FAIL 维持**（交付时点真实面 31→5〔EVD-1128〕→ 勘正回填后 5→3〔FIX-200/FEAT-001 勘正消解〕，其中 REQ-092 blocked 保持 FAIL——真实活跃义务非豁免：Desktop marketplace 外部依赖，result matrix 在场，零豁免红线活体实证）。② **EVD-248 切分器状态泄漏单条误报显形**（FIX-372 审查 F-4 双向影响：format check 单条误报 fail-noisy + Check 20 读路径 fail-blind——FIX-373 triage 在案出槽 0.88+，验收纳入双向影响评估与 Check 20 形状回归 fixture）。③ **FIX-373~376 四票出槽 0.88 登记**（切分器状态泄漏 FIX-373 / 9-cell 豁免消歧 FIX-374 / FIX-375〔FIX-370 遗留〕/ FIX-376——plan-tracker REL-084 状态行出槽注记；0.87 M-2 如实披露该已知噪声）。④ **CRuntime CRLF 保真行为变化（FIX-366 连带修复）**：projection transformed target 保留原生换行（read_bytes().decode 替代 read_text 隐式转换；CRLF 护栏双断言测试在场）。⑤ **版本标记 token 敏感面**：版本 bump 不改变注入面 token 计数——三 profile 逐位复测无回归（见版本投影段）。⑥ **本版不发布什么**：write-guard WARN→BLOCK 升级（DEC-224 双约束）、存储分离 JSON 化（首表 decision-log）、closure 铺开（取消/重开/异常接管）、FEAT-044 回合心跳 + FEAT-045 并行段识别、B-7 index-rebuild + 大表迁移 + 发版管线自举、量测边缘观察 4 项（version-plan-0.87.0 §6 出槽清单）；M-2 门禁实测与 M-3 双半面审查照常（预授权不免除门禁）。⑦ **no-overclaim 边界**：official approval / marketplace approval / universal runtime support / external first-session pilot success 均未被主张；非 Windows 平台未验证，本版验收全部在仓库内完成；RISK-036 继续打开，do not claim 1.0.0 production-ready。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无 MUST 规则删除/重命名、无 governance 文件字段格式变更；B-9 属基线机制设计内数值重定标非判定语义变更〔显式 L11 处置——R0-RELEASE-F3，0.85.0「判定姿态翻转」先例同型〕；B-10 纯新增 CLI、shrink-locks 保留无删除面；B-11 活跃判定语义零弱化）。**MINOR bump 依据**：version-plan-0.87.0（M-0 双半面 APPROVED_WITH_NOTES/0×2）——载荷 = locks-release 新子命令（新增受治理能力面）+ Check 16/17 历史豁免账本 + Check 31 容量重定标 + 七票收口修复；无 breaking。版本号未占用预留（REL-084 Release R0 代验：0.86.0 已发布顺延 +1；无 0.87.x tag/预留冲突；1.0.0 预留位未触碰）。
+
+版本投影 0.86.0 -> 0.87.0：由 M-1 统一执行——**FIX-366 两遍 plan 修复后首次正道交付**：SKILL frontmatter 权威锚先 bump（0.86.0→0.87.0），`release-projection --write` 单次写入 28 个 registry 投影面一次收敛（5 plugin/marketplace + `package.json` + `core/manifest.json` + 4 hook `@version` + DSH persona 版本行 + `adapters/dsh/AGENTS.md.template` + `commands/governance-init.md` 三模板 `@bootstrap-version` + fixture skill/plan + 12 个 fixture 命令面）——**零回滚震荡**（FEAT-053/058「canonical 标记先达目标值→transformed 幂等→再生 byte_copy」绕开手法撤除）；双根 entry bootstrap（repo-root + e2e-fixture，AGENTS.md/CLAUDE.md `@bootstrap-version`）经 `sync_entry_projection` 再生；手工钉 `verify_workflow.py` `REQUIRED_SNIPPETS` 六个版本锚与 JSON 声明面一致。本段随候选打包提交落库；`.governance/plan-tracker.md` `工作流版本` 随发布收口由 Coordinator 更新（过渡态 WARN 如实呈现——本版 verify 唯一预期 WARN）。
+
+**发布时点**：本条目日期取候选落库时点（2026-09-21 +0800）；若 M-5 transition/tag 的 taggerdate 与之不同，按 FIX-349 口径（**taggerdate 权威**）勘误对齐，不预填未生成的 tag 事实。
+
+**Commit 区间（6e25753..M-1 tip）**：git log --oneline 实测 8 行（M-1 候选落库时点，新→旧）——`a6d3bfb` FIX-371 / `dd4537b` FIX-370 / `aa72c37` FIX-372 / `2ab3847` FIX-366 / `80069a2` REL-084 / `9aa27a6` FIX-364 / `a7f89ac` FIX-369 / `5e56021` FIX-368（区间终点随本段所在 M-1 候选 commit 落库后延伸）。
+
+## [0.86.0] - 2026-09-20
+
+### 0.86.0 - **确定性核心架构演进第一版：写入器时代**：四类可靠原子写入器 + 一条可恢复标准闭环 + 受管状态变更零人工直写（REL-082 / FEAT-049/051/046/047/055/056/057 + FIX-365 / DEC-218~224 / EVD-1102~1118）
+
+0.86.0 是 **MINOR** 发布，承载 REL-082（0.86.0 架构演进规划闭环——用户四交付：深度检视→arch 顾问多轮→架构演进设计→版本规划；EVD-1102）+ DEC-220（**确定性核心 / LLM 边界设计公理**：明确规则的 schema 约束、状态翻转、记录追加、序列编排、门禁执行、量测计价全部软件化走 CLI/机录/校验器，仅不确定的逻辑由 LLM 推进——本版为其首次系统性落地）+ **DEC-221（0.86.0 设计演进全链预授权：设计打磨完成后授权 Coordinator 按推荐推进直至完全闭环并发布对应版本；预授权不免除门禁）**。版本主题：**四类可靠原子写入器 + 一条可恢复标准闭环 + 受管范围零人工直写**——批 0 M0 契约冻结（FEAT-049，revision m0-r1）→ 批 1 原子写入器三票（FEAT-051/046/047，DEC-222 归属裁定兑现）→ 批 2 集成窗+closure 纵切+混沌发布门+write-guard 执法（FEAT-055/056/057+FIX-365），对应 EVD-1102~1118。
+
+**批 0 — M0 契约冻结与验收基座（FEAT-049，commit `27eeea0`）**：扩展既有 `contracts.py`（573→1,140 行纯追加，99 存量契约测试零回归）——五面契约冻结 revision **m0-r1**（operation_id 产生/作用域/重试复用；状态机含执行态 UNKNOWN 与评估态 NOT_EVALUABLE 三轴；错误码闭枚举；SchemaVersionWindow；写入器最小 I/O 与效果判定）+ 版本化 fixtures + 契约测试（99 存量零回归 + 58 新增）+ 量测协议工件（`benchmarks/closure/protocol.md` + 固定用例组三路径）+ pin revision 记录。归属链：0.85.0 段已如实披露为「批 0 前置随候选树入库、0.85.0 零行为消费」——本版正式承载。REVIEW-FEAT-049-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1105。
+
+**批 1 — 原子写入器三票（DEC-222 归属裁定兑现：三票为纯 0.86.0 轨道工作，0.85.0 CHANGELOG 窗口不承载）**：
+
+- **task-row-update 写入器 CLI（FEAT-051，commit `b2152ea`）**：B-1 根终结面——M7.4 任务表行变更可执行化：五步写流程/短时文件锁 fail-closed/双层 CAS（observed_revision）/凭证侧车 18 键 join 锚/effect-based 幂等；R1 增 `_cell_parts` 偏移替换字节保持 + 4 红相驱动测试（R0 NEEDS_CHANGE：状态 cell 空白静默剥离——Reviewer 真表事故实证）。验收 = 40 测试 + mutation 红相 + 三场景 CLI 退出码 + 真表 dry-run 零写入。REVIEW-FEAT-051-R0→R1 APPROVED_WITH_NOTES/0（机录）；EVD-1110。
+- **governance_store 写入器族（FEAT-046，commit `1cd224e`）**：B-2/B-3/B-5 根终结面——`locks-extend`/`locks-amend` + `evidence-append`（五类型引用机检）+ `decision-append` 三命令；effect-based 幂等；R1 修 locks 族 conflict 腿缺 observed_revision（P0 契约不变量未捕获崩溃→结构化拒绝复演）。验收 = 76 测试 + 三套回归 + P0 结构化拒绝复演。REVIEW-FEAT-046-R0→R1 APPROVED_WITH_NOTES/0（机录）；EVD-1111。
+- **BaselineMetadata provenance 机制（FEAT-047，commit `bff298d`）**：W-3 制度化解药——14 必填字段 schema/`baselines.json` 原子存储/evaluate 分轴（config_error 先行 + policy_class→block|advisory + 过期口径→not_evaluable）/CLI 退出码 0-1-2-3；R1 增必需观测分层（R0 NEEDS_CHANGE：P0 CLI 崩溃语义混淆 + P1 观察参数静默跳过）。验收 = 64 测试 + 三套回归 + CLI 四场景退出码。REVIEW-FEAT-047-R0→R1 APPROVED_WITH_NOTES/0（机录）；EVD-1108。
+
+**批 2 — 集成窗 + closure 纵切 + 混沌发布门 + write-guard 执法**：
+
+- **集成窗（FEAT-055，commit `a5dec3d`）**：三写入器 dispatch 接线 **7 键**（task-row-update/locks-extend/locks-amend/evidence-append/decision-append/baseline-register/baseline-evaluate）+ M0 契约复跑双绿 + **冻结面 88→95 三重钉**（DEC-223 三项契约口径：CLI 冻结面 +7 写入器子命令键等）+ archguard regen + 留置八项收口。验收 = 7 键冒烟 + 六套件 462 + AST 执行体零改动（29 IDENTICAL）。REVIEW-FEAT-055-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1114。
+- **closure-chain 纵切 + 混沌发布门（FEAT-056，commit `7709987`）**：B-4 根面终结——closure_chain.py（~1,700 行）：纯序排器 + 独立事件日志 + **effect-based resume（UNKNOWN 态世界核验门控）** + ready-to-commit 终点；**混沌三边界发布门**：commit 失败/push 凭据失败/push 超时 UNKNOWN 各 kill 一次 → resume 零人工修复（隔离 bare 夹具——不产生真实远端副作用）。验收 = 30 测试 + 混沌三边界 + 全绿基线 + dry-run 零写入。REVIEW-FEAT-056-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1116。
+- **write-guard 行族执法上线（FEAT-057，commit `ffcb787`）**：面 5「受管行族对账」（EVD/DEC/REVIEW/任务状态列/ops 台账——行级差分 + 凭证四权威〔governance-store 标记/op- 锚/receipt operation_id〕+ 多重集语义）+ **WARN 姿态上线路由**（响亮+可指引+exit 0 不阻断；BLOCK 升级留 0.87——DEC-224 契约修订三条款）+ 状态基线 `.write-guard-state.json`（首跑 amnesty：960 EVD/115 任务/102 DEC 行入基线零 WARN，Reviewer 逐 digest 零差异）+ P1-1 超时恢复腿（步探针即世界核验，互斥双腿 landed=reconcile/NOT-landed=重执行+replay 兜底）+ post-commit WARN 计数披露行。**首活体实证：EVD-1117 被 WARN 精确捕获——DEC-224 起转机录路径**。REVIEW-FEAT-057-R0→R1 APPROVED_WITH_NOTES/0（机录）；EVD-1117。
+- **review 报告 ragged row 转义修复（FIX-365，commit `a7474e4`）**：review-FEAT-054-RELEASE-R0.md L83 裸管道符一行修（「引用叙述 ragged 先例的行自身被多切」递归实证）——存量 5 项测试失败转绿 + LRC PASS + 独立扫描 1→0。REVIEW-FIX-365-R0 = **APPROVED/0**（零 findings——四层归因链闭环）。EVD-1115。
+
+**⑥ 治理面**：窗口内 **7 决策**（DEC-218 批 2.0 条件 go / DEC-219 外扩削减面 / DEC-220 确定性核心·LLM 边界设计公理 / **DEC-221 0.86.0 设计演进全链预授权** / DEC-222 0.85.0 CHANGELOG 窗口归属裁定〔批 1 三票纯 0.86.0 轨道〕/ DEC-223 批 2.0 接线三项契约口径〔冻结面 88→95 等〕/ **DEC-224 write-guard 契约修订三条款**〔面 5 对账+WARN 路由+BLOCK 升级留 0.87〕）+ **17 EVD**（EVD-1102~1118：规划闭环 EVD-1102 / 批 0~批 2 八票交付审查链 EVD-1105/1108/1110/1111/1114/1115/1116/1117 / 0.85.0 发布收口 EVD-1112/1113 / 批 2.2 canonical 重测 EVD-1104 / **写入器时代三活体实证**——write-guard 首 WARN 捕获手写行、DEC-224 起 CLI 机录路径开通、**首机录 EVD-1118 经 governance_store evidence-append 落账**）；产品任务全部 change-triage 机录 + Developer→Reviewer 审查链（批 0/1/2 八票审查链全闭环，0 unresolved blockers——含 NEEDS_CHANGE→R1 转化四票）。
+
+### Added
+
+- **四类原子写入器 CLI + 7 键接线（FEAT-051/046/055）**：task-row-update / locks-extend / locks-amend / evidence-append / decision-append / baseline-register / baseline-evaluate——短时文件锁 + CAS + effect-based 幂等 + 凭证 join 锚。用户视角：治理行变更首次拥有可对账的机器写入路径。
+- **M0 契约基座（FEAT-049）**：五面契约冻结 m0-r1 + 58 项契约测试 + 量测协议工件；批 2.0 复跑 = 兼容性回归门。
+- **BaselineMetadata provenance 机制（FEAT-047）**：数值门登记进 baselines.json（14 必填字段 + evaluate 分轴 + CLI 退出码 0-1-2-3）。用户视角：门禁基线从此有出处、有过期口径、有 policy 分级。
+- **closure-chain 纵切 + 混沌发布门（FEAT-056）**：一条标准闭环（纯序排器/独立事件日志/effect-based resume）+ 三边界混沌 kill+resume 零人工修复作为发布门。
+- **write-guard 受管行族对账（FEAT-057）**：EVD/DEC/REVIEW/任务状态列/ops 台账行级变更凭机器凭证对账，无凭证 WARN 响亮披露（exit 0 不阻断）。
+
+### Changed
+
+- **CLI 冻结面 88→95（FEAT-055；DEC-223）**：+7 写入器子命令键入冻结面三重钉。
+- **治理行写入路径收敛（行为变更 B-3；FEAT-051/046/057）**：受管行族变更机录优先——写入器 CLI 为主路径，手写行凭机器凭证对账、无凭证 WARN 披露（非破坏：WARN 姿态不阻断，BLOCK 升级留 0.87）。
+- **CLI 步超时分类学 step_unknown（行为变更 B-4；FEAT-056）**：closure-chain 步超时不再笼统失败——分类为 step_unknown 执行态交 effect-based resume 世界核验门控处置；链内部语义，用户可感知面 = 恢复路径可靠性。
+- **全仓版本面 0.85.0→0.86.0（FEAT-058）**：SKILL frontmatter 权威源 + 28 投影面 + canonical 标记 + REQUIRED_SNIPPETS 引擎锚统一再生。
+
+### Fixed
+
+- **review 报告 ragged row（FIX-365）**——review-FEAT-054-RELEASE-R0.md L83 裸管道符转义；存量 5 项失败转绿 + 独立扫描清零。
+
+**行为变更（用户可感知，B-3~B-4 —— MUST 出现在升级说明）**：
+
+- **B-3**（FEAT-051/046/057·治理行写入路径收敛）：EVD/DEC/REVIEW/任务状态列等受管行族的变更**机录优先**——经 governance-store/task-row-update 等 CLI 写入并留凭证；write-guard 对无凭证手写行 WARN 响亮披露（exit 0 不阻断——非破坏性执法，BLOCK 升级已声明留 0.87 且受双约束〔不得 WARN-once-then-absorb + hook 窗口消费权台账化〕）。既有手工路径仍可用；回退通道：版本级回滚（与 0.84.0 D-4 / 0.85.0 B-2 同型）。
+- **B-4**（FEAT-056·CLI 步超时分类学）：closure-chain CLI 步超时从笼统失败改为 step_unknown 分类——恢复由 effect-based resume 的世界核验门控处置（landed=reconcile / NOT-landed=重执行 + replay 兜底，互斥双腿）。链内部语义，不改变任何既有 CLI 的对外退出码契约。
+
+**如实披露**：① **8 次手工行编辑事故全捕获链**：0.86.0 窗口内 8 次手工行编辑事故全部被 write-guard/审查链捕获并制度性终结（能力→执法的跨越，EVD-1117）——首 WARN 精确捕获手写行 → DEC-224 裁定转机录路径 → 首机录 EVD-1118 经 evidence-append 落账（写入器时代三活体实证）。② **维度①（历史相对改善）= NOT_EVALUABLE**：基线不可评估（无可信历史 trace）——未宣传达成（R-F10 固定措辞）；绝对目标（标准 closure 路径 LLM 逻辑往返 ≤2）待量测协议实测，本版不主张。③ **引擎两阶段耦合缺陷仍在**（FEAT-053 P2-1：projection.py 单遍 plan——byte_copy 源 = 同批 transformed 目标时必回滚，fail-closed 无静默腐坏）：本版 M-1 bump 沿用 FEAT-053 同款绕开手法（canonical 标记先达目标值 → transformed 幂等 → `--write` 再生 byte_copy 面），修复票留 0.87 候选。④ **FIX-364 triage 在案未实施**（P2——snapshot freshness 午夜窗口时间敏感缺陷 + AUDIT-152 账本补登记）：本版不承载。⑤ **0.87 候选池**：write-guard BLOCK 升级（双约束）/locks-release 缺口/存储分离 JSON 化（首表 decision-log）/closure 铺开（取消/重开/异常接管）/FEAT-044 回合心跳/FEAT-045 并行段识别/B-7 index-rebuild/大表迁移/发版管线自举。⑥ **版本标记 token 敏感面**：版本 bump 不改变注入面 token 计数——三 profile 逐位复测无回归（见版本投影段）。⑦ **本版不发布什么**：closure 铺开、存储分离、write-guard BLOCK 升级、0.87 候选池全部；M-2 门禁实测与 M-3 双半面审查照常（预授权不免除门禁）。⑧ **no-overclaim 边界**：official approval / marketplace approval / universal runtime support / external first-session pilot success 均未被主张；非 Windows 平台未验证，本版验收全部在仓库内完成；RISK-036 继续打开，do not claim 1.0.0 production-ready。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无 MUST 规则删除/重命名、无 governance 文件字段格式变更；write-guard 为 **WARN 姿态上线路由**非门禁硬化、既有 CLI/记录格式零破坏——L11 无触发面；B-3 保持手工路径兼容）。**MINOR bump 依据**：version-plan-0.86.0 §0（Release R1 审定）——载荷 = 四类新写入器 CLI + contracts.py 契约 MUST 规则扩展 + write-guard 行族全覆盖上线路由，**新增受治理能力面**（VERSIONING.md L12「新增 B/C 级自动化能力」）；无 breaking（write-guard WARN 姿态→L11 不触发）。版本号未占用预留（Release Reviewer R0 V5 代验：无 0.86.0 roadmap 行占用、tag 序顺延不跳号）。
+
+版本投影 0.85.0 -> 0.86.0：由 M-1 统一执行——`release-projection --write` 写入 28 个 registry 投影面（5 plugin/marketplace + `package.json` + `core/manifest.json` + 4 hook `@version` + DSH persona 版本行 + `adapters/dsh/AGENTS.md.template` + `commands/governance-init.md` 三模板 `@bootstrap-version` + fixture skill/plan + 12 个 fixture 命令面；二次 apply 幂等），`sync_entry_projection --write` 双根（repo-root + e2e-fixture），手工钉 `verify_workflow.py` `REQUIRED_SNIPPETS` 六个版本锚与 JSON 声明面一致，并按 FIX-361 bump 程序处置 `checks/version.py` 静态钉豁免账本：bump 时点双重信号如期触发——scan 命中 **11 行新增**（批次落库时以当时 future token 写入的 fixture 面），逐行归因后全部登记豁免（fixture 表行 payload ×9〔test_task_row_update ×7 / test_closure_chain ×1 / test_triage_write_guard ×1〕+ instrument-version fixture ×1〔test_baseline_metadata〕+ write-guard 披露措辞断言 ×1〔test_triage_write_guard——声明性版本引用非 active pin，新增 `_REASON_GUARD_OUTPUT_ASSERT` reason〕），0.85.0 期 10 行豁免 dormant 且零 stale，处置后 scan 返回空（纯账本数据零判定逻辑改动）。本段随候选打包提交落库；`.governance/plan-tracker.md` `工作流版本` 随发布收口由 Coordinator 更新（过渡态 WARN 如实呈现——本版 verify 唯一预期 WARN）。
+
+**发布时点**：本条目日期取发布时点（2026-09-20 +0800）；若 M-5 transition/tag 的 taggerdate 与之不同，按 FIX-349 口径（**taggerdate 权威**）勘误对齐，不预填未生成的 tag 事实。
+
+## [0.85.0] - 2026-09-19
+
+### 0.85.0 - **注入瘦身到位 + 预算硬门**：治理降噪第二波两批制全清（REL-081 / FIX-356~362 / FEAT-041/049/050/052 / DEC-214~221 / EVD-1088~1107）
+
+0.85.0 是 **MINOR** 发布，承载 DEC-215②（2026-09-19 批次规划授权）+ DEC-216（用户 M-0 裁定：**0.85.0 MINOR 两批制**——批 1 降噪/机检面前置 + 批 2 瘦身→翻 hard 串行关键路径）+ DEC-217（用户全链预授权：「授权 Coordinator 按照推荐进行推进，直到当前规划的版本发布」；M-4 授权形态 = 预授权，**边界 = 预授权不免除门禁**——M-2 门禁实测与 M-3 双半面审查仍 MUST 满足）。版本目标：把治理工作流自身的资源消耗变成有硬门守护的事实——入口模板契约 v2 瘦身（resident 三 profile 4,957/10,718/10,918 → **4,216/5,694/5,966**，双 ≤6,000 达标）+ 注入预算翻 hard（超限即 FAIL）+ skill 层独立预算线（16,000）+ 测试红噪音与归档谓词盲区清零（批 1 七修复 FIX-356~362），对应 EVD-1088~1107。
+
+**治理成本过滤修复（FIX-356，commit `be0b844`）**：`governance-cost-report` 的 `--workspace` 过滤在真实 dsh v3 会话流下完全失效（session 事件无 cwd 字段 → 344/344 会话全被剔除 → 0 样本死循环）——新增目录名编码回退推导（事件 cwd 优先语义保留），真实语料命中 **0→156 sessions/22 TTFA**；RISK-055 数值验收机制修复（EVD-1088 诊断闭环）。用户视角：治理开销可按工作区分域统计了。REVIEW-FIX-356-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1089；RISK-055。
+
+**Check 30 豁免行因果措辞分流（FIX-357，commit `25aef9f`）**：4 个终态豁免门的 reason 自带「closure basis」来源分句——归档依据豁免（DEC-214②）与活体终态恢复豁免（EVD-892）不再共用同一措辞模板；判定逻辑/门结构逐字零改动。用户视角：健康检查里每条豁免行都说得清「为什么豁免」。REVIEW-FIX-357-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1095。
+
+**归档谓词并集五件套（FIX-358，commit `399c48a`）**：Check 30 的 closed 集派生并入归档索引 completed ID（13 个归档散文格漏判 ID 收敛，union 362→375 语料口径）+ UnicodeDecodeError 契约例外修正 + 三分支测试与 M4 突变击杀实证。用户视角：已归档任务的真实闭环不再假红。REVIEW-FIX-358-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1097。
+
+**回放族既有测试失败收敛（FIX-359，commit `11289be`）**：RISK-056 匹配器族 **30 项失败清零**——hook 回放 6 项重锚为 live plan-tracker 运行时派生（旧静态钉语义保留为 MISS 正确性）+ review evidence 24 项 bash 探测移植（本机 WSL stub 实证：修复而非 skip 包装）。用户视角：测试套件红噪音消失，验证信号重新可信。REVIEW-FIX-359-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1094。
+
+**成本报告 cwd 双源披露（FIX-360，commit `c7b515a`）**：`governance-cost-report` 的 CALIBRATION 面新增 `sessions_cwd` 键——事件 cwd 优先 / 目录名回退 token / 空串三态语义入报告本体。用户视角：报告消费者可从报告自身得知 cwd 过滤的测量口径。REVIEW-FIX-360-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1093。
+
+**测试静态版本钉机检面（FIX-361，commit `2e80c69`；DEC-213③）**：新增 WARN-only 扫描——`infra/tests` 内可执行/数据行携带与权威版本相等的字面 semver 即告警（注释/docstring 排除；(line, token, reason) 豁免账本可审计防腐蚀）。用户视角：FIX-352/353 同型的「发布期静态版本钉」盲区（连续 5 次手工同类修复）由机器拦截。REVIEW-FIX-361-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1098。
+
+**fixture governance-status 投影 promote（FIX-362，commit `5a4c4f4`）**：e2e fixture 的 governance-status.md 由 pre-FIX-270 陈旧镜像（14,493B、113 行分歧）promote 为 byte_copy 投影合同成员（SHA256 与 canonical 相等），投影合同 27→28。用户视角：fixture 漂移防线扩展且 SHA 等同可机验。REVIEW-FIX-362-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1096。
+
+**入口模板契约 v2 全量推开（FEAT-041，commit `b717835`；DEC-218/219）**：bootstrap 模板从「pre-skill-load 自包含」改为「触发器行内 + 明细按需（SKILL.md progressive disclosure）」——resident 注入 **standard 10,718→5,694 / strict 10,918→5,966（双 ≤6,000 PASSED；-46.9%/-45.4%）**，lightweight 4,957→4,216；明细零丢失（SKILL.md §B0~B5 承接 + Reviewer 锚抽查）；共享基座 strict=base+delta 单次维护；旧安装升级路径兼容（「详细规则」H2 恢复=边界集超集，`/plugin update` 整段替换零残留）。用户视角：每轮会话的治理注入开销砍半，上下文留给实际工作。试点门 FAIL 如实回呈（EVD-1100）→ R0 NEEDS_CHANGE（投影行尾 P0）→ 修复 → R1 APPROVED_WITH_NOTES/0（机录）；EVD-1099/1100/1103。
+
+**注入预算 resident 翻 hard（FEAT-050，commit `407b230`；DEC-211③）**：`check-injection-budget` 的 resident 层判定从 ADVISORY 翻为 **FAIL 硬门**——瘦身后达标基线（4,216/5,694/5,966，EVD-1104 双重复跑）获得机器强制力，任何注入面增长 fail-closed 红灯；FEAT-039 P3-3 三态 fail-closed 断言同 commit 兑现。用户视角：预算回弹不再只是建议——超标直接阻断验证。REVIEW-FEAT-050-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1106；RISK-057 缓解④转事实。
+
+**skill 层独立预算线（FEAT-052，commit `1519bf1`；DEC-215⑧）**：entry-skill 层获得独立数值线 **16,000 tok**（report-only 数据字段化；实测基线 14,456——FEAT-041 明细迁移的设计性增长，+10.7% 余量）+ per-tier 四通道判定 + CLI/Check 33 同步渲染 + F 族顺带清理（含超限 note 按 tier 自身线计数的顺手修）。用户视角：skill 层体积有独立数字线可核查，不再被 resident 口径遮蔽。REVIEW-FEAT-052-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1107。
+
+**M0 契约冻结（FEAT-049，commit `27eeea0`；0.86.0 批 0 前置——随本候选树入库，如实登记）**：contracts 五面契约冻结 revision **m0-r1**（operation_id / 状态机含 UNKNOWN 与 NOT_EVALUABLE 三轴 / 错误码闭枚举 / SchemaVersionWindow / 写入器最小 I/O）+ fixtures + 契约测试（99 存量零回归 + 58 新增）+ 量测协议工件。0.85.0 零行为消费（纯新增基座）。REVIEW-FEAT-049-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1105。
+
+**⑥ 治理面**：窗口内 **8 决策**（DEC-214 FIX-355 superseding 承接 / DEC-215① RISK-055 分域复采样 + ② 批次规划授权 / DEC-216 M-0 裁定 MINOR 两批制 / **DEC-217 0.85.0 全链预授权** / DEC-218 批 2.0 条件 go / DEC-219 外扩削减面 / DEC-220 确定性核心·LLM 边界设计公理 / **DEC-221 0.86.0 设计演进全链预授权**——双预授权均在案）+ **20 EVD**（EVD-1088~1107，含 M-0 双半面规划闭环 EVD-1090、批 1 ⑥ 治理记录三票快速通道 EVD-1091、批 2 前置量测 EVD-1092、批 2.2 canonical 重测 EVD-1104、自演进摩擦点复盘入候选池 EVD-1101、0.86.0 规划闭环与 DEC-221 生效确认 EVD-1102）；产品任务全部走 change-triage 机录 + Developer→Reviewer 审查链（11 票 R0 全闭环，0 unresolved blockers）。
+
+### Added
+
+- **`--workspace` 过滤真实语料修复 + cwd 双源披露（FIX-356/360）**：治理成本报告的工作区过滤在 dsh v3 会话流下恢复有效（0→156 sessions 命中）；CALIBRATION 面自带三态语义披露。用户视角：TTFA / 治理 token 分项可按工作区分域统计且口径自解释。
+- **测试静态版本钉扫描面（FIX-361；DEC-213③）**：WARN-only + 豁免账本；版本 bump 期静态钉由机器拦截（bump 时点双重信号为设计预期）。
+- **skill 层独立预算线 16,000（FEAT-052）**：per-tier 判定 + 数据字段化（report-only——翻硬为 0.86.0+ 候选经 FEAT-047 BaselineMetadata 承载）。
+- **M0 契约基座（FEAT-049）**：五面契约冻结 m0-r1 + 58 项契约测试（0.86.0 批 0 前置，本版零行为消费）。
+
+### Changed
+
+- **入口模板契约 v2（FEAT-041；DEC-218/219）**：自包含 → 触发器行内 + 明细按需；resident 注入三 profile **4,216/5,694/5,966**（原 4,957/10,718/10,918）；共享基座 strict=base+delta 单次维护（行为变更 B-1）。
+- **注入预算 resident 判定姿态（FEAT-050；DEC-211③）**：standard/strict 从 ADVISORY 翻为 FAIL 硬门（行为变更 B-2）。
+- **Check 30 终态豁免行（FIX-357/358）**：豁免 reason 自带来源分句；closed 集并入归档索引 completed ID（判定面扩展为并集——已归档任务闭环识别完整）。
+
+### Fixed
+
+- **RISK-056 回放族既有测试失败 30 项清零（FIX-359）**——hook 回放 6 + review evidence 24；非族 3 项转 FIX-363 候选。
+- **归档散文格 13 ID 漏判（FIX-358）**——closed 集并集派生 + M4 突变击杀看护；UnicodeDecodeError 契约例外修正（FIX-341 先例）。
+- **governance-status fixture 陈旧镜像（FIX-362）**——promote 为 byte_copy 投影（合同 27→28 面）。
+- **Check 30 豁免行因果措辞混用（FIX-357）**——归档依据与活体恢复两类来源分流。
+
+**行为变更（用户可感知，B-1~B-2 —— MUST 出现在升级说明）**：
+
+- **B-1**（FEAT-041·入口模板契约 v2）：会话注入的 bootstrap 模板从自包含全文改为「触发器行内 + 明细按需」——启动后的行为规程明细按需加载 `skills/software-project-governance/SKILL.md`「Bootstrap 规程明细」§B0~B5；resident 注入 5,694/5,966 ≤6,000（砍半）。旧安装 `/plugin update` 升级路径兼容（整段替换零残留）。单入口工作区行为约束以主入口 `CLAUDE.md` 为准不变。
+- **B-2**（FEAT-050·注入预算硬门）：`check-injection-budget` 的 resident 层（standard/strict）从 ADVISORY 翻为 **FAIL**——注入面超 6,000 tok 直接判 FAIL（fail-closed）；skill/command 层维持 report-only。回退通道：无 flag 级降级，版本级回滚（与 0.84.0 D-4 同型）。
+
+**如实披露**：① **RISK-055 首判 FAIL 如实保留**（22 混合新旧协议语料样本 p50/p95 超阈，EVD-1089）——DEC-215① 裁决为**非终态**：分域复采样，关闭条件 = 新协议会话积累 ≥3 TTFA 轮后纯净复跑；0.85.0 发布窗不阻塞于 RISK-055（version-plan-0.85.0 时序节）。② **strict 余量 34 tok（0.57%）接受现状**（EVD-1104 裁决：双层预警在位 + hard 硬门守护，trim 重开审查链成本>收益）。③ **批 2 规划数字漂移如实披露**：DEC-211② 规划口径（9,953/10,154）与开工实测（10,718/10,918）漂移 ~+19%——85% 实现率门数学不可达触发两次用户裁决（DEC-218 条件 go / DEC-219 外扩削减面）；自演进摩擦点复盘入账（EVD-1101 → FEAT-042/043/044/045 候选池）。④ **静态版本钉 bump 时点豁免 10 行登记**（`checks/version.py` STATIC_PIN_EXEMPTIONS）：2 行 = FIX-361 设计的 bump 双重信号（fixture 未来钉）；8 行 = 在途未跟踪批次文件（test_baseline_metadata.py ×6 / test_task_row_update.py ×2）——**baseline 面行号随在途批次实时编辑重锚过一次（2026-09-19），批次落库时 MUST 复核全部行号**（stale 豁免告警自动兜底）。⑤ **FEAT-049 属 0.86.0 批 0 前置**（DEC-220/221 轨道）：代码随本候选树入库、0.85.0 零行为消费——本段登记避免「CHANGELOG 与 git log 对照」缺口。⑥ **本版不发布什么**：0.86.0 架构演进全链（DEC-220/221——FEAT-042~047 候选池）、RISK-055 终态裁决（纯净复采未到期）、resident 4K arch 目标与 skill 层翻硬（0.86.0+ 候选）、FIX-363 非族 3 项（loop-runtime-claims 活体耦合）。⑦ **no-overclaim 边界**：official approval / marketplace approval / universal runtime support / external first-session pilot success 均未被主张；非 Windows 平台未验证，本版验收全部在仓库内与隔离 `DSH_HOME`（环境变量重定向至临时目录）下完成；RISK-036（官方收录与外部验证）继续打开，do not claim 1.0.0 production-ready。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无 MUST 规则删除/重命名、无 governance 文件字段格式变更；FEAT-050 翻 hard 属**门禁硬化**——既有预算线从 advisory 到 fail-closed 的强制化，判定方向与 0.84.0「注入预算判定姿态」MINOR 先例同域，L11 pre-1.0.0 括注「1.0.0 之前 Minor 可含有限 Breaking Change」覆盖〔DEC-216 semver 处置段同口径〕；B-1 契约变更保持升级路径兼容——旧安装整段替换零残留）。**MINOR bump 依据**：VERSIONING.md L12「新增 B/C 级自动化能力」（FIX-361 静态钉机检面 + FEAT-052 skill 层独立预算线 + FEAT-049 契约基座）+ L37（FEAT-041 入口模板协议变更——SKILL.md §B 明细承接结构变化）；非纯 bug fix（L38 PATCH 口径不适用）。版本号未占用预留（0.85.0 为 REL-081 承载版本，DEC-216 用户 M-0 裁定 MINOR 两批制）。
+
+版本投影 0.84.0 -> 0.85.0：由 M-1 统一执行——`release-projection --write` 写入 28 个 registry 投影面（5 plugin/marketplace + `package.json` + `core/manifest.json` + 4 hook `@version` + DSH persona 版本行 + `adapters/dsh/AGENTS.md.template` + `commands/governance-init.md` 三模板 `@bootstrap-version`（FEAT-041 契约 v2 后 canonical 标记 4→3，registry count 同步）+ fixture skill/plan + 12 个 fixture 命令面；二次 apply 幂等），`sync_entry_projection --write` 双根（repo-root + e2e-fixture），手工钉 `verify_workflow.py` `REQUIRED_SNIPPETS` 六个版本锚与 JSON 声明面一致，并按 FIX-361 bump 双重信号设计在 `checks/version.py` 登记静态钉豁免 10 行（P3-1 勘正：本段初稿误记 8 行，账本实测 1+6+2+1=10——EVD-1109 承载）。本段随候选打包提交落库，投影前 `check-version-consistency` 处于「CHANGELOG 已入 0.85.0 段而声明面仍 0.84.0」的**预期过渡态**（0.81.0~0.84.0 M-1 先例同型）；`.governance/plan-tracker.md` `工作流版本` 随发布收口由 Coordinator 更新（过渡态 WARN 如实呈现）。
+
+**发布时点**：本条目日期取发布时点（2026-09-19 +0800）；若 M-5 transition/tag 的 taggerdate 与之不同，按 FIX-349 口径（**taggerdate 权威**）勘误对齐，不预填未生成的 tag 事实。
+
+## [0.84.0] - 2026-09-19
+
+### 0.84.0 - **轻量入口 + 交互前置**：治理开销审计切片 A 全量落地（REL-080 / FEAT-032~040 / DEC-204~212 / RISK-052~058）
+
+0.84.0 是 **MINOR** 发布，承载 DEC-204（2026-09-18 用户会话指令预授权：「我授权 Coordinator 按照推荐进行这次优化，完成任务链之后发布新版本」；M-4 授权形态 = 预授权，**边界 = 预授权不免除门禁**——M-2 门禁实测与 M-3 双半面审查仍 MUST 满足，任一发布门禁 FAIL → 停止并升级用户）。版本目标：把 AUDIT-154 实测的三诉点（冷启动到首次 ask 4m31.8s~7m08s / 单轮输出 18.4K tok 注入 / 相当比例预算消耗在治理动作本身）在**切片 A（轻量入口 + 交互前置）**内收敛——AUDIT-154 立项 + FEAT-032~040 九任务全部闭环，对应 EVD-1071~1081。
+
+**治理成本埋点（FEAT-032，commit `564b7da`）**：新增 `governance-cost-report` 子命令（单命令 4.8s / 298 文件，<5s 验收线达标）——TTFA、进入实质工作时间、治理 token 分项（TTFT/解码/工具/并行口径分离）；TTFA p50=271.8s 逐值复现 AUDIT-154 §3.1，fast≡full 等价 298/298；37 单测 + 契约矩阵 85 键 + 0.83.0 基线快照 `docs/research/governance-cost-baseline-0.83.0.{md,json}`（后续切片验收有对照起点）；口径入 DEC-205（治理工具最小声明集；`time_to_work` 为治理开销**下界**并如实携带声明）。REVIEW-FEAT-032-CODE-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1073；RISK-052（活动语料时点漂移）。
+
+**只读 bootstrap 聚合命令（FEAT-033，commit `a5d678f`）**：新增 `governance-bootstrap`——单命令输出热数据投影（resolve envelope + 状态投影 + 候选 + migration 标志 + next_actions），**358ms / 4,937B / 42 测试**；四阶段预算钳制；`health` 恒 `deferred` 的诚实语义（未检查不显示绿色通过）；活体 parity risks 4==4。bootstrap 协议改为消费该命令——原「LLM 读热文件 19 次往返」路径降为 2~4 步的前提成立。R0 NEEDS_CHANGE（mirror 表扫描口径）→ R1 返工 → REVIEW-FEAT-033-CODE-R1 APPROVED_WITH_NOTES/0（机录 R0/R1）；EVD-1075；RISK-054。
+
+**首次交互前置（FEAT-034，commit `469fb57`）**：协议重排四处一致（`/governance` 决策树 / SKILL / bootstrap 模板 / M5.5 新条目）——快路径热数据就绪后**立即**进入首次交互，Step 2 交叉验证等深检**后置**（后置 ≠ 可选：推进类动作前 MUST 补齐）；健康面未完成时状态行显示「待检查」而非绿色通过。安全零削减（fail-closed 不变、深检后置 ≠ 跳过）。REVIEW-FEAT-034-DESIGN-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1076；数值验收尾巴结构化 → RISK-055（DEC-207①）。
+
+**迁移退出启动关键路径（FEAT-035，commit `df9e7db`）**：升级/归档/清理等迁移写操作**全部退出自动执行路径**，改为「提示 + 确认后执行」——ask 清单五类（含 cleanup **删除面**）+ C-2 步骤位置锁定 + D2 时序句 + D3 update.md 确认门 + D4 ADR-007 指针；正常启动路径零隐式写操作。「零用户行动」承诺的交互安全化权衡入 DEC-209（保留自动完成精神，放弃静默写）。R0 NEEDS_CHANGE（知情同意链缺口：删除面漏披露 + 双入口分叉）→ R1 返工 → R1 复审 APPROVED_WITH_NOTES/0（7/7 findings 响应）；EVD-1078；RISK-056。
+
+**Snapshot 双契约（FEAT-036，commit `38ff7d7`）**：默认交互视图收敛为 **8 字段**（推演 ≈260 tok ≤ 700 tok 验收线），完整 artifact 契约口径拆正并保留——20 字段 CLI snapshot（三载体：status 文本面 / `status --json` 20 键 / first-run-demo 断言 19）+ 4 pack doc-surface = **24 token 零删减**；权限风险 / FAIL / 证据缺失项**不隐藏**。载体裁决 = **不扩展 `governance-bootstrap`**（DEC-208：≤8KB 硬预算下 24 字段必触发裁剪）。R0 NEEDS_CHANGE（载体口径与引擎不符——继承性漂移）→ R1 返工 → R1 复审 APPROVED_WITH_NOTES/0（P0~P2 全零）；守护测试 4 marker + 24 反断言锁；pytest 858 + 五校验 PASS；EVD-1077。
+
+**双 bootstrap 去重（FEAT-037，commit `457a756`）**：新增 `infra/sync_entry_projection.py`——`commands/governance-init.md` Step 7 保持**唯一** canonical 模板源，主入口投影完整模板、次要入口投影生成的薄指针（≤40 行 / ≤3072B，保留最小存活检查）；`adapters/dsh/launch.py` 延迟导入复用同一函数（R2 反向依赖 47≤47 零新增）。AGENTS.md 引导段 **16,011B → 2,699B（-83%）**；双 apply 零 diff（幂等）+ 双面守护（repo-root + e2e fixture）。REVIEW-FEAT-037-CODE-R0 APPROVED_WITH_NOTES/0（机录；9/9 申报核实）；EVD-1074；P3×6 处置入 DEC-206 / RISK-053。
+
+**Scenario 按需加载（FEAT-038，commit `697689d`）**：`/governance` 命令入口拆为**路由层 + 九个按需文件**（`commands/governance/{scenario-a..f,bootstrap,overview,snapshot-schema}.md`）——入口 **49,889B → 11,702B（-76.5%）**，零语义丢失（逐行对照 A24~F120）⇒ Scenario D/F 会话不再加载 A/B/C 全文。manifest 投影 16→25；REQUIRED_SNIPPETS 补修（F-2 部分交付，AUDIT-082 死代码）。REVIEW-FEAT-038-CODE-R0 APPROVED_WITH_NOTES/0（机录，P0=0/P1=0）；EVD-1079。归属披露：本 commit 引擎/测试同时承载并行 FEAT-039 的同步产物（同树耦合，按 commit 内披露入账）。
+
+**注入预算门禁（FEAT-039，commit `512fd51`）**：新增 `check-injection-budget`——canonical 口径基线 **lightweight resident 4,288/6,000 PASS**；standard/strict 为 **ADVISORY**（DEC-210 出货姿态：余量未耗尽时硬 FAIL 零增益，且真正超限的 entry-skill 属 report-only 层）+ zstandard 显式断言（未安装不得包装为 PASS）+ `sha256_16` 漂移锚（每次必打印）。全域 55,214B（AUDIT-154 对照 **-50%**）。R0 NEEDS_CHANGE（切片越界 + 期望值误判经裁决推翻）→ R1 委托权威 extractor 返工 → R1 复审 APPROVED_WITH_NOTES/0（独立复算逐位吻合）；EVD-1080；DEC-210/211；RISK-057。
+
+**多平台回归 + 灰度开关 + 集成收尾（FEAT-040，commit `b537976`）**：新增 `behavior_profile.py`——env `GOVERNANCE_LEGACY_BEHAVIOR`（会话级）> plan-tracker `behavior_profile`（项目级）> 默认 `modern`；安全边界**三层机检**（回退表只允许 performance 类 + FEAT-035 只出现在不变量面 + 非干扰契约双臂逐面相等），取值非法不猜（按下一优先级执行并在 `behavior.invalid` 显式报告）。收尾 16 项（10 修 3 转跟踪）+ RISK-055 复验框架（`--ttfa-acceptance`）+ 多平台 **26 投影全绿**。R0 NEEDS_CHANGE（plan-tracker 臂无证据 + invalid 未进 next_actions）→ R1 返工 → R1 复审 APPROVED_WITH_NOTES/0（P0~P2 全零；59/32 计数争议由 Coordinator 复跑闭）；EVD-1081；DEC-212；RISK-055/058。归属披露：含 FEAT-038 漏提交的 4 个确定性同步产物（dirty4——HEAD 陈旧态修复，DEC-212⑥）。
+
+### Added
+
+- **`governance-bootstrap` 只读聚合命令（FEAT-033）**：单命令热数据投影（358ms / 4,937B），health 恒 `deferred` 诚实语义，四阶段预算钳制。用户视角：会话冷启动不再需要 LLM 逐段读热文件。
+- **`governance-cost-report` 治理成本埋点（FEAT-032）**：TTFA / 进入实质工作时间 / 治理 token 分项机读输出（<5s），0.83.0 基线快照入库。用户视角：治理开销从"累计量 1.6M 未解释"变成可机读对照的分项事实。
+- **`check-injection-budget` 注入预算门禁（FEAT-039）**：canonical 口径分项表 + `sha256_16` 漂移锚 + zstandard 断言；lightweight resident 4,288/6,000 PASS，standard/strict ADVISORY。用户视角：注入瘦身不再依赖自觉——有可机检的回弹防护面（口径与出货姿态按 DEC-210/211 披露）。
+- **行为灰度开关（FEAT-040）**：`GOVERNANCE_LEGACY_BEHAVIOR=1`（会话级）/ plan-tracker `behavior_profile: legacy`（项目级）一键回退**性能/编排**行为；`governance-bootstrap` 的 `behavior` 面即时显示生效形态（`profile`/`source`/`reverted`/`invariants`）。
+- **`infra/sync_entry_projection.py` 单源投影工具（FEAT-037）**：canonical 模板 → 主/次入口投影的确定性生成（幂等、零 diff、可机检），含 DSH 方言薄指针互认守护。
+- **九个按需 Scenario 文件（FEAT-038）**：`commands/governance/{scenario-a..f,bootstrap,overview,snapshot-schema}.md` + 路由层入口（-76.5%）。
+
+### Changed
+
+- **会话启动顺序（FEAT-034）**：快路径热数据就绪即 ask，深检后置（后置 ≠ 可选）；健康未检查显示「待检查」。
+- **升级/归档/清理写操作（FEAT-035）**：全部改为提示 + 确认后执行（五类写操作清单含删除面）；`/plugin update → 下次会话` 的用户操作不变，但升级不再静默写用户入口文件（DEC-209）。
+- **快照默认视图（FEAT-036）**：默认交互视图 8 字段（≈260 tok）；完整契约（24 token）保留在 artifact 面，不隐藏风险/失败/证据缺口。
+- **次要平台入口形态（FEAT-037）**：`AGENTS.md` 引导段由「完整模板副本」改为「canonical 生成的薄指针」（16,011B→2,699B，-83%）；双入口在场不再双份注入。
+- **`/governance` 命令结构（FEAT-038）**：全文单文档 → 路由层 + 按需加载（入口 -76.5%）。
+- **注入预算判定姿态（FEAT-039；DEC-210）**：lightweight resident 为硬门禁（PASS），standard/strict 为 ADVISORY 并登记回弹风险 RISK-057。
+
+### Fixed
+
+- **FEAT-040 集成收尾 16 项（10 修 / 3 转跟踪）**：FEAT-037 P3 全修、FEAT-038 P2-1/2/4 承接、FEAT-036 P2-3 fixture 漂移、DSH 方言互认（FEAT-037 P3-6 闭合）、legacy 快照声明化（`declared_legacy_snapshots` 10 条 + 可证伪机检 + census 守恒，DEC-212④）。
+- **FEAT-038 漏提交的同步产物（dirty4）**：4 个确定性工具产物的 HEAD 陈旧态随 FEAT-040 commit 修复（DEC-212⑥ 归属裁决）。
+- **`REQUIRED_SNIPPETS` 补修（FEAT-038）**：AUDIT-082 死代码面（F-2 部分交付）。
+- **FEAT-039 期望值误判纠正（DEC-211）**：切片边界收口到权威 extractor（嵌套围栏不截断），R0 的 fence-pair 期望值归档为误判，正式期望值 3,904 / 22,858 / 23,484 / 2,724 B。
+
+**行为变更（用户可感知，B-1~B-6 —— MUST 出现在升级说明）**：详见 `docs/release/feature-flags-0.84.0.md` §2。
+
+- **B-1**（FEAT-034·首次交互前置）：会话启动顺序改变——快路径热数据就绪即进入首次交互，交叉验证等深检**后置**；健康面未检查时显示「待检查」而非绿色通过。深检后置 ≠ 可选（推进类动作前 MUST 补齐），fail-closed 语义不变。
+- **B-2**（FEAT-035·迁移写操作确认门）：升级 / 归档 / 清理等迁移写操作不再随会话自动执行，改为「提示 + 确认后执行」（清单五类含 cleanup 删除面）；用户未响应前零写操作。
+- **B-3**（FEAT-036·快照默认视图）：默认交互视图 8 字段（≈260 tok），完整 artifact 契约（24 token）保留；权限风险 / FAIL / 证据缺失项不隐藏。
+- **B-4**（FEAT-037·次要入口薄指针）：`AGENTS.md` 引导段由完整模板副本改为 canonical 生成的薄指针（≤40 行 / ≤3072B；16,011B→2,699B）；行为约束以主入口 `CLAUDE.md` 为准。单入口工作区不受影响（仍为完整模板）。
+- **B-5**（FEAT-038·命令按需加载）：`/governance` 入口只保留决策树 + 当前场景投影，Scenario 文档按需读取——Scenario D/F 会话不再加载 A/B/C 全文。
+- **B-6**（FEAT-040·灰度开关）：`GOVERNANCE_LEGACY_BEHAVIOR=1` / `behavior_profile: legacy` 回退 4 项**性能/编排**行为（快路径→六段读取；首次交互前置→深检先行；8 字段视图→完整视图；Scenario 按需→预加载）。**安全语义不变量不回退**：升级确认门（FEAT-035）/ 异常不隐藏 / fail-closed（`resolved_root_ok == false` 即停）/ 真实环境防护 / 复审必达。
+
+**如实披露**：① **RISK-052~058 打开/登记**（成本口径时点漂移 / FEAT-037 P3 族 / 并行竞态 / 数值验收尾巴 / 既有测试失败 / 注入回弹 / resident +669 tok）；② **既有门禁披露项如实保留、不隐瞒**：Check 28s（`evidence-log ~1.5MB` 维持 DEC-140/FIX-171 披露口径）、Check 30 V2 ×2（FIX-246 与 REL-078 历史审查轮次连续性——0.83.0 发布时已存在，本版不新增）、Check 28o 残余（God-module 族真实 advisory，RISK-039 + 棘轮锚）、Check 28q `hooks_drift`（`prepare-commit-msg` 用户一次性命令移交中）；③ **发布任务 ID 归属**：DEC-204 授权链记 0.84.0 发布为 **REL-080**；plan-tracker 0.84.0 行曾登记 REL-079（与 2026-09-17 已发布的 0.83.0 REL-079 同 ID）——本版按 DEC-204 采 **REL-080**，plan-tracker 行更正由 Coordinator 收口；④ **注入成本上行**：本版 resident 注入 4,288→4,957 tok（+669 = 灰度开关协议文本，两轮压缩后仍余量 17.4%）→ RISK-058，0.85.0 模板瘦身承接；⑤ **no-overclaim 边界**：official approval / marketplace approval / universal runtime support / external first-session pilot success 均未被主张；非 Windows 平台未验证，本版验收全部在仓库内与隔离 `DSH_HOME`（环境变量重定向至临时目录）下完成，隔离验收不等于真实外部首会话验证通过；RISK-036（官方收录与外部验证）继续打开，do not claim 1.0.0 production-ready。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无 MUST 规则删除/重命名、无 Gate 行为语义破坏、无 governance 文件字段格式变更）。**无新增文件格式、无删除既有 CLI 命令、无删除既有开关**（0.83.0 既有开关与豁免账本语义未变；本版新增 3 个 CLI 命令 `governance-bootstrap` / `governance-cost-report` / `check-injection-budget` 与 1 个 opt-in 回退开关）。**MINOR bump 依据**：VERSIONING.md L12「新增 MUST 规则、新增子工作流/skill、新增 B/C 级自动化能力」+ L37「SKILL.md MUST 规则新增 → MINOR」——本版含 SKILL.md 行为协议变更（首次交互前置、迁移写操作确认门、快照双契约、灰度开关）与三项新增 CLI/检查能力，属规则/能力面变更（0.79.0/0.83.0 同型先例）；非纯 bug fix（L38 PATCH 口径不适用）。版本号未占用预留（0.84.0 为 AUDIT-154 切片 A 承载版本，2026-09-18 用户裁决立项，DEC-204）。
+
+版本投影 0.83.0 -> 0.84.0：由 M-1 统一执行——`release-projection --write` 写入 16 个 registry 投影面（5 plugin/marketplace + `package.json` + `core/manifest.json` + 4 hook `@version` + DSH persona 版本行 + `adapters/dsh/AGENTS.md.template` + `commands/governance-init.md` 四模板 `@bootstrap-version` + fixture skill/plan + 10 个 fixture 命令面；二次 apply `written: 0` 幂等），`sync_entry_projection --write` 双根（repo-root + e2e-fixture，二次 apply 全 `[SKIP]` 幂等），并手工钉 `verify_workflow.py` `REQUIRED_SNIPPETS` 六个版本锚与 JSON 声明面一致。本段随候选打包提交落库，投影前 `check-version-consistency` 处于「CHANGELOG 已入 0.84.0 段而声明面仍 0.83.0」的**预期过渡态**（0.81.0/0.82.0/0.83.0 M-1 先例同型）。
+
+**发布时点**：本条目日期取发布时点（2026-09-19 +0800；末位载荷提交 `b537976` = 2026-09-19 02:16 +0800）；若 M-5 transition/tag 的 taggerdate 与之不同，按 FIX-349 口径（**taggerdate 权威**）勘误对齐，不预填未生成的 tag 事实。
+
+## [0.83.0] - 2026-09-17
+
+### 0.83.0 - **治理健康收口 + 架构债批**：0.82.0 发布后收尾 → 存量治理数据卫生 → ArchGuard 判定面校准（REL-079 / FIX-348~350 / DEC-198~201 / RISK-051）
+
+0.83.0 是 **MINOR** 发布，承载 DEC-200（2026-09-17 用户预授权：「继续未完成的重构任务链……完成后发布对应版本」；M-4 授权形态 = 预授权，**边界 = 预授权不免除门禁**——M-2 门禁实测与 M-3 双半面审查仍 MUST 满足，任一发布门禁 FAIL → 停止并升级用户）。版本目标：/governance 健康基线 **33 → 21 issues** 收敛 + ArchGuard advisory 面判定校准（三红转绿）+ released 态门禁如实披露；不关闭 RISK-036/039/050，1.0.0 预留不动。
+
+**Check 10 M5 record-doc 白名单扩展（FIX-348，commit `57c6fc4`）**：`docs/requirements/**` 纳入 Check 10 M5 record-doc 白名单（DEC-198）——已交付设计文档属记录类文本，其 (a)/(b) 处置记录行（live 实例 `dsh-compat-design-0.81.0.md:292` R1 豁免到期处置）非 agent 运行时指令，`m5_option_list_no_auq` 启发式结构性误报消除（FIX-295 对 docs/release + docs/reviews 同类扩展的延续）；边界保持 PATH-CLASSIFICATION only（目录组件匹配，非裸前缀/非内容启发）、豁免必披露（[EXEMPT]，DEC-151 语义）、fail-closed 不弱化（其余 docs/ 子树全量扫描；前缀 trap `docs/requirements-notes.md` 永不匹配，测试锁定）；base `check_m5_compliance()` 字节不变。REVIEW-FIX-348-CODE-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1064。
+
+**存量治理数据卫生批（FIX-349，commit `bf7e25a`）**：① Check 5 ×13（EVD 字段 <10）与 ④ Check 17 ×14（历史 EVD 获得= 枚举外值补合法交付通道标注）**数据清零**；③ **Check 16 同 EVD fan-out 假阳修复**——同一证据行服务多需求不再被判为「模板复用」，live 假阳 **19 → 0**；⑥ **Unicode 行/段分隔符扫描制度化**——Check 14 新增子检查 6（8 字符族 × 5 治理热文件，含 U+000C），live U+000B 残留已清除；⑤ Check 28s（evidence-log ~1.5MB / 1498KB）评估完成 = 引擎行为正确（DEC-140 ledger 语义 + FIX-171 保守 live-ref 契约），不改 retention、维持披露口径；⑦ 日期异常勘误（EVD-1065——taggerdate 权威 2026-09-17，治理热文件全量对齐，归档范围解锁至 v0.82.0）；随批落账 DEC-199 / DEC-200 + REL-079 入账。REVIEW-FIX-349-CODE-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1066。
+
+**ArchGuard 判定面校准（FIX-350，commit `589e99f`；DEC-201）**：① module_size.exclusions 增 `project/**`（e2e fixture 投影镜像——预期重复，RISK-039 双写债登记，长期解 = 投影单源）与 `.governance/**`（宿主治理运行时数据，非产品代码），豁免 gate 经 `_archguard_exclusion_match` 单一实现扩展至 function_size / module_constants / duplicate_constant 四面（无豁免 schema 行为不变——负例测试锁定）；② duplicate_code.exclusions 采用三条**精确 source 路径**（infra/{`__init__.py`, resolve_entry.py, cleanup.py}），3 对镜像 dup 以 **[EXEMPT] 双面披露**（pair 计入 pairs_checked，不静默；archive.py 与 verify_workflow.py 两对镜像保持受检，机制不弱化）；③ release_docs_archive_threshold_versions **30 → 80**（74 版本现状——docs/release 全历史保留为蓄意策略，80 触及时归档评估出槽，未移动任何既有文件）；④ **ratchet 重锚 R1 24453 → 24583**（+130 = FIX-348/349 预存 +85 + FIX-350 +45）、R4 print 1299 → 1301（R2 不变，authored zone 原样携带）——重锚后七规则全 PASS + 套件 38/38（**三红转绿**）；⑤ 锁外两测试文件追认（DEC-201 ⑤：test_architecture_health.py +102 豁免正负测试 + test_archguard_ratchet.py +7 census 纪律配套）。REVIEW-FIX-350-CODE-R0 APPROVED_WITH_NOTES/0（机录）；EVD-1067。
+
+**治理健康收敛（如实披露）**：/governance 会话链 **48 → 34 → 33（基线）→ 21 issues**（33→21 为本窗口）——构成变化：Check 5/16/17/18/28p/34 清零；存量 21 项构成 = Check 28o 残余（产品源真实 advisory——God-module 族，RISK-039 登记 + 棘轮锚定）+ Check 28s ×1（evidence-log ~1.5MB 维持披露口径）+ Check 30 V2 ×1（= RISK-051，DEC-199 历史缺口如实保留）+ Check 28q hooks_drift（prepare-commit-msg 用户一次性命令移交中）。构成口径以 M-2 当场 /governance 输出为准。
+
+### Added
+
+- **Check 14 子检查 6——Unicode 行/段分隔符扫描制度化（FIX-349⑥）**：新增 8 字符族（含 U+000C）行/段分隔符扫描面，覆盖 5 个治理热文件，命中报 WARN。用户视角：EVD-890 实证的「不可见 Unicode 分隔符致扫描假阴性」根因从一次性手工修复升级为制度化机检面。
+
+### Changed
+
+- **Check 16 同 EVD fan-out 判定口径（FIX-349③）**：同一证据行服务多需求不再判「模板复用」——判定收窄方向为消除过报（行为变更 B-1，live 假阳 19→0）。
+- **ArchGuard 判定面校准 + 棘轮重锚（FIX-350；DEC-201）**：豁免 gate 四面扩展 + dup 三精确路径豁免（[EXEMPT] 披露）+ `project/**`/`.governance/**` schema 豁免 + release_docs 阈值 30→80 + ratchet 重锚 R1 24453→24583（行为变更 B-3）。
+- **Check 10 M5 record-doc 白名单扩展（FIX-348；DEC-198）**：`docs/requirements/**` 纳入白名单（行为变更 B-4）。
+
+### Fixed
+
+- **Check 16 live 假阳清零（19 → 0）**（FIX-349③）——「模板复用」误报不再出现。
+- **Check 5 ×13 / Check 17 ×14 数据清零**（FIX-349①④）——EVD 行字段补全 + 历史「获得=」通道标注。
+- **日期勘误（FIX-349⑦，EVD-1065）**——taggerdate 权威 2026-09-17，治理热文件日期全量对齐，归档范围解锁至 v0.82.0。
+
+**行为变更（用户可感知，B-1~B-4 —— MUST 出现在升级说明）**：详见 `docs/release/feature-flags-0.83.0.md` §2。
+
+- **B-1**（FIX-349·Check 16 判定口径）：同一证据行服务多需求不再判「模板复用」——live 假阳 19→0；判定收窄方向为消除过报，Check 16 其余判据不变。
+- **B-2**（FIX-349·Check 14 新扫描面）：新增 Unicode 行/段分隔符 WARN（Check 14 子检查 6；8 字符族 × 5 治理热文件——含 U+000C）；既有治理热文件 live U+000B 残留已清除，如实填写的治理数据预期零新增告警。
+- **B-3**（FIX-350·ArchGuard 豁免面与阈值）：`project/**` fixture 镜像与 `.governance/**` 不再进架构扫描（豁免 gate 四面扩展）；3 对镜像 dup 以 [EXEMPT] 披露；docs/release 版本数阈值 30→80（74 版本现状）；ratchet 重锚 R1 24453→24583、R4 print 1299→1301。
+- **B-4**（FIX-348·Check 10 M5 白名单扩展）：`docs/requirements/**` 设计文档中的 (a)/(b) 处置记录行不再误报为 agent 运行时指令（m5_option_list_no_auq 结构性误报消除）；其余 docs/ 子树全量扫描不变。
+
+**如实披露**：① **RISK-051 新登记**（低/已接受——FIX-246 V2 历史审查缺口：审查链仅有 R1 无 R0，报告与证据行均无 R0、归档亦无；Check 30 V2 唯一残留 FAIL 如实保留；DEC-199 (a) 裁决——不改写历史、不机器补造）；② Check 28o 残余 = 产品源真实 advisory（God-module 族——`verify_workflow.py` 24583 行单文件巨模块，0.59.0~0.64.0 渐进拆分路线未执行，模块内聚靠棘轮锚而非结构改善；RISK-039 登记 + 棘轮锚定）；③ Check 28s evidence-log ~1.5MB 维持披露口径（FIX-349⑤ 评估 = 引擎行为正确，DEC-140 / FIX-171 保守 live-ref 契约，随发布自然瘦身）；④ Check 28q hooks_drift = prepare-commit-msg 用户一次性命令移交中；⑤ RISK-036/039/046/050 维持打开（复评提案见 `docs/release/release-checklist-0.83.0.md` RISK 复评节——0.83.0 为内部治理健康收口版，外部验证/官方提交零进展）。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无接口删除/重命名、无默认行为破坏、无 Gate 语义或治理字段格式变更）；**无新增 CLI 命令；无新增文件格式**（B-1~B-4 均属既有检查面的判定口径修正/扫描面扩展/豁免披露；ArchGuard advisory 仍 fatal_on_error=false 为既有边界，本版不改变）。**MINOR bump 依据**：VERSIONING.md L12「新增 B/C 级自动化能力」（Check 14 子检查 6 新扫描面 + ArchGuard 豁免 gate 四面扩展）+ 判定规则扩展（Check 16 同 EVD fan-out 口径、Check 10 M5 白名单）——L37 同型先例（规则/能力面变更走 MINOR，0.79.0 同型）；非纯 bug fix（L38 PATCH 口径不适用——本批含行为语义变更与新增扫描面，非仅修缺陷）；路线图 0.83.0 行已入账（2026-09-17，REL-079 承载；DEC-200：REL-079 全仓零占用已核），无预留冲突。
+
+版本投影 0.82.0 -> 0.83.0：由 M-1 统一执行（`release-projection --write` 15 投影 + `@bootstrap-version` 标记面 + REQUIRED_SNIPPETS 版本钉）——本段随候选打包提交落库，投影前 `check-version-consistency` 处于「CHANGELOG 已入 0.83.0 段而声明面仍 0.82.0」的**预期过渡态**（0.81.0/0.82.0 M-1 先例同型）。
+
+## [0.82.0] - 2026-09-18
+
+### 0.82.0 - **dsh 兼容性适配全量收尾**：引擎版本锚参数化 → 归档/审查引擎完整性 → 扫描器收口 → 渲染面/守卫/收集面 → 数据资产与派发纪律（REL-078 / FIX-312~314 / FIX-320~326 / FIX-332~337 / FIX-339 / FIX-341~346）
+
+0.82.0 是 **MINOR** 发布，承载 DEC-195（2026-09-16 用户裁决：FIX-339 = (a) 真修；0.82.0 = **全量范围**——「把 dsh 兼容性适配全量收尾，然后发布对应版本承载这个修复」授权链的落版本）与 DEC-197（推进方式 = 标准链：M-0 prep → M-1 候选打包 → M-2 门禁实测（安静窗 850 复跑）→ M-3 双半面审查 → M-4 用户停点逐项授权 transition/tag/push → M-5~M-8）。版本目标：发布门禁基线 hot fact source 假阳清零 + 既有披露项收敛 + 红基线清零后的安静窗复跑。
+
+**引擎事实源——版本锚参数化（FIX-339，commits `8bd6a8a`）**：`check_hot_fact_source_consistency` 的活动版本锚从 `FIX_087_*` 硬编码常量改为从 `## 项目配置` 的「工作流版本」派生（fail-closed：锚缺失/不可解析 ⇒ 恰 1 条 FAIL，不崩溃不误报）——消除 0.38.x 插件域断言与已发布事实互斥的 **9 条假阳**（`hot fact source` 假阳清零，REL-077 主路径实证）；review 链 R0→R1→R2（REVIEW-FIX-339-CODE-R2 APPROVED_WITH_NOTES/unresolved_blockers=0，机录 R0/R1/R2）。**行为变更 B-1/B-2/B-3**（见下）。承转：F-R1-02 的 0.82.0 锚 missing-active-task 过报族（2 假 1 真 + 数据演进新增）= **已声明的 fail-closed 过报**，REL-078 prep 期由数据面消化（处置提案见 release-checklist §F-R1-02）。
+
+**归档/审查引擎完整性**：**FIX-341** `28690dd`（tpa 依赖解析查归档索引——`parse_archive_index_completed_ids` 纯解析器 + 判定序「热表权威→归档完成集→fail-closed」，四伪阻塞解锁；翻转前置 = FIX-343 数据回填）+ **FIX-343**（治理数据批：10 行归档任务行回填 + DEC-187 归属更正 v0.77.0→v0.80.0 + tpa 假阻塞池清零 + check-archive-integrity PASS 守恒）；**FIX-312** `7bb102b`（归档引擎决策归属判据——关联任务列 governing refs 全部已归档才可迁 + 归版取最新 + 短行 fail-closed，消除「新决策因引用历史已归档 task 被误迁出热文件」）+ **FIX-342** `f73bef7`（防御面四子项：否定-完成复合词 ×5 + canonical 11 列 fallback + header 区扫描 + 缓存升级；真实数据五重零翻转指纹）；**FIX-345** `2466a80`（authority source records 归档感知重锚——**行为变更 B-6**；product_release BLOCKED→PASS，loop-claims 语义面双模式全绿）；**FIX-314** `a260637`（review_record 唯一键扩展——**行为变更 B-5**；M-3 双审模型在 CLI 面可表达）+ **FIX-344** `f73bef7`（Check 30c 文件通道后缀感知三盲区修复 + V8 借查假 WARN 消灭——第二半面 NEEDS_CHANGE 不再产生假「复审义务不可机读」）。
+
+**扫描器/身份门禁**：**FIX-320** `0462f3b`（既有身份门禁阻塞的处置 (b)——loop-claims **豁免账本** `core/loop-runtime-claim-exemptions.json`：**行为变更 B-4**；installed_host BLOCKED→PASS）+ **FIX-322** `0462f3b`（K-2 包名类 `findall` → **整串判定**（match 锚定 + rest 空/`/`子路径/`@`版本 tag 三前缀归属），字符串内引用未申报包名不再误报；Check 28w K-2 literals 0/11 保持）。
+
+**渲染面/守卫/收集面**：**FIX-323** `0a13b21`（dsh_compat 渲染面收口——F-01 fail-soft 守卫降级（同源证明判定不可吞）+ F-02 UNKNOWN fail-closed + F-03 渲染单源化）+ **FIX-325** `0a13b21`（删零捕获力自证式用例 → **3 条真守卫**：EEXIST 熔断/碰撞换名重试/CWD 退化反相（registerHooks 真故障注入）——**行为变更 B-8 限定语**；F4 孤儿 staging 权衡 + F5 注释登记于 `lib/index.js`）+ **FIX-336** `0a13b21`（discover 收集面缺陷修复——`_HERE` sys.path，`test_dsh_compat` 126 用例恢复被收集：**行为变更 B-7 计数口径**；FX-BASEURL-01 slice V2→V8 连带更正 = FIX-326② 顺带完成）；**FIX-313** `845c050`（**DEC-196 方向更正交付，产品零变更**——原处方「JS `\r\n?` 折叠孤立 CR」作废（D-66 已由 FIX-316 反方向收口，两侧均保留孤立 CR 且 compat 契约测试钉死），改以**跨渲染器孤立 CR 同哈希 parity 测试**（三组变异双向红）达成验收本义 + `lib/index.js` 注释真实性 + catch 自清理 vs F4 孤儿 GC 权衡显式区分）；**FIX-346** `845c050`（测试性能预算重定标——空闲定标 p50×1.5：median 8.0→27.0s / timeout 15→26s，减半反相双红；identity/verdict 断言逐字未动；**红基线清零：test_verify_workflow 850 OK exit 0 + loop 60 OK**）。
+
+**数据资产/派发纪律**：**FIX-332** `21121c5`（过期数据资产收口——金丝雀 `resolved:true/resolved_by` 登记（优于删除，FIX-330 F-5 披露保全）+ 两 requirements 文档收口注记（历史正文零改动）+ DEC-194 补记落账）+ **FIX-333** `3bdf28f`（write-guard 非 UTF-8 边界全面收口——四面 + 写后校验两面 + Check26 一致性共 **7 处** UnicodeDecodeError 捕获扩面（精确变体），「Never raises」契约全面兑现，6 条 GBK 反相全绿）+ **FIX-337** `21121c5`（派发纪律硬化——agent-dispatch-template 隔离变量名 `$tmpHome` 规范 + 禁 `$HOME` 赋值 + 正负相示例 + incident 引用 + 机检提示；RISK-046 同族事件的结构性预防）。
+
+**发布治理面（M-0 prep，REL-078）**：本 CHANGELOG 段 + release 三件套（`docs/release/release-checklist-0.82.0.md` / `feature-flags-0.82.0.md` / `rollback-plan-0.82.0.md`）+ **FIX-324/326 并入**（adapter-manifest.json 登记 `dsh-doctor` 诊断入口〔FIX-326①，设计 §2.9.4〕；host-contract.json 三处 evidence.* 写入路径 note 按 as-built 更正〔FIX-326③：`--record-evidence` 只写 factsheet，契约内值由维护者在受审提交中回填——DEC-193 口径；`recording.writer` 字段与钉扎测试未动〕；FIX-326④ S5 授权模式核实一致无需动作；FIX-324/326 逐项处置报告见 checklist）+ **日期炸弹测试修复**（`test_change_triage` CLI 用例 `created_at="2026-09-10"` 硬编码 → 与 CLI 子进程同一真实时钟源派生当日——0.81.0 Gate 10 #6 的必红形态（`'WARN' not found in ''`）修复，红→绿 + 注入时钟（2027/2030）任意日期绿实证）。commit hash ⟦M-1 冻结回填⟧。
+
+**行为变更（用户可感知，8 项 —— MUST 出现在升级说明）**：详见 `docs/release/feature-flags-0.82.0.md` §2。
+
+- **B-1**（FIX-339·进行中面放宽）：`check-hot-fact-source` 的进行中面**不再断言 roadmap 行必须含「进行中」字样**——仅保留「不得虚写已发布」；活跃版本行写「规划中/待启动」不再报（REVIEW-FIX-339-CODE-R0 F-04 有意放宽：与锚参数化目标一致，无虚报风险）。
+- **B-2**（FIX-339·已发布面 fail-closed 收紧）：未发布版本的「自称已发布」防护收窄为**双判据**——REL 行仅在其**目标版本列**含锚版本 token（精确或「X.Y.Z 或后续」形态）或**事项格以「发布 <版本>」头形态**开头时才抬 released face；叙事格/依赖格/状态格的裸版本提及**永不抬面**（REVIEW-FIX-339-CODE-R1 F-R1-01：修复前「任意格 OR 累积」在叙事提及形态下 5→1 逃逸）；「无交付 REL 行佐证而自称已发布」= 显式 FAIL。
+- **B-3**（FIX-339·REL 归属识别放宽）：REL 行识别从「目标版本 cell 精确相等」放宽为**任意格召回**——目标列错位（如日期占位，0.81.0 的 REL-077 行实形态）或「X.Y.Z 或后续」前缀形态不再被静默跳过；识别宽度增加的方向为过报（fail-closed），经 12 项边界探针验证（词界守卫无前缀渗透；`发布：0.81.0` 全角冒号变体不识别 → 过报方向）。
+- **B-4**（FIX-320·豁免披露机制）：`check-loop-runtime-claims` 新增**豁免账本**（`core/loop-runtime-claim-exemptions.json`）——4 条九键豁免（3×UNSUPPORTED@`review-FIX-300-CODE-R0.md` 0.66.1 期历史报告 + 1×AMBIGUOUS@checklist-0.81.0，裁决扩面），digest/ID/键面三锚 fail-closed（防篡改三反相全复活）+ 五元组全键匹配 + `exemptions_applied` 审计披露；**真实漂移不豁免**（product_release 的 2×AUTHORITY 漂移仍 FAIL，由 FIX-345 重锚收口）。`installed_host` 模式 BLOCKED→PASS（0 findings / 4 披露）。
+- **B-5**（FIX-314·键面语义）：review_record 唯一键 **(task, round) → (task, round, reviewer)**——同 task 同轮两位审查方各得一条记录（canonical-first 命名：首位审查方保留 canonical 名，同轮他方派生 `-{slug}` 文件与镜像行 ID）；FIX-289⑤「不静默覆盖」语义保持（三键守卫，force 备份留痕）+ 旧格式字节级不可变 + commit-msg hook / Check 30 兼容。
+- **B-6**（FIX-345·authority 锚位置变更）：authority source records 双锚位置变更——DEC-104 锚 → `.governance/archive/decisions/decisions-v0.1.0-0.78.0.md` L289（归档决策行）、AUDIT-133 锚 → `docs/requirements/loop-engineering-post-implementation-audit-0.66.0.md` L3（审计报告本体，免疫归档迁移）；治理化重锚（不静默改锚，双锚 lockstep：代码常量 + authority JSON），断锚 fail-closed 三形态（MISSING/OCCURRENCE/DIGEST）负例锁死。
+- **B-7**（FIX-336·全量计数口径）：全量测试基线计数 **2983 → 3193**（FIX-336 期实测；M-0 prep 复测 pristine `845c050` = **3200**，TestLoader discover 口径——见 release-checklist Gate 10 注记，M-2 以当场值为准）——`test_dsh_compat`（126 用例）在 discover 口径下恢复被收集，M-2「全量测试基线」恢复真全量语义。
+- **B-8**（FIX-325·G-04 CWD 守卫环境限定语）：`lib/index.js` CWD 退化反相守卫经 **Node ≥22.15** 的 ESM `registerHooks` 真故障注入交付（仓声明 engines≥20 ⇒ 旧引擎上该守卫按 skip/NOT_RUN 政策处理）——发布注记 MUST 携带该限定语，**不得声称全引擎覆盖**（开发机 Windows Node v24.13.1 真跑 0 skip）。
+
+**如实披露**：① 候选期曾出现 1 条 accounting（ragged table）项——`REVIEW-FIX-333-CODE-R0` 报告行内代码**尾反斜杠转义闭合反引号**陷阱（accounting fail-closed 契约内行为，引擎零缺陷）；已于 M-2 triage 单字符消解（loop-claims 双模式 PASS），该陷阱已两次命中（FIX-333-R0 / REL-078-R1），登记为评审文档生成面守卫候选任务；② FIX-346 性能预算重定标为**单机定标口径**（空闲环境三轮 p50×1.5；跨机/负载分层的预算演进未含在本版，环境变量覆盖通道语义不变）；③ **RISK-050 维持打开**（dsh 上游内部面耦合，截止 2026-10-31）——本版不声明关闭；0.82.0 窗口对 dsh 交付面为**注释级零行为变更**（`lib/index.js` 仅注释，渲染产物字节不变）。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无接口删除/重命名、无默认行为破坏、无 Gate 语义或治理字段格式变更——B-1~B-3/B-5 为检查判定面语义修正（误报消除 + fail-closed 收紧），B-4/B-6 为披露机制与锚治理，B-7 为计数口径恢复真全量，B-8 为守卫覆盖面的如实限定；均属 MINOR L12「判定规则扩展 + 主题里程碑」承载面）。**MINOR bump 依据**：L12 三支触发——判定规则扩展（hot fact source 面切换语义 / review_record 三键 / Check 30c 后缀感知 / K-2 整串判定 / loop-claims 豁免账本）+ 主题里程碑（dsh 兼容性适配全量收尾，DEC-195）；VERSIONING.md 契约面条款（evidence.* 写入路径 note 治理化更正——FIX-326③）。
+
+版本投影 0.81.0 -> 0.82.0：由 M-1 统一执行（`release-projection --write` 15 投影 + `@bootstrap-version` 标记面 + REQUIRED_SNIPPETS 版本钉）——本段随候选打包提交落库，投影前 `check-version-consistency` 处于「CHANGELOG 已入 0.82.0 段而声明面仍 0.81.0」的**预期过渡态**（0.81.0 M-1 先例同型）。
+
+## [0.81.0] - 2026-09-13
+
+### 0.81.0 - **dsh 宿主兼容性体系化**：依赖面全量清点 → 单一契约层 → 五切片落地 → 单点诊断（REL-077 / AUDIT-153 / FEAT-028~031 / FIX-311~317 / FIX-319 / FIX-321）
+
+0.81.0 是 **MINOR** 发布，承载用户 2026-09-13 的诉求：**「dsh 升级适配之后出现大量的兼容性问题，需要针对插件的兼容性设计进行系统性的分析设计和实现，直到兼容性实现闭环并发布对应版本」**，以及四条硬要求：
+**① 尽可能减少对 DSH 宿主的依赖；② 必须的接口和字段依赖解耦、单独维护；③ 依赖代码严格校验与看护；④ 依赖边界可调测（第一时间发现 + 低代价适配）**。授权链：DEC-189（架构）/ DEC-190（范围 = 全量 V1~V8+V10 入槽 0.81.0 + 真机验收路径 + 发布预授权）/ DEC-191（必要依赖 72 条；`compat_range` 取值推 V8）/ DEC-192（夹具迁移授权 + K-2 allowlist 0/0）。
+
+**第一步 — 把"依赖什么"变成事实（AUDIT-153）**：`docs/requirements/dsh-host-dependency-inventory-0.81.0.md`（801 行）逐点清点 **D-01~D-100** 宿主依赖点、**G-01~G-18** 缺口（**逐条实测复现**，含"零校验却报 PASS""group 名静默不校验""非 UTF-8 穿出公共入口"等）、**C-1~C-25** 约束与 **R-01~R-19** 风险。三类归并结论：可消除 4 / 可弱化 26 / **必要 72（fail-closed 超集，逐行复算）**。
+
+**第二步 — 把"如何依赖"固化为可机检架构（FEAT-028 / ADR-018）**：`docs/requirements/dsh-compat-design-0.81.0.md`（1023 行）+ `ADR-018`（280 行）确立单一机器可读契约 `adapters/dsh/host-contract.json` + 访问器 `infra/dsh_contract.py`，并立下不变量 **「可信面 ≤ 校验面」**：**零校验 MUST NOT PASS**；契约缺失/畸形按 §2.5.1 三态降级（`NOT_RUN` / `FAIL`），**刻意不保留内联回退副本**（J-4：保留即第二事实源）。看护面 = **K-1~K-13**；诊断面 = **S0~S7** 单点入口 `dsh-doctor`；升级演练 = `--rehearse` + `host-facts-<v>.json`。
+
+**第三步 — 五切片落地（V1~V8 + V10）**：
+- **V1** `FEAT-029`（契约数据层：契约本体 2456 行 + 访问器 + 自校验测试 + 夹具发射器）+ `FIX-317`（审查收口：编码错误分类 / `recorded` 值校验 / 切片归属 / 覆盖声明）；
+- **V2** `FEAT-030`（消费方改读契约：`lib/index.js` / `launch.py` / `dsh_compat.py` 三侧绑定；K-2 静态扫描把"契约外硬编码"变为可机检 FAIL；**行为保持**经三路径渲染 sha256 证明）；
+- **V3** `FIX-315`（**零校验不得 PASS**：`rows_checked==0 ⇒ NOT_RUN` + `coverage` 块 + kind 驱动上屏，消除 28v 对 5/23 零 schema 行"假绿 + 不上屏"）；
+- **V4** `FIX-311`（group 语义与 **loader 真实源码语义**对齐：G-02 group 名校验 + G-03① 自身 `disabled` 短路 + G-03② 消除子行**连带假阴**；G-18 分类自检与显式白名单）；
+- **V5+V6+V7** `FIX-316`（渲染/解码守卫 G-05/G-07/G-10、死代码 D-50/D-56、行尾 D-66；`DSH_HOME` 两实现收敛（20 例矩阵 0 分歧）+ 探测侧保持 fail-closed；版本字面量在授权声明面归零 + `--smoke` 断言事实化 + **写入守卫对称化**）；
+- **V8** `FEAT-031`（Check 28w `check-dsh-boundary` K-1~K-13 + `dsh-doctor` S0~S7 + `host-facts` 升级演练 + registry 接线 + 两次 `--regen`）commit **`3074120`**（18 文件 / **+7232**；审查链 **REVIEW-FEAT-031-CODE-R0 APPROVED_WITH_NOTES/0 → R1 APPROVED_WITH_NOTES/0**，发布条件 F-02/F-03 已闭环；EVD-1030/1032）；
+- **V10** `FIX-313`（`lib/index.js` 清理路径的所有权判据重写：非递归 `mkdirSync` + EEXIST 换名重试（不删）+ 仅创建成功才置 `stagingCreated` + 只删已证明属己的精确路径 + 无证明则不删并告警 + 8 次熔断，消除「按名前缀误删同名用户目录」与「误删 CWD 同名目录」两类破坏）commit **`61b571c`**，实际改动面 **+66/−13 行**（`lib/index.js` 产品代码；连同审查报告与适配器测试共 3 文件 **+329/−13**）；**REVIEW-FIX-313-R0 APPROVED_WITH_NOTES/0**；EVD-1028；**验收① 由独立审查的故障注入复现成立，机器守卫待 FIX-325**。
+
+**并行收口**：`FIX-319`（Check 18c 判据把 markdown 粗体 `**` 当通配符 ⇒ 每个含粗体的活跃任务 packet 都假 FAIL；修复后真实语料 3/3 误报消除 + 9 条宽范围反证仍 FAIL + **192 条穷举放宽面 0 例外**）+ `FIX-321`（粗体剥离的**双侧 run 边界**守卫，防 glob 串被洗白）。
+
+**发布目标**：兑现"依赖最小化 / 单点维护 / 严格看护 / 可调测"四条要求，并把 dsh 适配从"散落的隐式依赖"收敛为"**一份契约 + 一个访问器 + 一套机检看护 + 一个诊断入口**"，使未来 dsh 升级的适配成本与发现时间都可控。
+
+**行为变更（用户可感知，2 项）**：**B-1** `--install` 对缺失/不可读 `package.json` 由 `rc 0`（写占位版本 `"0"` ⇒ 每次启动重建预设）改为 **`rc 1` 拒绝**；**B-2** 真实 home 形态的 `DSH_HOME` 下 `--install`/`--sync`/`--uninstall` 由可用改为 **`exit 2` + `[REFUSED]`**（`--dry-run` 仍放行，只读预览）。详见 `docs/release/feature-flags-0.81.0.md`。
+
+**如实披露的既有失败**：`check-loop-runtime-claims` 语义面 **BLOCKED**——3 条 `UNSUPPORTED_AFFIRMATIVE` 全部落在**既有**的 `docs/reviews/review-FIX-300-CODE-R0.md`（0.66.1 期引入，**非本版引入**）⇒ 登记为 **FIX-320**，本版处置 = 如实披露，不阻断发布。
+
+**风险**：**RISK-050**（dsh 上游内部面耦合）本版把依赖面枚举 + 契约化 + 零校验门禁 + 单点诊断 + 升级演练**前移**，**不声明关闭**（截止 2026-10-31 继续观察）。
+
+**真机验收**：`docs/release/real-machine-acceptance-0.81.0.md` 三项由用户手动执行并回贴；**回贴前 release 文档 MUST NOT 声明真机项通过**，未回贴项标「未验证」。
+
+**Breaking changes：无**（`skills/software-project-governance/core/VERSIONING.md` L11 口径：无接口删除/重命名、无默认行为破坏、无 Gate 语义或治理字段格式变更）。**行为变更（升级须知，2 项）**：**B-1** `--install` 对缺失/不可读 `package.json`：`rc 0`（写占位 `"0"`）→ **`rc 1` 拒绝**；**B-2** 真实 home 形态的 `DSH_HOME` 下 `--install`/`--sync`/`--uninstall`：可用 → **`exit 2` + `[REFUSED]`**（`--dry-run` 仍放行，只读预览；**拒绝面覆盖任何解析后落在真实用户 home 之下（含其父目录）的 `DSH_HOME`**——真实环境手工安装 MUST 先把 `DSH_HOME` 重定向到临时目录）。详见 `docs/release/feature-flags-0.81.0.md` §2 与 `docs/release/release-checklist-0.81.0.md` 的「行为变更」段。
+
+版本投影 0.80.0 -> 0.81.0（`release-projection --write` 全量投影 + `@bootstrap-version` 标记面 + `REQUIRED_SNIPPETS` 版本钉）。
+
+## [0.80.0] - 2026-09-12
+
+### 0.80.0 - 0.80.0 重构线 P1 首批（契约层 / 轻量注册 / quick-scan 两切片）+ **dsh 适配层零侵入改造三连**（REL-076 / FEAT-021~022 / FEAT-025~026 / FIX-303~305 / FIX-307~310）（MINOR）
+
+0.80.0 是 **MINOR** 发布（用户 2026-09-12 指令「发布新版本承载这次修改」；三任务在 plan-tracker 中的目标版本即 0.80.0），把 `v0.79.0`（= transition `17eda48`）之后已合入的 **21 个 commit** + 本候选 commit 打包成发布候选——窗口核定 `git log v0.79.0..HEAD`（M-1，2026-09-12）。窗口内含两条独立主线：
+
+**主线一 — 0.80.0 重构线 P1 首批**（前一会话交付）：**FEAT-021** `906b209`（最小契约层 L0：CheckID/CommandKey/Finding/CheckResult/CheckSpec + 四端口 Protocol + fail-closed 构造校验，87 测试）、**FEAT-022** `36f2040`（轻量注册与按命令加载：`infra/registry.py` 897 行命令/Check 注册表 + 受控 loader 白名单 + 导入期 join 守卫，71 测试）、**FEAT-025** `504cc8f`（quick-scan Slice-1 检查段事实源注册表）、**FEAT-026** `2a5e9ec`（quick-scan Slice-2 编排器 + 四态契约 + shadow 通道）、**FIX-303** `4fcc354`（FEAT-021 R0 遗留批 F-1~F-13 闭环）、**FIX-304** `d6d12e8`（FEAT-025 R0 遗留批 + G-1 显式入参守卫）、**FIX-305** `ebb2dce`（FEAT-022 R0 遗留批）、**REL-075 回填** `e9facf5`，以及审查报告入库 commits `4e4de2b`/`3da4e14`/`70773da`/`c87c47d`/`f87b2fc`/`e143508`/`9410f80`/`e74c0a1`。
+
+**主线二 — dsh 适配层零侵入改造三连**（本会话交付；用户 2026-09-11 反馈「dsh 升级版本之后安装会导致 dsh 异常／预设页崩毁／开不了新会话」触发）：
+- **FIX-307** `4998c6d`+`73e04e5`（0.1.5 接入兼容性修复：`skill-filesystem` UPDATE 行补 `disabled:false`；**本次改造已把该 UPDATE 行整体删除**）
+- **FIX-308** `031f0fa`（根因：`@deepseek-ai/dsh-persona@0.1.5-rc.2` 声明 `prefix: z.string().required()` 而本仓 persona 行使用 `text` ⇒ 单行 config 校验失败**否决整棵预设挂载**（真机实测 entries 0 → 1），致新会话无法创建 + 预设面异常；缺陷自适配器首批提交潜伏、从未被真实执行）
+- **FIX-309** `94c0a61`（新增 **Check 28v** `check-dsh-preset-compat`：用**真实安装的 dsh 插件 Config schema** 逐行校验预设组合，不复制任何 schema——"不复制"经独立遮蔽实验证明（改写已安装 persona 的键名，判定随之翻转）；审查链 R0 NEEDS_CHANGE/1 → R1 APPROVED_WITH_NOTES/0；NEW=0 由两位审查方各自独立复现）
+- **FIX-310** `5a259e2`（**零侵入改造**，参照用户已跑通的 `dsh-novel-writing`：`cordis.patch.yml` 由「两条 UPDATE 打 dsh 内部行 + 3 处 `!!js` 解析 `process.argv`/扫 `$DSH_HOME/profiles` 自定位」收敛为**单行 `- insert:` 命名本包自己的行**；新增宿主行 `lib/index.js`，唯一职责 `ensurePreset()` 把组合模板**渲染为绝对路径**写入 `$DSH_HOME/.agent-presets/governance/`（幂等、staging+rename、失败只 warn）；`presets/` 与包内模板重复面退役；移除死字段 `dsh.skills` 及其守卫扇出 —— 该字段经全量核实 dsh 核心从不读取）
+
+**架构不变量（DEC-187，2026-09-12 用户裁定，永久生效）**：**I-1** 禁止任何侵入式修改宿主行为的做法；**I-2** 禁止让宿主产生对本插件的反向依赖；**I-3** 本插件对 dsh 只允许正向依赖（dsh 变更由我方适配，绝不通过覆盖宿主内部行来「兼容」）。**机检判据（DEC-188 ② 澄清）**：`dsh --profile <p> --dump-config` 安装前后，**既有**宿主行的存在性 / `config` / `disabled` 与任何宿主平面注册表内容**零变化**，组合 entry 列表**恰多一行且该行只命名本包**——**不是**「与未安装时逐字节等价」（后者在「官方 `dsh plugin add` 零手工步骤即交付预设」同时成立时不可满足：那一行正是官方安装命令的交付载体，参照实现 `dsh-novel-writing` 同形）。FIX-310 即按此不变量重做：**宿主既有行零触碰**（不改任何既有行、不注册全局 provider / 服务 / 工具、不声明 `system`-trust 预设根、无 `!!js` 自定位）；交付物为**恰一行自有 `- insert:`** + 该行模块 `lib/index.js`（唯一动作 `ensurePreset()`，warn-only）。
+
+发布目标：兑现 0.80.0 重构线的 P1 首批落地，并把 dsh 适配层从「打补丁改 harness 私有行」迁移到「bundle 单行 insert + 文档化的公开机制」，**消除 RISK-050 的一条腿**（上游内部行 UPDATE 面 + `!!js` 自定位面退役——FIX-307 与 FIX-308 两次事故同源）。**范围限定**：RISK-050 的**另一条腿未消除**——组合仍绑定 23 个 `@deepseek-ai/dsh-*` 行的 Config schema（含 `dsh-persona.config.prefix`），dsh 再改这些行的 schema 时同类漂移仍会发生，该腿由 **advisory 级 Check 28v** 前移到 CI（护栏，非消除）；因此**不声明 RISK-050 关闭**，收口待真实环境验收 + 复评窗。**Breaking changes**：dsh 安装形态变更——预设由包内 `system` 根发现改为由本包宿主行**供给到用户预设根**（设置页显示为**自定义**预设，可删除 / 可打开目录）；`package.json` 移除死字段 `dsh.skills`；`presets/` 目录删除。**其它五个适配层与核心规则零改动**（`skills/*/SKILL.md`、`commands/`、`agents/` 仅路径引用同步）。RISK-050 关闭路径已由本次改造完成**部分**结构性交付（另一条腿见上），收口待真实环境验收；RISK-036/RISK-039 不关闭。
+
+版本投影 0.79.0 -> 0.80.0（`release-projection --write` 15 projections + @bootstrap-version 标记面 9 行 + REQUIRED_SNIPPETS 6 版本钉）。
+
+## [0.79.0] - 2026-09-10
+
+### 0.79.0 - 降噪第二波/规则判定能力批 + RISK-049 关闭三件套 + RISK-046 根因修复 + 治理数据归档迁移 + 0.80.0 重构线 P0 前置波（REL-074 / REL-075 / FIX-291~297 / FEAT-011~017 / FEAT-018~020 / FIX-299~302 / FX-195 / AUDIT-149~152 / DOC-003）（MINOR）
+
+0.79.0 是 **MINOR** 发布（M-0 用户裁决确认，DEC-177 ⑧——VERSIONING L12 三支触发 + L37 契约面），把 `v0.78.1`（= transition `6b5e7bf`）之后已合入的 **34 个 commit** + 本候选 commit 打包成发布候选——窗口核定 `git log v0.78.1..HEAD`（M-1，2026-09-10；version-plan-0.79.0 §0 待验证项①闭环）：**REL-074** `ff4bd43`（0.79.0 版本规划定稿——M-0 DEC-177 裁决 + 规划期双审）、**FIX-291** `5c630d7`（W-7/BC-7 + FIX-281 判定面①⑧——Check 30 历史格式迁移 + 30c 机器行分类 + 终态 marker 集扩展，双审终态）、**FEAT-014** `f473ace` / **FEAT-015** `0996d6d` / **FEAT-016** `213fbba`+`ce7fa79`（RISK-049 关闭标准①②③三件套）、**AUDIT-149** `8b9c835`（健康 117 issues 构成诊断）、**FIX-292** `c91d705`+`1d3d973`+`58f8e9f`（DEC-181 范围核增——18c~18i 执行包活跃判定谓词对齐 + 报告表格修复）、**FEAT-011** `e90ed17`（G3 扩展——governance-write-guard 写时守卫）、**FIX-297** `b8f6ca3`+`fe2faca`（M1.2 MUST + SKILL 分级口径 + e2e 投影同步）、**FIX-294** `76f67bd` / **FIX-295** `fc1b739` / **FIX-296** `3cbdc92`（降噪批：Check 36 R3 归档 ID 解析 / Check 10 M5 扫描面收窄 / execution-packet data-loss footgun）、**AUDIT-150** `2be00ec`（系统性架构检视 + 0.80.0 重构演进规划——DEC-183）、**AUDIT-151** `61ef056`（测试收集关系调查与全量基线）、**FIX-299** `1cda292`+`90140cc`（cmd_check_release 恒 exit 1 修复——DEC-184② 核增 0.79.0∥）、**FIX-300** `e994c7a`（Check 31 身份子相位口径差——DEC-184② 核增 0.79.0∥）、**FEAT-017** `c6026ce`（post-commit 面板接线 write-guard）、**FIX-302** `72ccc89`（canonical 措辞同步）、**FEAT-020** `c92bf5d`（契约矩阵冻结与特征测试）、**FEAT-019** `c443757`（ArchGuard 棘轮 R1~R7 落地，fatal 位）、**FEAT-018** `1bb4268`（性能测量协议脚本与容差校准）、**FIX-301** `a599843`（归档识别修复 + EVD-983 真数据归档迁移执行——治理记录面）、**AUDIT-152** `9a8040d`（环境敏感失败定性标记）、**DOC-003** `8f13c85`（数据块归宿清单）、**FEAT-012** `24c6f61`+`385b83b`（G5 tpa 同会话重复调用抑制 + G6 summary 尾行两态化）、**FEAT-013** `3a108c2`+`c96da1b`（RISK-046 派发锁根因修复）、**FX-195** `97168f8`（quick-scan 前移评估——RISK-044 缓解承载）。治理记录面随行（.governance gitignored 无产品 commit）：**FIX-293**（M1 存量行形状修复，EVD-963）+ **EVD-983 归档迁移**（v0.1.0~v0.78.0 真数据迁出）。版本归属注记（DEC-184 Q4 如实披露）：FIX-299/300 核增 0.79.0∥；AUDIT-150/151/152、DOC-003、FEAT-017/018/019/FIX-301/FEAT-020/FIX-302 任务行定位 0.80.0——物理合入在本窗，随 0.79.0 工件交付，作为 0.80.0 重构线「切片零回归基线」（FEAT-020 S6 冻结申报）。发布目标：兑现 DEC-172 裁决 A ② 段 0.79.0 承接（降噪第二波 + 判定面①⑧ + RISK-044 复评挂载 DEC-169②）+ DEC-177 范围核增（RISK-046 根因 / RISK-049 关闭标准 / 健康 117 前置诊断）+ DEC-181/184 增量。**RISK-049 已关闭**（2026-09-09 用户裁决——DEC-185，口径限定见 DEC-179/180）；**RISK-036/RISK-039 不关闭**；RISK-044 转缓解中（DEC-177②）。版本投影 0.78.1 -> 0.79.0 随候选 commit 交付（M-1 双子任务并行：A 版本投影〔SKILL frontmatter 权威 + release-projection 15 projections + @bootstrap-version 标记面 + REQUIRED_SNIPPETS 版本钉〕+ B 发布文档面〔本条目 + 三件套〕——REL-075 分工）。**Breaking changes：无**（判定面扩展均走放宽/fail-safe 方向——历史格式迁移 FAIL→WARN、终态 marker 保守漏降级修正、机器行白名单分类；新增守卫/门禁组件为新增检查不破坏既有行为——write-guard 只检不改、post-commit Step 4b advisory 非阻断、release gate 新组件 skip 路径显式披露；G5 抑制带 `--force` 旁路且首次义务穿透缓存；无接口删除/重命名、无默认行为破坏——以 M-2 门禁实测 + M-3 双审复核为准）。
+
+### Added
+
+- **FEAT-011 governance-write-guard 写时结构守卫（G3 扩展，commit `e90ed17`）**：写时结构看护从 change-triage 入账路径扩展至 Coordinator 直写 `.governance` 治理记录路径——新子命令 `governance-write-guard` 四面守卫（只检不改，exit 0/1/SKIP）+ 恒等去重×2 + 17 用例；定位 = B 级检查器工件 + A 级协议触发（behavior-protocol M1.2「直写后 MUST 复跑」——FIX-297 落盘；无 hook 时点强制宣示）。活体：M1 四行 7 issues 恰中 0 误报 → FIX-293 修数据后守卫 PASS/exit 0（born-red 窗口闭合）。用户视角：治理记录手写引入的结构漂移从「事后健康检查发现」前移到「写入当下拦截」。
+- **FEAT-017 post-commit 面板接线 governance-write-guard（commit `c6026ce` + FIX-302 `72ccc89`）**：commit hook Step 4b 三态段（PASS 含耗时 / FAIL 面板前 3 条 + 复跑提示 / SKIP 降级）+ GNU timeout 语义探测 + Result-line 裁决门防假 FAIL + 回滚文档（回滚 = 删 Step 4b）；advisory 非阻断（FIX-302 canonical 措辞同步——M1.2 MUST 保留权威与回退，不宣示时点强制/C 级）。用户视角：每次 git commit 后自动获得治理记录结构守卫面板，无需手动复跑。
+- **FIX-291 判定面批——W-7/BC-7 + FIX-281①⑧（commit `5c630d7`，双审终态）**：① Check 30 pre-FIX-174 文件式 review 记录历史格式迁移（V2×9/V5×2 误判 11 项 FAIL → 历史形状 WARN——source_format 分类 + rank 合并 + provably-zero 双负向前瞻）；⑧ Check 30c 合法机器行（REVIEW-/RECO-）白名单/溯源分类（router 实证 35→2 WARN）；W-7/BC-7 终态 marker 集扩展（✅ 字形断言 + 词表严格断言——状态格混合终态子类保守漏降级修正）。router 宿主持续暴露面（EV-066/071/073）插件侧闭合；「ACTIVE/真实 nonzero 恒 FAIL」fail-safe 边界锁定不放宽。用户视角：接入前历史数据与健康检查信号不再互相污染。
+- **FIX-292 执行包活跃判定谓词对齐（DEC-181 范围核增；commits `c91d705`+`1d3d973`+`58f8e9f`）**：`_is_incomplete_task_status` 委托 W-7/BC-7 终态链权威（只消费不改写 `_status_is_completed_cell`）——AUDIT-149 N1 根因（双状态谓词语义分裂：12 任务 11 已完成被误判活跃）。实测：同数据 A/B issues **124→88（Δ=−36 = 6 净化任务 × 6 面板，算术闭合）**、18 系 FAIL 66→38、全量 775 OK 零回归。用户视角：execution-packet 健康信号（Check 18c~18i）不再对已完成任务持续误报。
+- **FEAT-012 G5+G6 批——tpa 重复抑制 + summary 尾行两态化（commit `24c6f61` + 报告 `385b83b`）**：G5 = task-priority-analysis 同会话重复调用抑制（tpa-last-run.json 当日 + mtime 未变即复用，fail-open；RECO 三条件抑制；`--force` 旁路；**首次义务穿透缓存**专测）；G6 = summary 尾部追查预算提示行两态化（≤cap5 =「构成已全量展示」/超出 = 追查指引）。12 新测试红→绿；棘轮首次实战收紧 R1 24,302→24,269（引擎净 −33）。用户视角：同会话重复触发任务优先级分析不再重复产出全量报告，降噪第二波主题收尾。
+- **RISK-049 关闭三件套（FEAT-014 `f473ace` / FEAT-015 `0996d6d` / FEAT-016 `213fbba`+`ce7fa79`；EVD-955/956/957/970）**：① Check 28t——dsh 用户面宣示 claim→evidence 等级映射（ADAPTER_CLAIM_REGISTRY 4 类 + README 等级标注 + 产品门守卫，advisory）；② `launch.py --smoke` + Check 28u——preset 会话隔离冒烟门禁（installed + shipped 双面加载断言、守卫写前拒绝 exit 2、真实 home 零写入——M7.7 隔离环境三选一取 (a)，R4 逐条上报 EVD-956）；③ check-release `dsh_upgrade_regression` 组件——dsh 升级回归隔离复验命令集固化为 release gate（复用 ② 冒烟，temp DSH_HOME，execution gates 开启时实际运行并阻断 FAIL，`--skip-execution-gates`/BR-4 显式 [SKIP] 披露）。**RISK-049 已关闭**（2026-09-09 用户裁决 ask_user_question——三关闭标准齐套，DEC-185；口径限定：①限 dsh 用户面宣示〔DEC-179——其余适配器面登记后续候选〕②限 isolation 加载面等级〔DEC-180——live/headless 会话面登记后续候选〕）。用户视角：README 宣示的适配器能力现在机器可核验其验证等级，release gate 覆盖 dsh 升级回归路径。
+- **FEAT-013 RISK-046 派发锁根因修复（commit `3a108c2` + 报告 `c96da1b`；EVD-988/989）**：`acquire_dispatch_locks` 机器写入 API 两面机制——写入前路径存在性校验（不存在路径拒绝 exit 2 零写入 + `--expected-new` 预创建豁免审计化落盘）+ 当日 change-triage 记录 files 交叉核对（不一致 WARN 披露不阻断）+ 去重/跨任务冲突/损坏锁 fail-closed + 写后 Check 26 自校验；派发模板锁操作换机器路径禁手写。18 测试红→绿（活体：FIX-288 同款路径被拒实录）；R1 regen 24,269→24,329（sanctioned 薄入口 +60，审计补账候选 F-3）。**RISK-046 根因闭环**（维持打开至 2026-09-30 复评窗随批收口——risk 行复评列已注记）。用户视角：Coordinator 派发锁不再引用不存在路径导致子 agent 空转一个开发波次。
+- **FX-195 quick-scan 前移评估（RISK-044 缓解承载，commit `97168f8`）**：`docs/requirements/quickscan-evaluation-0.79.0.md`（10 节）——Phase-1 检查段注册表（25 排除/41 保留/4 fail-safe）+ Phase-1.5 段级指纹缓存 → Phase-2 平移 L4 闭包；实测 full 47.0s（+12% 单调增长实证）/ quick 28-33s / 暖缓存 1-5s；Slice-1/2/3 拆分建议（实现任务 0.80.0）；RISK-044 关闭条件 C-1~C-5（M-8 采纳候选）。RISK-044 正式复评挂载（DEC-169② MUST）兑现：M-0 ④ 裁决缓解分支（DEC-177②——4 样本墙钟 65.7/61.3/64.7/56.6s，3/4 超 60s 修订验收线；已接受 → **缓解中**）。用户视角：秒级健康摘要的实现路径已定案（评估交付），实现任务进 0.80.0 队列。
+- **0.80.0 重构线 P0 前置波（DEC-183/184；随本窗合入交付）**：**AUDIT-150** `2be00ec`——系统性架构检视 + 演进规划（事实基线 584 行全实测 + arch 顾问咨询 + 六层单向架构/棘轮/契约矩阵/单源资产/数据生命周期 27 项任务清单 + DEC-183 基线入账）；**AUDIT-151** `61ef056`——测试收集关系调查与全量基线（权威口径 2,194 三方恒等〔discover=CI 同款〕；2,201 vs 788 关系闭合无测试丢失；当日全量 2,194 收集/2,167 通过/26 失败逐例归属——真实回归 0）；**AUDIT-152** `9a8040d`——环境敏感失败定性标记（当日全量 2,304/31F+1E 逐例 100% 分类：环境敏感 24+1/已知缺陷 2/数据耦合 6〔新类〕/回归候选 0 + 机器可读清单）；**DOC-003** `8f13c85`——数据块归宿清单（AST 实测 202 站点/2,441 行 100% 覆盖，五类归宿 + registry 候选 12 归 4 + facts §3.1 勘误）；**FEAT-018** `1bb4268`——性能测量协议脚本（stdlib-only perf_protocol.py + status/summary 双基线实录 + 首版容差表，零引擎改动）；**FEAT-019** `c443757`——ArchGuard 棘轮 R1~R7 落地（fatal 位：R1 主文件行数锚 24,302 只降不升 / R2 print 站点 46 单调不增 / R3 十二边+SCC / R4 print 1,315 / R5 消费 FEAT-020 快照 / R6 采集框架 / R7 regen 幂等；独立模块 1,106 行 + 主文件仅 +18 行接线 + 38 测试）；**FEAT-020** `c92bf5d`——契约矩阵冻结与特征测试（快照四契约面：CLI 80 键/Check 70 段/Result 形状 5/guard 输出 pin + 差分 harness〔--regen/--check/--self-check/--golden〕+ 27 特征测试扰动红绿保护）；**FIX-301** `a599843`——归档识别修复（四根因：优先级表空行 premature 终止/this-run 空集级联/复合 EVD ID 三面同步/粗体 ID 提取容忍 + explain 单源可审计输出贯穿 migrate 链）。
+- **治理数据归档迁移落地（FIX-301 修复后执行——EVD-983，2026-09-10 Coordinator R1(b) 完整备份 + 一致性校验）**：真实迁移 v0.1.0~v0.78.0——迁出 88 task + 58 decision + 5 risk + 12 evidence；plan-tracker 344→286.5KB（−17%）、decision-log 205.7→104.1KB（−49%）、risk-log 44.3→32.0KB；check-archive-integrity PASS（Archived 91/Index 1028/Total 176 守恒）；evidence-log 结构性保留（303 live 引用——出口在 0.81.0 hotview，不强删）。治理记录面（gitignored），非 git 窗口实体。用户视角：治理热数据恢复可审计出口，「触发器满足但无可归档」黑箱消除（dry-run 163 条可归档逐条解释）。
+- **REL-074 0.79.0 版本规划 + AUDIT-149 健康诊断入库**：version-plan-0.79.0.md（入出槽裁决表 21 行全留痕 + M-0 DEC-177 四项裁决 + RISK-044 复评专节）+ queue-reconciliation-0.79.0.md 对账 + 规划期双审（REVIEW-REL-074-R1/R2/R3）；audit-149-health-noise-0.79.0.md（117 issues 构成诊断 + 降噪域清单 N1~N7 约 -111 + 18c~18i 根因定位）。
+- `project/CHANGELOG.md` 新增 0.79.0 条目；release docs 三件套创建（feature-flags-0.79.0 / release-checklist-0.79.0 / rollback-plan-0.79.0——后者复刻 version-plan §3.1 回滚边界表）；版本投影 0.78.1 → 0.79.0（M-1 子任务 A 并行交付）。
+
+### Changed
+
+- **check-governance 健康基线分步降噪**（各步实测留痕，非链式算术）：AUDIT-149 基线 117（引擎口径；119 为时点值）→ FIX-292 同数据 A/B 124→88 → FIX-294 总 issues→38（Check 36 R3：33 WARN→19 + 46 EXEMPT 披露〔43 ID〕）→ FIX-295 总 issues 39→37（Check 10 M5：docs/release + docs/reviews 记录类豁免 + [EXEMPT] 披露，FAIL→PASS）→ EVD-983 归档迁移后 31 issues 与迁移前基线构成一致（trigger-gap WARN 消失）。打包期终值以 M-2 实测为准（基线数字漂移惯例——不引用旧值作新声明）。
+- **task-priority-analysis 会话行为（G5）**：同会话重复调用默认抑制（当日 + mtime 缓存复用、fail-open；RECO 三条件抑制；`--force` 旁路；完成必推荐首次义务穿透缓存不受抑制）。
+- **check-governance --summary-only 尾行（G6）**：两态化——构成 ≤cap5 时「已全量展示」、超出时输出追查预算指引行。
+- **post-commit hook 面板**：新增 Step 4b governance-write-guard 三态段（advisory 非阻断；SKIP 降级路径显式）。
+- **check-release 发布门禁组成（FEAT-016）**：details 新增 `dsh_upgrade_regression` 组件——execution gates 开启时实际运行并阻断 FAIL；`--skip-execution-gates`/BR-4 released-history 显式 [SKIP] 披露（SPG_RELEASE_GATE_TIMEOUT 先例语义）。
+- **Check 10 M5 扫描面（FIX-295）**：docs/release 与 docs/reviews 记录类文本豁免 + 披露（FIX-178 收窄族——AUDIT-149「FIX-280」系称谓误植已勘误）。
+- **Check 36 R3 豁免口径（FIX-294）**：引用可解析至归档语料的任务 ID 按 DEC-151 口径豁免（带披露），不可解析保留 WARN（诚实 fail-closed 残留）。
+- **Coordinator 派发协议（FEAT-013）**：agent-dispatch 模板锁操作机器化——`agent-locks-acquire` 机器写入 API 禁手写 agent-locks.json；Check 26 可选 `expected_new:bool` 向后兼容。
+- **behavior-protocol M1.2 / SKILL.md 分级口径（FIX-297）**：直写后 MUST 复跑 governance-write-guard（A 级协议触发 + B 级检查器工件——不宣示时点强制/C 级；e2e SKILL 投影同步）。
+
+### Fixed
+
+- **cmd_check_release 恒 exit 1（FIX-299，commits `1cda292`+`90140cc`；DEC-184② 核增 0.79.0∥）**：L20568 无条件 `pass=False` → `not result["issues"]`（引擎层逐字对齐，claim 先 extend 合并语义不变）——恢复「healthy → PASSED/exit 0」文档化契约；TDD 两态红→绿；消费面 grep 实证无 quirk 依赖者（CI/hooks/adapters/ledger）；FEAT-016 quirk 语义反转修正 + F-2 计数断言补强。
+- **Check 31 身份子相位口径差（FIX-300，commit `e994c7a`；DEC-184② 核增 0.79.0∥）**：独立运行 PASS vs 引擎内 identity_verdict=FAIL 分歧——RCA 三机制（host 源面裸 cwd 解析脆弱 + semantic/identity 豁免不对称 + 独立输出覆盖面未声明）；修复 = 判定规则零改动，verdict_scope 显式化 + `--fixture-identity` 引擎同装配复核通道 + 差分用例×3（两口径双场景一致实录）。
+- **归档识别四根因（FIX-301，commit `a599843`）**：优先级表空行 premature 终止（RC-A）/ this-run 空集级联锁死 decisions/risks（RC-B）/ 复合证据 ID 三面不同步（RC-C）/ 粗体 ID 提取不容忍（RC-D）——temp 副本守恒 8/8 + integrity PASS + 幂等；真实 dry-run 88+58+5+12 可归档恢复迁移路径（P7 不强删，不能归档者输出业务原因）。
+- **execution-packet data-loss footgun（FIX-296，commit `3cbdc92`）**：`--task X --write` 曾静默清除未选包——过滤仅影响 stdout 预览，write 面恒全量（existing-merge 保留）+ 3 测试。
+- **FEAT-011 Design R1 F-1 处置（FIX-297，commits `b8f6ca3`+`fe2faca`）**：M1.2 权威条目 + SKILL L116 投影 + L126 分级口径三行落盘；新 MUST 首次自我适用（守卫复跑 PASS）。
+- **M1 存量行形状修复（FIX-293，治理记录快速通道，EVD-963）**：FIX-222/223/224/279 四行去重复优先级列 + 尾空单元格归一 + FIX-274 状态格措辞修正（语义不变）——governance-write-guard FAIL 7 → PASS/exit 0（FEAT-011 born-red 窗口闭合）。
+- **FIX-292 审查报告表格格式（commit `58f8e9f`）**：Check 31 accounting 边界裸管道全角示形 + 列重排——内容零增删。
+
+### Validation
+
+- **审查终态（全链 APPROVED 或 APPROVED_WITH_NOTES/unresolved_blockers=0——判定面变更双审）**：FIX-291（Code R0/R1/R2 + Design R0→R1 两轮返工 R2——REVIEW-FIX-291-R1/R3/R5 + R0/R2/R4，T1 链闭合）；FIX-292（双审 ×2，REVIEW-FIX-292）；FEAT-011（Design R0 + Code R1/R2，三审）；FIX-294/295/296（Code R0 ×3）；FIX-297（Design R0）；FEAT-012/013（Code R0 ×2）；FEAT-014（R0→R1）；FEAT-015（R0）；FEAT-016（R0）；FX-195（Design R0）；FIX-299/300（R0 ×2）；FEAT-017（Code R0）；FIX-302（Design R0）；FEAT-018（Code R0）；FEAT-019（Code + Design 双审 ×2）；FEAT-020（Code R0）；FIX-301（Code R0）；AUDIT-150（Design R0）；AUDIT-152（微审 Code R0）；REL-074 规划期（Design R0 + Release R0→R2）。审查报告均 docs/reviews/ 机录。
+- **pytest 基线**：AUDIT-151 权威口径 2,194 collected（discover=CI 同款，三方恒等）/ 2,167 passed / 26 failed / 361.1s——环境敏感 24+1 + 已知缺陷 2 + 真实回归 0；AUDIT-152 同日全量 2,304/31F+1E+1S（2,194+110 算术闭合）逐例 100% 分类（数据耦合 6 为新类）。M-2 打包期全量复跑以实测为准。
+- **棘轮与契约**：FEAT-019 R1~R7 机器基线（R7 三连同哈希、regen 幂等）+ 负对照全覆盖；FEAT-012 棘轮首次实战收紧（24,302→24,269）；FEAT-013 sanctioned regen 24,269→24,329（+60 薄入口，审计补账候选）；FEAT-020 self-check 零差异×3 + 扰动红绿 27 特征测试。
+- **门禁（0.79.0 candidate）**：M-2 实测回填 `docs/release/release-checklist-0.79.0.md`「Candidate Gate Results」；既有基线 FAIL 按先例分类披露。
+
+### Boundaries
+
+- 0.79.0 **RISK-036/RISK-039 remain open**（2026-09-30；1.0.0 硬阻塞——各自独立关闭标准未满足）；不关闭、不重开其他风险。
+- **RISK-049 已关闭**（2026-09-09 用户裁决，DEC-185——三关闭标准齐套）；口径限定：①dsh 用户面宣示（DEC-179）/ ②isolation 加载面等级（DEC-180）；残余候选（live/headless 会话面、非 dsh 适配器等级映射）已登记独立候选不依赖本风险敞口。
+- **RISK-044 缓解中**（DEC-177②——不声明关闭）：FX-195 为评估交付（非实现）；quick-scan 实现任务 Slice-1/2/3 → 0.80.0；关闭条件 C-1~C-5 为 M-8 采纳候选。**RISK-046 根因修复已交付**（FEAT-013）但维持打开至 2026-09-30 复评窗随批收口；**RISK-047/048 维持观察**（同窗批量复评——2026-09-30）。
+- candidate-only：`release_authorized=false`——transition/tag/push 待用户授权（DEC-143，M-4 唯一人工门）；不声明、不证明 `v0.79.0` tag 存在。
+- 不声明 official approval、zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready/1.0.0 readiness。
+- **Breaking changes：无**（论证见条目导语；以 M-2 门禁实测 + M-3 双审复核为准）。
+- **MINOR bump 依据（VERSIONING.md）**：L12 三支触发——新增 B/C 级自动化能力（governance-write-guard / release gate 组件 / ArchGuard 棘轮 / 契约矩阵）+ 判定规则扩展（Check 30 形状/终态、30c 分类、执行包谓词——G2/DEC-169③ 先例同型）+ 累积主题里程碑（降噪第二波 G5/G6——单项 L13 面如实陈述由 L12 主题打包承载）；L37 契约面（M1.2 MUST 新增）。
+- **版本归属注记（DEC-184 Q4）**：FIX-299/300 核增 0.79.0∥（缺陷显式修复先行——契约冻结前置）；AUDIT-150/151/152、DOC-003、FEAT-017/018/019/FIX-301/FEAT-020/FIX-302 任务行定位 0.80.0，物理合入在本窗随 0.79.0 工件交付——0.80.0 重构线以本批为切片零回归基线（FEAT-020 S6 冻结申报；FEAT-019 R1 锚随 sanctioned 变更只升不降有审计）。
+- **DSH preset 时滞（迁移说明）**：DSH 平台升级路径为 `git -C <plugin_root> pull && python <plugin_root>/adapters/dsh/launch.py --sync`；persona/bootstrap 模板的 0.79.0 版本行在 `--sync` 重写 preset 后生效——不得宣称未 sync 安装的会话级效果。
+- **出槽登记（无隐藏带入）**：FIX-298（⏳ blocked_by REL-002 跨仓对账尾巴）、F-03/F-04/F-04-env/F-05+BC-1 维持搁置、FIX-279 P2-3+P3×3 与 N-P3 组观察池、REQ-109/111/113/114 → 0.80.0+、quick-scan 实现 Slice-1/2/3 → 0.80.0、RISK-049 残余候选（live/headless 会话面、非 dsh 适配器等级映射）、FEAT-013 遗留 F-1/F-2/F-4（跨日静默+豁免披露/读写竞态/绝对路径旁路）、FEAT-014 F-4~F-12+N-1~N-6、FEAT-016 F-2/F-3、FEAT-018 P2×4、FEAT-019 W1~W4+P2×3、FEAT-020 P2×3+P3×5、FIX-301 P2×2、各任务 P3 遗留——全部按 plan-tracker 任务行/version-plan §5 裁决表登记并带来源留痕。
+
+## [0.78.1] - 2026-09-05
+
+### 0.78.1 - DEC-172 裁决 A 修复/清理/测试卫生批 + FIX-281 缺陷子集 + FIX-290 dsh 安全生命周期批（FIX-282~289 / FIX-290 / REL-072 / REL-073）（PATCH）
+
+0.78.1 是 **PATCH** 发布，把 `v0.78.0`（= `afb959d`，REL-071 transition）之后已合入的 **13 个 commit**（任务链 11 + 编排纠偏 1 + 本候选 1——门禁实测与双审发现处置已并入候选 commit）打包成发布候选——窗口 `git log v0.78.0..HEAD`（M-1 核定，规划 §0 待验证项①闭环）：**FIX-282** `7771588`（DEC-171 commit-msg Step 3 加粗 ID 匹配修复）、**FIX-289** `9e7c178`（FIX-281⑤⑥ review_record 覆盖守卫 + 前缀约定）、**FIX-283** `d4e3f8e`（review_domain 清理 N-P2-1/N-P2-2/N-P3-1 + 四步措辞）、**FIX-285** `4763868`（F-3 bootstrap 标记面守卫 + F-01 引号）、**FIX-286** `7b816c7`（dsh.skills 分类器收紧）、**FIX-287** `e481b6f`（FIX-281②③④ 解析器边界三联修）、**FIX-288** `fe795d7`（FIX-281⑨ 版本适配事实源 + ⑦ 终态过滤）、**FIX-284∩288∩286** `2c30eca`（G3 列数契约联合，映射表既定）、**REL-072** `b44ef37` + **REL-073** `df17553`（规划产物入库）、**FIX-290** `ce17dfd`（dsh 适配安全生命周期批——DEC-176 范围核增）、编排纠偏 `9046d2c`（blob 分段应用伪影归一，零语义）。commit 编排按 DEC-176 方案 A（分任务 hunk 拆分 + 真交错联合），commit-msg/pre-commit 全门禁活体通过（Step 3 加粗匹配/Step 7 审查证据/Step 10-11 目标对齐与用户影响补账 EVD-928..947）。**不关闭 RISK-036/RISK-039**。版本投影 0.78.0 -> 0.78.1（15 projections `release-projection --write` + @bootstrap-version 标记面 + presets/governance 版本行 @version-line 守卫 + REQUIRED_SNIPPETS 6 版本钉）。**Breaking changes：无**（检查器/解析器/清理/测试卫生/文档批，行为语义按 L38 逐项论证；FIX-290 为适配安全面与包名中立化，dsh 安装命令变更随 README 对称表迁移指南承载）。
+
+### Added
+
+- **FIX-285 F-3 bootstrap 标记面机器守卫**：check-version-consistency 扩展 @bootstrap-version 标记面检查（_version_tuple + VersionConsistencyBootstrapMarkerTests 132 行）——bootstrap 模板漂移从"agent 自觉"升级为机器拦截。
+- **FIX-288 版本适配事实源**：derive_project_current_version（项目当前版本为基准，修复 FIX-281⑨ router 活体第三现——宿主合法目标版本被 fail-closed 拒绝）+ 路线图行状态词表 + task-priority 终态措辞过滤（⑦）。
+- **FIX-289 覆盖守卫**：review_record task+round 记录不可变（force 显式 opt-in + 备份/标记/留痕三重，DEC-174 库级 API 出路）+ EV-/EVD- 跨仓前缀约定说明（references/evidence-id-prefix-conventions.md）。
+- **FIX-290 dsh 安全生命周期批（DEC-176 范围核增）**：npm 包名中立化（@zcode→@peterwangze，cordis.patch.yml 双处自定位同步）+ preset 根 trust:system（防 GUI 删除经 pnpm junction 直删仓库文件）+ launch.py --dry-run/--uninstall 对称生命周期 + **包内预设 skill 接线修复（两轮活体闭环：cwd 相对缺陷 → 裸行继承假设证伪 → baseUrl 自定位双根〔dsh-novel-writing 实证模式〕，用户 2026-09-05 活体确认 /governance 恢复）** + README dsh 段重写（三形态安装/管理动作对称表/安全验证边界 R1 隔离协议/前置要求）+ 三层守卫测试（形态强制 !!js+baseUrl / 禁字面量相对 / URL 运算语义求值 + files 白名单覆盖）。
+- **REL-072/REL-073 规划产物入库**：出槽队列 triage + 0.78.1 版本规划（双审 APPROVED_WITH_NOTES/0 ×2 既录）。
+- RISK-049 登记（适配器面宣示 vs 验证等级缺口；关闭标准三条：claim→evidence 机器映射 / live 冒烟门禁 / 升级回归清单入 release gate）。
+
+### Changed
+
+- **dsh 安装命令族（FIX-290）**：`dsh plugin add` 规格改为 `link:`/`file:`/`github:` 三形态（README 对称表：安装/升级/降级/卸载 × bundle/预设两面）；预设 skill 目录机制改为 baseUrl 自定位（详见 Fixed）。
+- **change-triage 第五步措辞**（FIX-283）：commands/shim 四步→五步投影同步（FIX-271 引入的第五步既成事实）。
+
+### Fixed
+
+- **DEC-171 commit-msg Step 3 匹配缺陷**（FIX-282）：字面量 grep 对加粗任务 ID 行永不匹配（REL-071/072 被迫 --no-verify 实证）→ tolerant row matcher（ERE 锚定首列+第二列，容忍加粗；任务不存在仍 FAIL）；TDD 17 例 + 11 subtests。
+- **FIX-281②③④解析器边界**（FIX-287）：轻量表列数按 profile 解析（parts[9] 硬编码消除）+ 活跃任务节边界（任意完成类子节终止）+ Gate 括号节名匹配。
+- **G3 write-guard 列数契约**（FIX-284∩288）：standard_cols 取首个非写入 TRIAGE 行（行族标准 10 列），EVD fallback 显式来源。
+- **review_domain 死代码遮蔽**（FIX-283 N-P2-1）：_legacy_blocker_keys 旧实现删除。
+- **dsh.skills 分类器**（FIX-286）：路径段校验前移（bundle/平铺双格式一等公民）。
+- **dsh 预设 skill 目录两连缺陷**（FIX-290 核心）：cwd 相对路径（dsh-skill-filesystem L79 按进程 cwd 解析）与裸行（预设层不继承 host 行 customSkillDirs）——均致 /governance 静默失效；修复 = `!!js "fileURLToPath(new URL('../../skills/', baseUrl))"` 自定位（用户活体验证通过）。
+
+### Validation
+
+- 全链 Code Reviewer R0 APPROVED/APPROVED_WITH_NOTES、unresolved_blockers=0（FIX-282..290 逐任务机录 + FIX-290 P2×3 README 边界同轮补齐）；REL-073 规划期双审 DESIGN-R0/RELEASE-R0 既录。
+- FIX-290：test_dsh_adapter 全绿（含 8 新守卫方法）；check-injection-contract / check-dsh-skills-manifest / check-projection-sync / check-cross-references / check-manifest-consistency 全 PASS；隔离实证（临时 DSH_HOME，真实 home 零写入×8 轮取证）：link:/file: 安装布局 + baseUrl 表达式落点求值 + discoverPresets 健康 + web boot 200；用户 link: 活体确认 /governance。
+- commit 链全 hook 门禁活体通过（本 CHANGELOG 条目所载 13 commit 序列）。
+- 门禁（0.78.1 candidate）：见 `docs/release/release-checklist-0.78.1.md`「Candidate Gate Results」；基线 FAIL 按先例分类披露。
+
+### Boundaries
+
+- 0.78.1 **RISK-036/RISK-039 remain open**（2026-09-30；1.0.0 硬阻塞）；RISK-049 新登记（打开）。
+- candidate-only：`release_authorized=false`——transition/tag/push 待用户授权（DEC-143，M-4 唯一人工门）；不声明、不证明 `v0.78.1` tag 存在。
+- 不声明 official/marketplace approval、universal/full runtime support、1.0.0 readiness。
+- **PATCH 定位（VERSIONING.md L38）**：全部确定入槽项零行为语义变更；FIX-281 缺陷子集与 FIX-290 按先例如实陈述（⑤⑨守卫/适配面 = L13/L34 PATCH 面增量）；判定面 ①⑧ 出槽 0.79.0（与 W-7/BC-7 同域，DEC-172/规划 §6）。
+- **dsh 复验边界（R2 三条 P2 落地）**：`link:`/`file:` 隔离复验 2026-09-05（Windows）；`github:` 打包语义同构——v0.78.1 推送前 GitHub master 仍 0.78.0（不含本批修复）；非 Windows 未验证。
+- **GUI 复制预设边界**：复制体 skill 根重锚后目录为空——用户根副本用 `launch.py --install`（README 已载）。
+
+## [0.78.0] - 2026-08-26
+
+### 0.78.0 - 治理降噪第一批——G1 summary top-N + G2 legacy 判定 + G3 写时 guard + G4/F UTF-8 显式化 + write-guard 契约修正 + M5 基线小修（FIX-278 / FIX-279 / REL-071 / FIX-280）（MINOR）
+
+0.78.0 是 **MINOR** 发布（M-0 用户裁决确认，DEC-169），把 `v0.77.0`（= `db9f6c9`，REL-070 transition）之后已合入的 **4 个 commit** 打包成发布候选——工具核验 `git rev-list --count v0.77.0..HEAD` = 4（`git describe v0.77.0-4-gHEAD`）：**FIX-278** `3ad9fdd`（治理降噪第一批——G4/F 编码显式化 + G1 summary top-N + G2 legacy 基线静默 + G3 写时 guard + AUDIT-147/148 报告入库，16 文件 +2130/-42）、**FIX-279** `c193299`（G3 write-guard 列数契约修正，2 文件 +154/-19）、**REL-071 规划** `ce4d7fe`（0.78.0 版本规划——入出槽裁决表 16 项 + RISK-044 复评 + M5 基线小修入槽；M-0 用户确认 DEC-169 四项；双审 APPROVED_WITH_NOTES/0 ×2）、**FIX-280** `a7fd5b3`（M5 基线小修——version-plan 裁决表样式 Check 10 豁免注记）。v0.77.0 自身链（candidate `ac5df32` / transition `db9f6c9`）属已发布 0.77.0，不重复计入本窗口。发布目标：把 AUDIT-147/148 定性分析（治理开销/告警洪流）的「分析 → 第一批实施 → 契约修正」完整交付链在同版本落地，并兑现 DEC-166 四子项契约与 DEC-168 的「FIX-279 随 0.78.0 发布」归约。**不关闭 RISK-036/RISK-039**。版本投影 0.77.0 -> 0.78.0 全 PASS（15 projections 由 `release-projection --write` 确定性写入 + @bootstrap-version 标记面 9 行（commands/governance-init.md ×3 + e2e 镜像 ×3 + e2e CLAUDE.md + 根 AGENTS.md；根 CLAUDE.md gitignored 本地同步不入 commit，FIX-256 先例）+ presets/governance/agent.cordis.yml 版本行同步（@version-line 守卫）+ `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。**Breaking changes：无**（G1 其余档位字节不变、G2 fail-safe 边界锁定、无接口删除/默认行为破坏——DEC-166 契约）。
+
+### Added
+
+- **FIX-278 G4/F 治理文件读取编码显式化**（EVD-FIX-278，commit `3ad9fdd`，2026-08-26）：治理文档/命令指引中读取 `.governance` 的 pwsh 片段 MUST 显式 `-Encoding UTF8`（或 `[System.IO.File]::ReadAllText(..., [System.Text.Encoding]::UTF8)`），禁止裸 `Get-Content`——Windows 默认 ANSI/GBK 解码产生 mojibake（AUDIT-147 D6 / AUDIT-148 §4.3 实证：router 会话 `-Tail 30` 无 `-Encoding` 读 evidence-log → 22,311 字符大面积乱码）。用户视角：治理记录读取不再出现乱码，Cross-Platform 会话输出可机器核验。
+- **FIX-278 G1 check-governance --summary-only 输出契约（standard 档）**（EVD-FIX-278；DEC-166 ①）：默认档位从「103 字符汇总」升级为「汇总 + 首个 FAIL/WARN + 前 ≤5 条明细（每条 130 字符截断）+ "共 N issues，--level strict 查看全部" 指引行」——消除「103 字符摘要 → 自发追加完整 check 1.7KB + 22KB 追查链」的 10× 放大（audit-148 §2.1 量化）；lightweight/strict 档位与既有默认路径字节不变（DEC-166 ②）。用户视角：健康摘要一眼可见具体告警且不再触发追查链。
+- **FIX-278 G2 legacy 数据判定规则（L-A/L-B/L-C）**（EVD-FIX-278；DEC-166 ③）：接入前历史违规（router 实证 Check 30×12 / Check 37 = legacy 行）按「形状 + 终态判定」降级 advisory WARN，不计 FAIL；ACTIVE/真实 nonzero 恒 FAIL（fail-safe 边界锁定——DEC-166；DESIGN R1 蓝军 7 条验证）。用户视角：接入前历史数据不再污染当前健康基线，当前工作相关违规仍严格 FAIL。
+- **FIX-278 G3 change-triage 写时结构 guard**（EVD-FIX-278；DEC-166 ④）：change-triage 入账成功路径按 `record_id` 行 ID 匹配校验新写入行结构，异常 exit 2 fail-closed（消除「17:07 → 17 issues 无检测窗口」）。
+- **FIX-278 AUDIT-147/148 治理开销/告警洪流定性分析入库**（EVD-FIX-278）：诊断报告 `docs/requirements/audit-147-governance-overhead-analysis-dsh-reasoning-level.md` + 验证报告 `docs/requirements/audit-148-v1-verify-alarm-validation.md`——治理「读取」72.8KB 是治理「命令输出」1.6KB 的 46 倍、干扰源 D1-D8 分类、优化方向表（G1/G5/G6 量化收益）。
+- **版本声明与 e2e fixture 指针从 0.77.0 推进到 0.78.0**（REL-071 M-1 M-set）：SKILL.md frontmatter 0.78.0 权威源 + `release-projection --write` 确定性写入 15 投影（core/manifest、4×plugin.json（.claude/.codex/.zcode/.chrys）、marketplace、package.json、4 hooks @version、e2e SKILL byte_copy 镜像、e2e plan-tracker 工作流版本行、dsh persona / AGENTS.md.template）+ @bootstrap-version 标记面 9 行 + preset 版本行（@version-line 守卫）+ `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉（仅版本字面量 +6/-6 零逻辑）。
+- **REL-071 0.78.0 版本规划文档入库**（EVD-REL-071 规划段，commit `ce4d7fe`）：`docs/release/version-plan-0.78.0.md`——入出槽裁决表 16 项（全带来源留痕）+ RISK-044 复评（维持接受建议）+ M-0 用户确认 DEC-169（四项：入槽 = FIX-278+FIX-279+M5 基线小修 / RISK-044 维持 / MINOR 定位 / N=2 延续）；Release Reviewer + Design Reviewer 双审 APPROVED_WITH_NOTES/0 ×2（REVIEW-REL-071-RELEASE-R0 / REVIEW-REL-071-DESIGN-R0）。
+- `project/CHANGELOG.md` 新增 0.78.0 条目；release docs 三件套创建（feature-flags / release-checklist / rollback-plan —— rollback-plan 复刻 version-plan §3.1 回滚边界表）；`core/releases/0.78.0.json` candidate（candidate-only；transition/tag/push 待用户授权——DEC-143）。
+
+### Changed
+
+- **check-governance --summary-only（standard 档）输出契约变更（G1）**：默认展示首个 FAIL/WARN + 前 ≤5 条明细（130 字符截断）+ 指引行；lightweight/strict 与其余路径字节不变（DEC-166 ②）。
+- **G2 legacy 判定规则**：接入前历史违规按形状+终态判定降级 advisory WARN（L-A/L-B/L-C）；ACTIVE/真实 nonzero 恒 FAIL（fail-safe 一侧锁定，DEC-166；混合格 W-7/BC-7 保守漏降级方向登记后续 marker 扩展）。
+- **change-triage 入账机制**：新增写时结构 guard（G3）——入账成功路径按 record_id 校验；写入行缺失/列数错配显式报错（FIX-279 修正后以 TRIAGE 行族 10 列为标准——见 Fixed）。
+
+### Fixed
+
+- **write-guard 列数契约错配误报（FIX-279，DEC-168）**：`_triage_write_structure_guard` 原取首个 `| EVD-` 行（9 列）作 standard_cols 比对 TRIAGE 行（10 列）——每次合法 change-triage 入账必误报 fail-closed exit 2（活体验证：TRIAGE-REL-071 / TRIAGE-FIX-279 两次触发）；修复 = standard_cols 改取首个非本次写入的 `| TRIAGE-` 行（行族标准 10 列），EVD 行仅作 fallback，行 ID 匹配与写入行缺失显式报错保持（P0-1 不回退）；TDD 15 用例红→绿；CODE R0 APPROVED_WITH_NOTES/0（P2-1/P2-2/P2-3 + P3×3 登记 0.78.x 队列评估，DEC-168 后续动作）。
+- **M5 Check 10 基线（FIX-280，M-0 入槽）**：version-plan-0.77.0.md L154 裁决表选项菜单样式触发 `m5_option_list_no_auq`（M5 运行时触发器解析选项列表样式）——两规划文档 §5.1 加 M-0 交互注记（AskUserQuestion 引用，事实+引用不引入运行时样式）；check-governance 110→105 issues（该基线条目归零，首个 FAIL 回落既有 18c）；EVD-905；TRIAGE-FIX-280 活体 0 误报实证。
+- **治理文件读取乱码（G4/F）**：pwsh 裸 `Get-Content`（ANSI/GBK 默认解码）读 `.governance` 的乱码风险以显式编码规约消除（AUDIT-147 D6 / AUDIT-148 §4.3 实证）。
+
+### Validation
+
+- FIX-278：CODE R0 NEEDS_CHANGE（P0-1 + P2×4）→ R1 APPROVED_WITH_NOTES/0（五发现全闭合；N-P2-1/N-P2-2/P3 组登记下轮触碰清理）；DESIGN R0 NEEDS_CHANGE（F-1/F-2/F-3）→ R1 APPROVED_WITH_NOTES/0（9/9 处置；W-7/BC-7 登记）；DEC-166 落盘；commit `3ad9fdd` 已推送 github-https；pytest 基线 1976 passed / 27 failed（既有基线：24×WSL 环境 + cleanup + 计时抖动 + snapshot-freshness，EVD-FIX-278 注记）。
+- FIX-279：TDD 14→15 红→绿全绿；Code Reviewer R0 APPROVED_WITH_NOTES/0（REVIEW-FIX-279-CODE-R0）；DEC-168（TRIAGE 行族权威列数标准契约）；EVD-904（1985 tests / 0 新增失败归因本次修改 / 27 存量失败 = 既定基线）；commit `c193299` 已推送 github-https（M-1 前置 ✓）。
+- REL-071 规划段：双审 APPROVED_WITH_NOTES/0 ×2（REVIEW-REL-071-RELEASE-R0 / REVIEW-REL-071-DESIGN-R0）；M-0 用户裁决 DEC-169（2026-08-26，ask_user_question）；commit `ce4d7fe` 已推送。
+- FIX-280：EVD-905；check-governance 110→105（Check 10 基线归零验证）；commit `a7fd5b3` 已推送。
+- REL-071 M-1（本候选打包，2026-08-26；candidate-only——transition/tag/push 待用户授权，DEC-143）：`release-projection --write` → `{"state": "PASS", "written": 15, "source_version": "0.78.0"}` exit 0；@version-line 锚守卫（preset 版本行 v0.78.0）+ @bootstrap-version 标记面 9 行 + REQUIRED_SNIPPETS 6 钉同步；门禁结果见 `docs/release/release-checklist-0.78.0.md`「Candidate Gate Results」。
+- 门禁（0.78.0 candidate，2026-08-26）：`check-version-consistency` PASS（13 文件声明；1 advisory WARN——host plan-tracker 记录版本仍 0.77.0，Coordinator 打包后 bump）；`check-projection-sync --fail-on-issues` PASS（15 投影）；`check-manifest-consistency` PASS；`check-cross-references --fail-on-issues` PASS（零悬空）；`verify` 无参 PASSED；`check-dsh-skills-manifest` PASS（35/35）；`check-injection-contract` PASS（4 文件）+ @version-line 动态锚解析 0.78.0；`check-release --version 0.78.0 --require-changelog --lineage-mode candidate` FAIL 项按先例全分类（见 checklist）；`release-ledger --version 0.78.0 --no-remote` 候选态 NATIVE_CANDIDATE（commit 后重跑——REL-067 先例）；`quality-tools` Ruff/mypy 未安装 → NOT_RUN 如实记录。
+
+### Boundaries
+
+- 0.78.0 **RISK-036/RISK-039 remain open**（2026-09-30；1.0.0 硬阻塞，独立关闭标准未满足）；不关闭、不重开任何风险。
+- 不做最终发布决策（candidate-only；`release_authorized=false`——transition/tag/push 待用户授权，DEC-143 交互基线）。
+- 不声明 official approval、zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready；不声明、不证明 `v0.78.0` tag 存在。
+- **Breaking changes：无**。G1 lightweight/strict 与其余输出路径字节不变（DEC-166 ②）；G2 fail-safe 边界锁定（ACTIVE/真实 nonzero 恒 FAIL）；写时 guard 仅作用于 change-triage 入账成功路径；无接口删除/重命名、无默认行为破坏。
+- **MINOR bump 依据（VERSIONING.md）**：① FIX-278 行为/规则面显著变更（G1 输出契约变更 + G2 判定规则修改（经 DEC-166 落盘）+ G3 新增写时门禁）——0.76.0 看护模式七项 / 0.75.0 注入面同类 MINOR 先例；② FIX-279 按 L34（verify_workflow.py 修 bug → PATCH 面增量）如实陈述为 PATCH 面，不作为判级依据；③ 无 BREAKING → 非 MAJOR（M-0 确认 MINOR，DEC-169）。
+- **RISK-044 快照**：`--summary-only` 墙钟 29.6-32.8s（DEC-167 检查点实测，满足修订验收「单次 <60s 且每会话仅一次」，DEC-149 接受口径）；**quick-scan 秒级子集维持出槽 0.78.0 → 0.78.x+ 候选**；**下轮复评 = 0.79.x（或下一版本规划）**——M-8 发布收尾由 Coordinator 登记 risk-log。
+- **基线 FAIL 披露惯例**：check-governance 105 issues（2026-08-26 bootstrap 实测；首个 FAIL = 既有 18c——FIX-280 后 Check 10 基线归零）；`origin SSH` 环境限制保持（github-https 为标准推送面）；archive trigger gap / 既有基线按 REL-067/068/069/070 先例分类披露。基线数字以候选打包实测为准，不引用旧值作新声明。
+- **迁移说明（RISK-D5——DSH preset 时滞）**：DSH 平台升级路径为 `git -C <plugin_root> pull && python <plugin_root>/adapters/dsh/launch.py --sync`；persona/bootstrap 模板的 0.78.0 版本行在 `--sync` 重写 preset 后生效，未 sync 前旧 preset 仍携带旧版本行——不得宣称未 sync 安装的会话级效果；升级同步后对被治理项目自然生效。
+- **出槽队列（0.78.x+）**：F-03 / F-04 / F-04-env / F-05+BC-1 / FIX-272 P2×2 / RISK-044 quick-scan / G3 扩展 / G5 / G6 / W-7+BC-7 / N-P2-1 / N-P2-2 / P3 组 / FIX-279 遗留观察项（P2×3+P3×3）/ FIX-276 R0 F-01 / change-triage「四步」描述陈旧——全部按 version-plan-0.78.0.md §5.1 裁决表登记并带来源留痕，无隐藏带入。
+
+## [0.77.0] - 2026-08-25
+
+### 0.77.0 - DSH 标准插件安装支持 + 事故防再发链同槽（FEAT-010 / FIX-271 / AUDIT-146 / FIX-274 / FIX-272 / FIX-273 / FIX-275 + F-02 入槽 FIX-276）（MINOR）
+
+0.77.0 是 MINOR 发布，把 HEAD `0f9e5bb` 上 0.76.0 released（`v0.76.0` = 4f24e74）之后已合入的 **8 个 commit** 打包成发布候选——承载 MINOR 语义的两项主链：FEAT-010（DSH 标准插件安装支持——bundle 形态：根 package.json 增 dsh.bundle / dsh.skills 35 条 / files / keywords，新增 cordis.patch.yml 组合层与 presets/governance 随包 preset，README DSH 行改标准安装命令 + 备选本地路径，纯 md/config 零构建；随包生态接入 dsh 0.1.1-rc.2 plugin 子命令，满足「沉淀可被 coding agent 消费的项目治理 workflow」的分发可达性）与 FIX-274（SKILL.md「关键行为契约」段新增第 4 条行为契约——真实环境必防护（R1 三选一 / R4 逐条上报 / R5 措辞）+ DSH persona 第 5 条，M7.7 防再发规则升为 always-on 注入面）。事故防再发链六 commit 随行：AUDIT-146（FEAT-010 事故 RCA 报告入库）、FIX-271（R1-R5 防再发协议固化：M7.7 三选一/中继留痕/措辞禁令 + 调度红线捆绑包注入 + change-triage 第五步「执行副作用声明」机检）、FIX-272（bundle 同源防漂移守卫：@version-line 动态锚 + dsh.skills 清单双向机器校验 + Check 40）、FIX-273（side-effect 检测盲区加固：UNC/单反斜杠根正则 + normalized 双判定 + IGNORECASE + 9 边界测试）、FIX-275（pyc 打包卫生：files 否定模式，tarball 154 pyc/10.34MB → 0 pyc/5.72MB，-64%），以及 F-02 入槽（DEC-163，用户 M-0 裁决）：FIX-276（README 自动化能力分级声明补注——plugin-contract L114 对外宣示面闭合）。发布目标：把 FEAT-010 事故（RISK-045，2026-08-23 已关闭）的 RCA → 防再发固化 → always-on 注入面 → 守卫补全 → 检测加固 → 打包卫生完整闭环在同版本交付，并让插件进入 dsh 标准 plugin 生态。**不关闭 RISK-036/RISK-039**。版本投影 0.76.0 -> 0.77.0 全 PASS（15 projections 由 `release-projection --write` 确定性写入 + @bootstrap-version 标记面 9 行（commands/governance-init.md ×3 + e2e 镜像 ×3 + e2e CLAUDE.md + 根 AGENTS.md；根 CLAUDE.md gitignored 本地同步不入 commit，FIX-256 先例）+ `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。**Breaking changes：无**（全部为新增能力/检查/规则/打包卫生与增量文本；无既有接口删除、无既有 check 重命名、无默认行为破坏——FIX-271 四步既有输出字节不变）。
+
+### Added
+
+- **FEAT-010 DSH 标准插件安装支持（bundle 形态）**（EVD-FEAT-010，commit 3339d99，2026-08-23）：根 package.json 增 `dsh.bundle.patch` / `dsh.skills`（35 条：34 skill + 命令投影）/ `files` 白名单 / `keywords`；新增 `cordis.patch.yml` 组合层（挂载 agent-presets root 指向随包 `presets/governance/`，preset 内相对路径自包含）；README DSH 行改标准安装命令（`dsh plugin --profile <test> add ./repo`）+ 备选本地路径。契约实证：dsh 0.1.1-rc.2 plugin 子命令（dsh.bundle 声明 → dsh.profile.bundles 层栈自动并入）+ 官方 publish.md + make-dsh-plugin v3.0.0（bundle 包根=仓库根）。验收（R1/R5 隔离协议修订）= 隔离环境安装冒烟：DSH_HOME 重定向至临时目录（禁止触碰真实 ~/.dsh），`--dump-config` 层栈可见、roster 含 governance preset；自证 boot 双 PASS；真实 ~/.dsh 零操作双确认（时窗取证 + 源码反证）。复审链 R0 NEEDS_CHANGE → R1 NEEDS_CHANGE → R2 APPROVED_WITH_NOTES/0（REVIEW-FEAT-010-R2）；遗留登记：F2→FIX-272、F11→FIX-275、F12 P3。用户视角：用户获得标准 dsh plugin add 安装路径与随包 governance preset，无需手动 clone + launch.py。
+- **FIX-276 README 自动化能力分级声明补注（F-02 入槽，DEC-163）**（EVD-FIX-276，commit 0f9e5bb，2026-08-25）：README.md 新增「自动化能力分级声明（plugin-contract.md L114）」节（L196-205，+10/-0）——A 级（Agent Protocol Automation）/ B 级（CLI-Enforced Automation）/ C 级（System Automation **未实现，roadmap**，plugin-contract L102 引用）；口径以 SKILL.md「自动化能力分级声明」节为唯一事实源逐条对齐，27 处「自动」表述逐处归属。R0 APPROVED_WITH_NOTES/0（P0=0/P1=0/P2=1/P3=2）。用户视角：README 读者（用户/评审/官方目录）获得准确分级——「自动」承诺可追溯至 A/B 级，C 级明确 roadmap 未实现。
+- **AUDIT-146 FEAT-010 事故 RCA**（EVD-AUDIT-146，commit 2bb10ac）：RCA 报告 `docs/requirements/audit-146-feat010-dsh-config-loss-rca.md`（266 行）——事实链 + FEAT-010 交付物逐文件审计 + launch.py 源码审计 + dsh CLI 命令面分析 + 破坏面假设分级（H1a 可能·高 + 工具侧确认级排除）+ 流程缺陷分析（D1-D5）+ 防再发协议建议（R1-R5 草案）。R0 审查 APPROVED_WITH_NOTES/0（REVIEW-AUDIT-146-R0）。用户视角：事故根因与防再发设计公开可查。
+- **FIX-274 M7.7 投影 always-on 注入面 + requires_r1 完成门控**（EVD-FIX-274，commit 4d13992）：M7.7 压缩契约（真实环境三选一 / 逐条留痕上报 / R5 措辞）投影进 SKILL.md「关键行为契约」第 4 条（canonical）+ DSH persona 第 5 条（agent.cordis.yml.template 与 presets/governance/agent.cordis.yml 同步）+ e2e 镜像；INJECTION_CONTRACT_ANCHORS 三面锚（27 锚/4 文件）；Check 39 `check_r1_completion_gate`（requires_r1=true 任务完成时须有 R1 留痕证据，WARN-first，收紧条件显式登记：连续 2 个零违规 0.77.x 版本后升 FAIL，升级时 MUST decision-log 入账）；「唯二例外」措辞统一（R1-N2）；DEC-159/160 入账；**DEC-161/162 预算提额**：persona 契约块 1536B→2560B、SKILL 契约段 2048B→2560B（用户裁定方案 A，保真优先；守卫测试更新）。DESIGN R0 APPROVED_WITH_NOTES/0 → CODE R0 NEEDS_CHANGE（P1-1 门控误报 / P1-2 SKILL 预算超顶）→ R1 返工（DEC-161/162；门控修复红→绿 10+2）→ CODE R1 APPROVED_WITH_NOTES/0。用户视角：任意宿主 agent 均受 M7.7 约束；requires_r1 任务缺 R1 留痕时 WARN 可见（0.77.x 观察窗口不阻断）。
+- **FIX-272 bundle 同源防漂移守卫**（EVD-FIX-272，commit e3e45c0）：INJECTION_CONTRACT_ANCHORS 增补 @version-line 动态锚（28 anchors，authority=SKILL.md frontmatter，fail-closed，FIX-250 前科防再发）+ `check_dsh_skills_manifest` 双向校验（package.json ↔ 磁盘，35/35）+ CLI `check-dsh-skills-manifest` + 引擎 Check 40（product-gate 同 Check 33 归组）+ agent.cordis.yml 头部注释同步。TDD 9 新例红→绿；pytest 1923 passed/28 存量失败（stash 基线证实无关）。R0 APPROVED_WITH_NOTES/0（P2×2 登记遗留 + P3×6 讨论级）。
+- **FIX-273 side-effect 检测盲区加固**（EVD-FIX-273，commit 7d7a966）：`_OUTSIDE_REPO_FILE_RE` 增补 UNC/单反斜杠根分支 + normalized 双 match 参与 outside 判定 + `_REAL_ENV_TEXT_RE` 补 IGNORECASE + 否定语境盲区 docstring 披露（行为不改）+ 9 边界测试（`../` 逃逸、`%USERPROFILE%` 文件目标、UNC、`--side-effects` CLI 端到端；TDD 4红→61绿）。pytest 全量 28 存量失败同基线零新失败。R0 APPROVED_WITH_NOTES/0（P0=0/P1=0/P2=0/P3=3）。
+- **FIX-275 pyc 打包卫生**（EVD-FIX-275，commit 618ab13）：package.json `files` 新增 `!**/__pycache__/` + `!**/*.pyc` 否定模式（npm-packlist 10.0.3 源码级实证：files 存在时根 .npmignore/.gitignore 置 null——白名单目录内 ignore 永不生效；否定模式经 `!!` 双反转成明确排除规则）。RED→GREEN 实测：397 entries/154 pyc/10.34MB → 243 entries/0 pyc/5.72MB（**-64% 体积**）；零误删零误增；payload 完整性零破坏（cordis.patch.yml/presets/skills/adapters/commands/agents/README/LICENSE 全在包内）；.npmignore 路线实证否定不引入。R0 APPROVED_WITH_NOTES/0（P0=0/P1=0/P2=0/P3×4：顺序敏感性/双模式重叠/无注释载体/无自动化回归守卫登记候选）。用户视角：最终用户不再收到含本机编译产物（154 个 pyc/9.86MiB + 构建机路径信息）的污染 tarball。
+- **FIX-271 R1-R5 防再发协议固化**（EVD-FIX-271，commit d396097）：R1/R4/R5 → behavior-protocol.md M7.7（真实环境三选一强制 / 中继机制逐条上报 / 验收措辞禁令）+ R3 → agent-dispatch-template.md 破坏性红线捆绑包注入段 + R2 → change-triage 第五步「执行副作用声明」（`analyze_side_effects`，触及用户真实环境 → 自动附加 R1 审查条件）+ TDD 测试。TDD 12 新例红→绿（52/52）；四步键序字节不变；27 存量失败经 stash 基线证实无关。CODE R0 APPROVED_WITH_NOTES/0 + DESIGN R0 NEEDS_CHANGE（F-01 R4 执行链矛盾）→ R1 返工（中继机制 + incidents 例外条款 + 捆绑包契约 + F-06/F-07）→ DESIGN R1 APPROVED_WITH_NOTES/0（REVIEW-FIX-271-R1）。用户视角：涉及用户真实环境的派发全程强制隔离/备份/授权三选一 + 逐条留痕。
+- **版本声明与 e2e fixture 指针从 0.76.0 推进到 0.77.0**（M-set：SKILL.md frontmatter 0.77.0 权威源 + `release-projection --write` 确定性写入 15 投影——core/manifest、4×plugin.json（.claude/.codex/.zcode/.chrys）、marketplace、package.json、4 hooks @version、dsh persona / AGENTS.md.template、e2e SKILL byte_copy 镜像、e2e plan-tracker + @bootstrap-version 标记面 9 行（governance-init ×3 + e2e 镜像 ×3 + e2e CLAUDE.md + 根 AGENTS.md；根 CLAUDE.md gitignored 本地同步）+ `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉（仅版本字面量 +6/-6 零逻辑，checks/version.py 强制校验面））。
+- `project/CHANGELOG.md` 新增 0.77.0 条目；release docs 三件套创建（feature-flags / release-checklist / rollback-plan）；0.77.0 版本规划文档入库（`docs/release/version-plan-0.77.0.md`，REL-070 第一段经 Release R0→R2 + Design R0→R1 双审查 APPROVED_WITH_NOTES/0 终态，DEC-163 入账）。
+
+### Changed
+
+- SKILL.md「关键行为契约」段与 DSH persona 契约块新增 M7.7 第 4/5 条（真实环境必防护）——行为契约注入面从 3 条增至 4 条（SKILL）与 5 条（persona）；预算按 DEC-161/162 提额为 2560B（机器守卫 `test_persona_contract_block_stays_within_budget` + `test_skill_contract_section_stays_within_budget`）。
+- change-triage 由四步扩为五步（第五步「执行副作用声明」增量——既有四步输出字节不变，向后兼容）。
+- README 对外宣示面补齐能力分级声明（与 SKILL.md/governance.md 口径逐条一致；「过程管理全自动」等承诺归 A 级并显式注明「不是系统后台触发」；C 级 roadmap 未实现）。
+
+### Fixed
+
+- **真实环境操作防护从第四层按需协议升为每会话 always-on 行为契约**（FIX-271 + FIX-274）：R1 从「triage 落 record 后 Coordinator 自觉」变为机器完成门控（Check 39），D1-D5 注入层+消费层双侧闭合（RISK-045 关闭依据链，2026-08-23 已关闭）。
+- **bundle 同源漂移**（FIX-272）：preset persona 版本行与 dsh.skills 清单双向机器校验（Check 40 + 独立子命令）——FIX-250 类版本行漂移防再发。
+- **side-effect 检测盲区**（FIX-273）：UNC/单反斜杠根路径逃逸与 IGNORECASE 漏检加固（FIX-271 CODE R0 P2-1/P2-2/P3-2/P3-3 收口）。
+- **pyc 泄漏进发布包**（FIX-275）：package 打包 154 个 `__pycache__/*.pyc`（10.34MB，含构建机路径信息）→ 0 pyc（-64%）；FEAT-010 R1 F11 闭合。
+- **README 分级宣示与 L114 禁令缝隙**（FIX-276）：消除「全自动」笼统宣示与 C 级未实现并置的误导缝隙（review-FIX-269-CODE-R0 F-02 闭合）。
+
+### Validation
+
+- REL-070（0.77.0 MINOR 候选打包，2026-08-25；candidate-only——transition/tag/push 待用户授权后另行执行，DEC-143 基线；release_authorized=false）。
+- FEAT-010：隔离冒烟 + 自证 boot 双 PASS；真实 ~/.dsh 零操作双确认；复审链 R0→R1→R2 APPROVED_WITH_NOTES/0（REVIEW-FEAT-010-R2）。
+- FIX-271：TDD 12 新例红→绿（52/52）；四步键序字节不变；CODE R0 + DESIGN R0→R1 双审 APPROVED_WITH_NOTES/0×2（REVIEW-FIX-271-R0/R1）。
+- AUDIT-146：R0 APPROVED_WITH_NOTES/0（REVIEW-AUDIT-146-R0 机器行）。
+- FIX-274：DESIGN R0 APPROVED_WITH_NOTES/0 + CODE R0 NEEDS_CHANGE → R1 APPROVED_WITH_NOTES/0（门控修复红→绿 10+2；双预算守卫 15；DEC-161/162）；Check 39 真实数据零误报（35 records/1 r1 未完成合法跳过）。
+- FIX-272：TDD 9 新例红→绿；pytest 1923 passed/28 存量失败（stash 基线证实无关）；R0 APPROVED_WITH_NOTES/0。
+- FIX-273：TDD 4红→61绿；pytest 全量 28 存量失败同基线零新失败；R0 APPROVED_WITH_NOTES/0。
+- FIX-275：RED→GREEN 实测（243 entries/0 pyc/5.72MB）；Reviewer 独立重验（pyc 精确计数 154/10,340,875B 与差分 397-243=154 三方自洽）；verify/cross-refs/manifest/version 全 PASS；R0 APPROVED_WITH_NOTES/0。
+- FIX-276：verify_workflow.py 全量 PASSED（exit 0）+ check-cross-references 68 files/649 refs 无悬空 PASS + check-version-consistency 13 files PASS + check-manifest-consistency 565/608 PASS；R0 APPROVED_WITH_NOTES/0（REVIEW-FIX-276-R0 机器行 + RECO-FIX-276）。
+- 门禁（0.77.0 candidate，2026-08-25）：`check-version-consistency` PASS（13 文件声明；1 advisory WARN——宿主 plan-tracker 仍 0.76.0，Coordinator 打包后 bump）；`check-projection-sync --fail-on-issues` PASS（15 投影）；`check-manifest-consistency` PASS（canonical 568/actual 608）；`check-cross-references --fail-on-issues` PASS（68 文件/649 refs 零悬空）；`verify` 无参 PASSED（唯一 WARN = plan-tracker 0.76.0）；`check-injection-contract` PASS（4 文件/28 anchors——FIX-272 @version-line 锚在打包期间实际捕获 preset 版本行滞后并已同步）；`check-dsh-skills-manifest` PASS（35/35）；pytest 全量 28 failed/1930 passed/215 subtests（与 HEAD 基线 28 failed/1932 passed 一致——零打包引入失败；28 = 窗口内既有基线：pre_commit_review_evidence 24 SUBFAILED + test_all_manifest_dirs_covered（FEAT-010 `presets/` 未入 cleanup PLUGIN_SCOPE_DIRS）+ loop-claims/ragged-row 3 例）；`check-release --version 0.77.0 --require-changelog --lineage-mode candidate` 8 issues 按先例全分类（3 = 未提交态产物 + 1 = archive trigger gap 过渡态（EVD-894 先例）+ 1 = governance health 106（既有宿主 posture）+ 2 = AUDIT-146 RCA 文档 ragged row 窗口内既有基线（loop-claims FAIL + unit tests 同源），核心静态门禁全 PASS（version/fact-source/lineage candidate/gate-sequence Check 37/one-dot-zero/loop-fuse/changelog）+ verify/e2e 执行门禁 PASS）；`release-ledger --no-remote` 未提交候选过渡态（NATIVE_CANDIDATE，commit 后重跑——REL-067 先例）。
+
+### Boundaries
+
+- 0.77.0 **RISK-036/RISK-039 remain open**（2026-09-30；各自独立关闭标准未满足）；不关闭、不重开任何已关闭风险（RISK-045 已于 2026-08-23 用户授权关闭，0.77.0 不重开）。
+- 不声明 official approval、zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready；不关闭 RISK-036/RISK-039。
+- **Breaking changes：无**。全部为新增能力/检查/规则/打包卫生与增量文本；既有 CLI 默认行为零变化（FIX-271 四步键序字节不变）；Check 39/40 为新增编号（39<40），既有 check 无重命名/删除。
+- MINOR bump 依据（VERSIONING.md）：① FEAT-010 新安装能力（L12 类别：新能力/分发面）；② FIX-274 SKILL.md MUST 规则新增（L37）。新 check 39/40 与新 CLI 按 L34（verify_workflow.py 新增检查项 → PATCH）如实陈述为 PATCH 面增量，不作为判级依据。
+- **预算提额披露（DEC-161/162 检查值）**：persona 契约块预算 **2560B**（原 1536B，DEC-161 用户裁定方案 A——M7.7 第 5 条行为契约注入所需；M7.4 契约块预算不变）；SKILL.md「关键行为契约」段预算 **2560B**（原 2048B，DEC-162）；守卫测试 `test_persona_contract_block_stays_within_budget` + `test_skill_contract_section_stays_within_budget`。
+- **RISK-044 快照（quick-scan 出槽附注）**：`--summary-only` 墙钟实测 31-32s（超设计 §3.1 <15s 门禁——DEC-149 已接受并修订验收信号为「单次 <60s 且每会话仅一次」，31-32s 满足）；**quick-scan 秒级子集出槽 0.77.0 → 0.78.x+ 候选**（本版不含——M-1 经 decision-log + CHANGELOG 附注登记；RISK-044 保持 open，2026-08-28 复核由 Coordinator 执行：维持接受 / quick-scan 前移）。
+- **迁移说明（RISK-D5——DSH preset 时滞）**：DSH 平台升级路径为 `git -C <plugin_root> pull && python <plugin_root>/adapters/dsh/launch.py --sync`（DSH 无 `/plugin update`）；persona/bootstrap 模板的 0.77.0 版本行与 5 条契约在 `--sync` 重写 preset 后生效，未 sync 前旧 preset 仍携带旧版本行——不得宣称未 sync 安装的会话级 M7.7 效果；升级同步后对被治理项目自然生效（看护 check 作用于宿主 `.governance/` 读时数据，无需被治理项目单独改造）。
+
+## [0.76.0] - 2026-08-23
+
+### 0.76.0 - 看护模式七项 + /governance 性能修复（REQ-145.1~145.7 / FIX-263~270 + FIX-270 性能）（MINOR）
+
+0.76.0 是 MINOR 发布，把 HEAD `db1078f` 上 0.75.0 released（`v0.75.0` = 543550c）之后已合入的 **15 个 commit** 打包成发布候选——承载 MINOR 语义的主链：AUDIT-145 看护缺口七项修复（FIX-263 设计 + FIX-264~269 实现：会话 bootstrap 自动健康摘要 `check-governance --summary-only`、Check 35 快照新鲜度、Check 36 风险缓解闭环、Check 37 Gate-发布互锁、Check 38 CI 实跑证据、能力分级声明）与 `/governance` 性能修复（FIX-270：status 秒级快路径 + 宿主 check-governance -91% 提速 + mixed-root 去噪）；八个随行 commit（FIX-255/256/258、AUDIT-144、FIX-260/261/262、DOC-002）——其中 FIX-260/261/262 为 REQ-107/108 消费方（审查结论机器持久化 + 完成推荐机器验证回路），FIX-255/256/258 为发布后债务/测试加固，AUDIT-144 为只读诊断报告，DOC-002 为项目质量原则投影。发布目标：AUDIT-145 诊断的「记录+门禁有效但运行时看护缺位」——会话纪律、风险缓解闭环、Gate-发布互锁、CI 实跑证据、bootstrap 健康摘要从「人发现问题」转向「机器看护」，并对 `/governance` 分钟级状态展示与宿主 check-governance 噪音/耗时做性能修复。**不关闭 RISK-036/RISK-039**。版本投影 0.75.0 -> 0.76.0 全 PASS（15 projections 由 `release-projection --write` 确定性写入 + `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。**Breaking changes：无**（全部为新增检查/子命令/文档声明与内部修复，无既有接口破坏；CLI 均为增量参数）。
+
+### Added
+
+- **FIX-263/264 会话 bootstrap 自动健康摘要（REQ-145.1+145.7）**（EVD-FIX-264，commit 66fa210，2026-08-23）：根因 = AUDIT-145 D1——check-governance 仅手动触发，会话无自动健康信号。修复：`verify_workflow.py` 新增 `--summary-only` 子命令（复用全量引擎捕获输出 + `_aggregate_check_summary` + `--level lightweight|standard|strict` 详略分档 + fail-safe 降级）；会话协议 M4.1 新增一步 + 入口 SKILL.md 注入健康摘要段（A3 方案：不进 persona——契约块 1535/1536 字节已满）；阈值对齐 DEC-149（>60s 软超时取消，source/e2e 镜像逐字一致）。**披露（RISK-044，2026-08-22 登记，已接受/DEC-149）**：`--summary-only` 墙钟实测 31-32s，未达设计 §3.1 `<15s` 门禁（复用同引擎=全量引擎耗时，设计「秒级」前提经真机实测不成立）；DEC-149 已接受并修订验收信号为「单次运行 <60s 且每会话仅一次」（31-32s 满足），quick-scan 秒级子集列为 0.77+ 候选（不改变 0.76.0 语义）；RISK-044 保持 open（已接受/DEC-149），deadline 2026-08-28 复核。用户视角：每个新会话 bootstrap 后自动输出 `Governance: {N} issues` 汇总 + 首个 FAIL/WARN 项，无 issue 时 `[PASS]`。验证：test_summary_only 15 用例红→绿；全量 1752 passed+237 subtests（唯一失败 = 既有 resolve_entry 时间敏感 flaky 00:00-02:00 窗口恒败，HEAD 同败）；审查链 R0/R1 APPROVED_WITH_NOTES/0。设计文档 `docs/requirements/audit-145-watchdog-design-0.76.0.md` + `audit-145-watchdog-gap-0.76.0.md` 随实现入库（FIX-263 交付物）。
+- **FIX-265 Check 36 风险缓解闭环（REQ-145.3）**（EVD-FIX-265，commit cba247b）：根因 = AUDIT-145 D2——risk-log「写缓解即完成」无闭环断言。修复：`checks/risk_domain.py` 扩展（`is_risk_status_closed` + F11 PriorityReport 四桶状态映射重建 + R1-R5 判定：引用任务未闭环→WARN、截止过/高危→FAIL、跨实体引用→R3 WARN 不升级、无引用无豁免→R4 内容级披露、已关闭/豁免/ragged→skip）；`task_priority ✅` 为规则权威（DEC-151）；解析异常 fail-safe WARN 不 raise。用户视角：风险缓解引用未完成任务时 check-governance 输出警告（内容维度，补充 Check 2/8 时间维度盲区）。24 用例红→绿；全量 1792 passed+237 subtests 零既有断言变化；三项目只读实测 tv FAIL(R2)/router WARN(R3×3)/dogfood WARN(R3×29)；R0 APPROVED_WITH_NOTES/0；遗留 P2×4+P3×7 登记 0.76.x。
+- **FIX-266 Check 37 发布前 Gate 互锁（REQ-145.4）**（EVD-FIX-266，commit 15051c1）：根因 = AUDIT-145 D4——发布绕过 pending Gate 无机器断言。修复：`checks/gate_domain.py` 新域（行序推导识别发布 Gate，不硬编码编号——standard 11/lightweight 7 兼容；G-s1 发布<passed 日期或 passed 无日期→FAIL、G-s2 前置 pending 保守 FAIL、G-s3 git 不可见 tag fail-safe WARN；passed-on-entry 视为非 pending；多 tag 只判最高 semver；反引号状态归一化；永不 raise）+ `check_release_readiness` 内嵌调用 + Check 37 块 + `cmd_check_release` BR-4 自动 released 模式；历史豁免 candidate→FAIL/released→WARN 披露（4 分支双态测试）。用户视角：`check-release` 自动横查前置 Gate，绕过发布被 FAIL。41 用例红→绿；全量 1864 passed+237 subtests 0 failed；tv/router 候选 FAIL + 已发布 WARN + BR-4 端到端 [PASS]；R0/R1 APPROVED_WITH_NOTES/0；遗留 P2-3+P3×9 登记 0.76.x。
+- **FIX-267 Check 38 CI 实跑证据（REQ-145.5）**（EVD-FIX-267，commit 4e3d08a）：根因 = AUDIT-145 D2/D4——声称 CI 已建/已跑无载体验证。修复：`checks/ci_domain.py` 新域（声明解析 CI word-boundary + 否定词归类 + 规则文本排除；C1 声称已建无载体→FAIL、C2 载体无 remote→WARN 未真跑（fail-safe）、C3 声称已跑无法证实（含无载体 DEC-156）→WARN、C4 无声明无载体→PASS；多路径探针 深走查+GitLab/Jenkins+嵌套 git 排除；`_is_pathlike` 守卫永不 raise）。用户视角：plan-tracker 声称 CI 已建但无 workflow → FAIL；有 workflow 无 remote/运行记录 → WARN「未真跑」。R0 NEEDS_CHANGE（P0-1 TypeError）→ 修复（真实 un-mocked 守卫/run→C3 WARN/词边界等）→ R1 APPROVED_WITH_NOTES/0；RED 5 failed→GREEN 31 passed；全量 1895 passed+237 subtests 0 failed；tv WARN(C2)/router PASS(C4)/host PASS。
+- **FIX-268 Check 35 快照新鲜度（REQ-145.2）**（EVD-FIX-268，commit 3a819d0）：根因 = AUDIT-145 D3——会话快照过期无机器保证（三项目实证全部过期）。修复：`checks/snapshot_domain.py` 新域（S1a 缺失/不可解析→WARN、S1b 落后→WARN、S1c AND 双阈值 7 天且 10 commit→FAIL、S1d 无快照→no-verdict；无日历生效日豁免；git 事实源 HOST_PROJECT_ROOT + ls-files 跟踪判定 + mtime 次级基准 FAIL 不可达；adoption-edge 封顶；永不 raise）；DEC-152 裁定 4 项。用户视角：快照比最近治理 commit 落后超阈值时 check-governance 警告/FAIL。31 用例红→绿；全量 1823 passed+237 subtests 0 failed；tv WARN(S1b 4d/72lag)/router PASS/dogfood PASS；R0/R1 APPROVED_WITH_NOTES/0；遗留 P2×2+P3×3 登记 0.76.x。
+- **FIX-269 自动化能力分级声明（REQ-145.6）**（EVD-FIX-269，commit db1078f）：根因 = plugin-contract.md L114 禁令——禁止笼统「自动」同时指向 A 级与 C 级能力。修复：SKILL.md 新增「自动化能力分级声明」小节（A 级 Agent Protocol Automation / B 级 CLI-Enforced Automation / C 级 System Automation 未实现——L102 MCP/headless runner 仅协议样例；0.76.0 `--summary-only` 会话级 auto-run 非 C 级 daemon；当前治理自动级别 = A+B，C 级 roadmap）+ L38 逐条标注 + commands/governance.md L64 B 级标注 + 设计原则节分级声明小节（指回 SKILL.md 单一事实源，无定义双写）+ e2e SKILL.md 镜像同步。用户视角：对外宣示不再把 C 级未实现说成已实现。R0 APPROVED_WITH_NOTES/0 零 P0/P1；全量 verify PASSED + projection/crossrefs(646→648 零悬空)/manifest(557/600)/version(13 文件 0.75.0 未 bump) 全 PASS；check-governance 113==113 零新增；遗留 F-02（README 宣示分级补注）+ F-03（e2e commands 投影决策）登记 0.76.x 候选（DEC-157）。
+- **FIX-270 /governance 性能修复**（EVD-FIX-270，commit 1479fcc）：根因（用户实测 2026-08-23，tv 项目）＝ Scenario F 要求 LLM 全量读命令文档 639 行 + 4 治理文件（110KB+）+ 渲染 28 字段快照 = 分钟级；宿主 check-governance 28.6s（插件产品自检 22 项每会话必跑）；mixed-root 令宿主噪音化 182 issue。修复：(A) 新增 `status` 命令——复用扩展既有 status（补全 Scenario F 数据/活跃风险/最近活动/插件新鲜度/下一步线索/统计对齐 + Gate 显示循环 bug 修复 + `--json` + skip_evidence_log 零整读 evidence-log 机制）；(B) check-governance 宿主提速——`_PLUGIN_PRODUCT_CHECK_IDS` 22 项按检查事实源根切分（无编号黑名单），宿主默认跳过产品自检 + `[SKIP]` 如实报告，`--product-gates` 显式开启，dogfood 保留全部；宿主 full 25.49s→2.40s（-91%），输出 0 条插件路径条目；(C) mixed-root 修复（Check 28s schema/facts 根拆分、Check 25 git 事实源→HOST_PROJECT_ROOT、Check 28c 双段化+plugin-scope+[INFO] 报告）。用户视角：宿主 `/governance` 状态秒级（tv 实测 status 0.47s / check-governance full 2.42s），输出零插件路径噪音。15 用例红→绿；全量 1768 passed+237 subtests 0 failed；R0/R1 APPROVED_WITH_NOTES/0（F1/F2/F3 逐项核验）；遗留 P2×3+P3×4+N1-N3 登记 0.76.x。
+- **FIX-260 审查结论机器持久化 + 复审义务（REQ-107 消费方）**（EVD-FIX-260，commit 8922c6e）：`checks/review_domain.py` +246 纯新增 + Check 30c `check_review_machine_provenance`（V7 机器源标记/V8 next_round 义务字段断言，WARN-only + 生效日豁免 REQ107_MACHINE_PROVENANCE_DATE=2026-08-22，WARN 不进 all_issues）；behavior-protocol M7.4 step 4.6 机器持久化 MUST；DSH persona 契约第 4 行（1535B≤1536B 预算测试断言）。用户视角：审查结论经 review-record CLI 机器入账（本仓首个机器标记审查记录 REVIEW-FIX-260-R0）。TDD 13→14 用例；全量 1696+213 subtests 0 failed；R0 APPROVED_WITH_NOTES/0。
+- **FIX-261 提交钩子审查证据正则对齐机器行格式**（EVD-FIX-261，commit 3fd5adf）：pre-commit/commit-msg `has_approved_review_evidence` 双分支改写——legacy 行尾 APPROVED 族逐字保留（零收窄）+ 机器 11 列格式仅接受 APPROVED_WITH_NOTES + 尾列 unresolved_blockers=0（注入/大小写/NEEDS_CHANGE/BLOCKED 全部 MISS）；两钩子字节一致 + `test_hook_copies_stay_identical` 钉住。用户视角：机器行格式的审查结论能被提交钩子识别为通过终态。11 用例红→绿；全量 1707 passed 0 failed；R0 APPROVED_WITH_NOTES/0。
+- **FIX-262 完成推荐机器验证回路（REQ-108 消费方）**（EVD-FIX-262，commit cc79dd0）：`task-priority-analysis --evidence-task` 旗标机器写入 RECO-{task} 10 列推荐快照行（fail-closed 坏 ID exit 2 零写入；无旗标行为字节一致）；Check 34 `check_completion_recommendation`（S1 完成行缺快照关联→FAIL、~145 条 legacy 豁免；S2 快照优先级节缺 ID 引用→WARN 渐进 DEC-147；S3 悬空引用→FAIL）；behavior-protocol step 6a 机器路径优先 + 快照引用 MUST。用户视角：任务完成的推荐快照被机器验证、写证据（首个 RECO-FIX-262 行）。TDD 18 新用例；全量 1725+237 0 failed；R0 APPROVED_WITH_NOTES/0；DEC-147 入账。
+- 版本声明与 e2e fixture 指针从 0.75.0 推进到 0.76.0（M-set：4×plugin.json（.claude/.codex/.zcode/.chrys）、marketplace、package.json——6 个版本元数据目标、source/e2e SKILL frontmatter、manifest、fixture plan-tracker、四个 source hooks、DSH persona 模板 v0.76.0 与 AGENTS.md.template L3 `@bootstrap-version: 0.76.0`——15 projections 由 `release-projection --write` 确定性写入，written=15；`verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉；`@bootstrap-version` 标记面 9 行——commands/governance-init.md ×3 + e2e 镜像 ×3 + e2e CLAUDE.md + 根 AGENTS.md（根 CLAUDE.md gitignored 本地同步不入 commit），FIX-256 先例）。
+- `project/CHANGELOG.md` 新增 0.76.0 条目；release docs 三件套创建（feature-flags / release-checklist / rollback-plan）。
+
+### Changed
+
+- `check-governance --summary-only`：只输出汇总 + 首个 FAIL/WARN 项（`--level` 分档），零回归既有全量输出路径；会话级 bootstrap 自动运行（每会话一次，>60s 软超时取消）。
+- `/governance` Scenario F 状态展示与 `commands/governance-status.md` 改为渲染 `status` 命令输出——全量读治理文件降为按需；宿主 check-governance 默认跳过 22 项插件产品自检（`--product-gates` 显式开启；dogfood 保留全部）。
+- SKILL.md / commands/governance.md 逐条标注自动化能力级别（A 级协议/B 级 CLI/C 级未实现声明，引用 plugin-contract L114；当前治理自动级别 = A+B，C 级为 roadmap）。
+
+### Fixed
+
+- **风险「写缓解即完成」无机器断言**（Check 36）：缓解措施引用非 completed 任务 → WARN/FAIL，关闭 AUDIT-145 D2 时间维度盲区。
+- **会话快照过期无机器保证**（Check 35）：session_date 落后超阈值 → 渐进 WARN/FAIL（AUDIT-145 D3）。
+- **发布绕过 pending Gate**（Check 37 内嵌 check-release）：release 就绪检查自动横查前置 Gate（AUDIT-145 D4）。
+- **CI 声称与载体不符**（Check 38）：无 workflow 声称已建→FAIL、无 remote/运行记录→WARN（AUDIT-145 D4）。
+- **/governance 分钟级状态展示**（FIX-270）：status 命令 <1s（tv 实测 0.47s）；宿主 check-governance 25.49s→2.40s（-91%）。
+- **mixed-root 噪音**（FIX-270 C）：Check 28s/25/28c 以宿主事实源定位，宿主输出零插件路径条目。
+- **bootstrap 不诊断**（REQ-145.1）：resolve_entry.py 不 import verify，健康摘要走 M4.1 流程步骤（A3 不进 persona）。
+- **commit-msg 拒绝机器行格式审查结论**（FIX-261）：双分支正则对齐，legacy 行尾格式字节保持。
+- 随行债务/加固（FIX-255/256/258）：test_change_triage 版本字面量对齐（FIX-248 同型复发）、@bootstrap-version 标记面 0.75.0 对齐 + EntryBootstrapTemplate 断言动态化（零版本字面量）+ F-1 单源派生（0.76.0 复发通道关闭）、FIX-254 债务包（bae9d5f/FIX-258 落地：访问预算 10,000 + 菱形测试 + 纯重构拆分），AUDIT-144 依赖盲区只读诊断（热指针行方案论证）。
+
+### Validation
+
+- REL-069（0.76.0 MINOR 候选打包，2026-08-23；candidate-only，transition 需用户授权后另行执行）。
+- FIX-264：test_summary_only 15 用例红→绿；全量 1752 passed+237 subtests；R0/R1 APPROVED_WITH_NOTES/0。
+- FIX-265：24 用例红→绿；全量 1792 passed+237 subtests；三项目实测 tv FAIL/router WARN/dogfood WARN；R0 APPROVED_WITH_NOTES/0。
+- FIX-266：41 用例红→绿；全量 1864 passed+237 subtests 0 failed；tv/router 双项目实测 + BR-4 端到端；R0/R1 APPROVED_WITH_NOTES/0。
+- FIX-267：31 用例红→绿（RED 5 failed → GREEN）；全量 1895 passed+237 subtests 0 failed；tv WARN/router PASS/host PASS；R0 NEEDS_CHANGE → R1 APPROVED_WITH_NOTES/0。
+- FIX-268：31 用例红→绿；全量 1823 passed+237 subtests 0 failed；tv WARN/router PASS/dogfood PASS；R0/R1 APPROVED_WITH_NOTES/0。
+- FIX-269：全量 verify PASSED + projection/crossrefs/manifest/version 全 PASS；check-governance 113==113 零新增；R0 APPROVED_WITH_NOTES/0。
+- FIX-270：15 用例红→绿；全量 1768 passed+237 subtests 0 failed；tv 独立复核 status 0.47s / check-governance full 2.42s / 0 条插件路径；R0/R1 APPROVED_WITH_NOTES/0。
+- FIX-260/261/262：全量 1696+213 / 1707+0 / 1725+237 0 failed；机器审查记录 REVIEW-FIX-260/261/262-R0 + RECO-FIX-262；R0 APPROVED_WITH_NOTES/0。
+- 门禁（0.76.0 candidate，2026-08-23）：`check-version-consistency` PASS（13 文件声明；1 advisory WARN——宿主 plan-tracker 仍 0.75.0，Coordinator 打包后 bump）；`check-projection-sync --fail-on-issues` PASS（15 投影）；`release-projection --write` written=15 exit=0（再次 check PASS）；`check-manifest-consistency` PASS；`release-ledger --version 0.76.0 --no-remote` NATIVE_CANDIDATE（未提交候选过渡态，commit 后重跑）；`check-release --version 0.76.0 --require-changelog --lineage-mode candidate` 核心静态门禁 PASS（既有基线 FAIL 按 REL-067/068 先例如实分类披露，见 release checklist 0.76.0）。
+
+### Boundaries
+
+- 0.76.0 **RISK-036/RISK-039 remain open**。RISK-036（official marketplace operations）与 RISK-039（ArchGuard external validation）各自独立关闭标准未满足；本版本不重开任何已关闭风险。
+- 不声明 official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready；不关闭 RISK-036/RISK-039。
+- **Breaking changes：无**。全部变更为新增检查/子命令/流程步骤/文档声明（增量文本与增量参数），既有 CLI 默认行为零变化；Check 35~38 为新增 check 编号（35<36<37<38 链），既有 check 无重命名/删除。
+- MINOR bump 来自看护能力新增（5 项机器看护 check/子命令 + status 快路径 + 能力分级声明 + 审查机器持久化/推荐机器验证回路），不引入 breaking runtime API。
+- **迁移说明（RISK-D5——DSH preset 时滞）**：DSH 平台升级路径为 `git -C <plugin_root> pull && python <plugin_root>/adapters/dsh/launch.py --sync`（DSH 无 `/plugin update`）；persona/bootstrap 模板的 0.76.0 版本行在 `--sync` 重写 preset 后生效，未 sync 前旧 preset 仍携带旧版本行——**升级同步后（git pull + adapters/dsh/launch.py --sync）对被治理项目自然生效**（看护 check 作用于宿主 `.governance/` 读时数据，无需被治理项目单独改造）。
+
+## [0.75.0] - 2026-08-21
+
+### 0.75.0 - 关键行为规则注入面 + 空推荐降级（REQ-112/REQ-110，DEC-143 前置放大器双落地）（MINOR）
+
+0.75.0 是 MINOR 发布，把 HEAD `d90c167` 上 0.74.0 released（`v0.74.0` = 3a64d54）之后已合入的 9 个 commit 打包成发布候选——两个承载 MINOR 语义的主 commit：FIX-253（REQ-112 关键行为规则注入面，DEC-144 方案 A）与 FIX-254（REQ-110 空推荐降级）；六个 0.74.0 后观察项/债务 commit（FIX-247/FIX-248/FIX-249/FIX-250/FIX-251/FIX-252）与一个审计 commit（AUDIT-143）随行。发布目标：AUDIT-143 定位的 loop engineering 三层断裂中，注入层根因（关键行为规则只存在于 DSH persona/SKILL 注入链不携带的第四层文件，agent 行为约束靠自觉）与数据层根因（全部任务被阻塞时推荐恒空，用户得不到任何下一步建议）双修复——FIX-253 把三条关键行为规则（复审必达/完成必推荐/选项必带依据）注入确定性注入面（DSH persona + 入口 SKILL.md 双点），并以 version-projections transformed_text 锚定 persona 版本行与 AGENTS.md.template bootstrap 版本行（L33 漂移类问题机器防再发）；FIX-254 为任务推荐链增加空推荐降级——当无未阻塞任务时输出「解锁链推荐」（Unblock pick + 结构化空原因 + 最近可行动作），推荐交互不再恒空退化。**不关闭 RISK-036/RISK-039**：官方市场操作与 ArchGuard 外部宿主验证各自独立关闭标准未满足。版本投影 0.74.0 -> 0.75.0 全 PASS——本次为 FIX-253 新增的 2 个 transformed_text 投影（dsh-persona-version / dsh-agents-bootstrap-version）首次参与发版：`release-projection --write` 写入 15 投影（written=15，exit=0），persona L33（v0.75.0）与 AGENTS.md.template L3（@bootstrap-version: 0.75.0）由投影机制确定性推进（M-set：15 projections + `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。
+
+### Added
+
+- **FIX-253 关键行为规则注入面（REQ-112，DEC-144 方案 A：双点最小注入 + 版本投影锚定 + 锚点检查）**（EVD-FIX-253，2026-08-21）：根因 = AUDIT-143 定位注入层断裂——T1-T4 复审触发器与 M7.4 step 6 推荐规则位于第四层按需加载文件，DSH persona/SKILL 注入链不携带，行为约束依赖 agent 自觉；persona L33 版本行曾漂移 v0.73.0（FIX-250 逃逸者）。修复（9 文件 +213/-6）：(1) DSH persona 契约块 4 行 1404B≤1.5KB（R1 复审必达 / R2 完成必推荐 / R3 选项必带依据——三条与铁律同级的压缩契约），agent.cordis.yml.template 会话注入即生效；(2) 入口 SKILL.md「关键行为契约」段 1623B≤2KB（canonical 投影定义处）+ e2e fixture byte_copy 同步重生成（20884B 相等）；(3) AGENTS.md.template 单行指针（thin-pointer 纪律）；(4) version-projections.json +2 transformed_text 投影（dsh-persona-version / dsh-agents-bootstrap-version，pattern 唯一命中 persona L33 与 AGENTS L3）+ manifest projection_ids 同步（15=15 集合相等）——发版时版本行随投影机制确定性推进，L33 类漂移机器防再发；(5) verify_workflow.py INJECTION_CONTRACT_ANCHORS 12 锚点 + check_injection_contract() + Check 33 接入 check-governance + 独立子命令（fail-closed）；(6) test_dsh_adapter 版本断言动态化（从 SKILL frontmatter 权威源读取，消灭 FIX-250 姊妹手动同步通道）；(7) behavior-protocol.md canonical 注记 + step 6b/6c 改写（统一 DEC-143「自动推荐 + 用户确认」基线，废止「自动执行推荐项」默认分支）。验证：S1-S8 全 PASS（S4 projection-sync 15 投影 exit 0、S6 Check 33 PASS、S8 18/18）；全量回归 699+18+107+12+40 全绿。审查链：Design R0 APPROVED_WITH_NOTES/0（4 WARNING 返工核实）+ DEC-144 用户确认（方案 A）+ Code R0 APPROVED_WITH_NOTES/0（5 P3 非阻塞）。
+- **FIX-254 空推荐降级——解锁链推荐 + 结构化空原因（REQ-110）**（EVD-FIX-254，2026-08-21）：根因 = AUDIT-143 定位数据层断裂——live unblocked=0 时 recommended_next 恒空，任务完成后的推荐交互退化为机械枚举或直接结束（用户反馈 2a/2b 直接根因）。修复（4 文件 +647/-2）：task_priority.py 新增 UnblockRecommendation 与 _walk_blocker_roots（unknown_dependency / non_executable_status / cycle 三类根因，菱形去重 + 环终止 + 深度上限 200）+ _build_empty_recommendation_fallback（价值排序 = 下游解锁数降序 → 优先级 → 版本 → ID 严格全序）；compute 单点接线（仅空推荐触发，正常路径零行为变化）；format_report all_blocked 分支渲染 Unblock pick / 空原因 / 最近可行动作；loop_exit_bridge.py 传播 recommended_fallback / empty_reason 两键（含 parse-error 路径）。19 个新测试红→绿（红相 Ran 119 failures=3 errors=15 → 绿相 119 OK）；全量回归 159/159 + test_verify_workflow 全绿。live 验证：task-priority-analysis unblocked=0 输出非空——Unblock pick: FIX-205 [P0]（解锁 7 下游）+ 结构化空原因。审查链：R0 APPROVED_WITH_NOTES/unresolved_blockers=0（F-1 P1 当轮返工修复）。
+- 版本声明与 e2e fixture 指针从 0.74.0 推进到 0.75.0（M-set：plugins、marketplace、package.json、source/e2e SKILL frontmatter、manifest、fixture plan-tracker、四个 source hooks、DSH persona L33 与 AGENTS.md.template L3——15 projections 由 `release-projection --write` 确定性写入，written=15；以及 `verify_workflow.py` 的 `REQUIRED_SNIPPETS` 6 版本钉）。
+- `project/CHANGELOG.md` 新增 0.75.0 条目；release docs 三件套创建。
+
+### Fixed
+
+0.74.0 released 之后、0.75.0 打包之前合入的六个观察项/债务 commit（均已具备各自 evidence 与审查链，随 0.75.0 一并进入用户安装面）：
+
+- **FIX-247 FIX-237/238 遗留观察项处置**（EVD-FIX-247，commit c9739d0）：change-triage 证据 append 失败时 best-effort 回滚 + 明确报错；同 task_id 重 triage 拒绝（fail-closed）；bootstrap.sh timeout 分支退出码折叠与 stdlib 兜底诊断。用户视角：triage 记录不再出现半写状态，入口引导失败原因可区分。
+- **FIX-248 change-triage CLI 测试 fixture 版本对齐**（EVD-FIX-248，commit 9ce4e19，测试-only）：fixture roadmap 与 CLI 调用从 0.73.0 对齐 0.74.0，unknown-dep fail-closed 测试恢复真实覆盖。用户视角：无可见行为变化（测试强度提升）。
+- **FIX-249 FIX-247 R0 §6 五 P3 债务包**（EVD-FIX-249，commit 113a959，测试加固）：bootstrap.sh stdlib 兜底分支补「resolve_entry exited non-zero」诊断、区分 timeout(1) 自身失败（125/126/127）与真实非零、malformed triage 记录 immutable 边界（拒绝而非静默覆盖）。用户视角：引导失败诊断更精确、triage 记录防覆盖。
+- **FIX-250 候选债务包**（EVD-FIX-250，commit 856301e）：`@bootstrap-version` 模板标记 0.73.0→0.74.0 全投影面同步（REL-067 投影缺口）；parse_version_chain 表后误追加加固（triage 机器记录 version_chain 不再混入路线图后续表行）；archive dry-run「校验: FAILED」误导输出修复为 N/A；`.gitattributes` 补 `*.json text eol=lf`。用户视角：后续版本发布时模板标记不再陈旧、triage 依赖/版本分析准确。
+- **FIX-251 parse_task_dependencies 无表头窗口表可见性**（EVD-FIX-251，commit 0dc1786）：plan-tracker「最近完成（本会话提交窗口）」子节的无表头任务表此前永不进入解析（新任务依赖这些任务时被 unknown-dep fail-closed 拒收）。修复后 live 统计 124→131（+7 全可见）。用户视角：新任务引用最近完成窗口任务不再被误拒。
+- **FIX-252 观察项债务包**（EVD-FIX-252，commit 439f8b4）：`_coerce_text` str 路径/文本歧义修复（像路径但不存在 → 明确 ValueError 而非静默 total 0 或 IsADirectoryError；空串/多行守卫）；web-console 测试 stdout 泄漏修复；fixture 对齐与组合顺序锁定。用户视角：CLI 输入误用从静默错误结果变为明确报错。
+
+### Validation
+
+- REL-068（0.75.0 MINOR 候选打包，2026-08-21；candidate-only，transition 需用户授权后另行执行）。
+- FIX-253：S1-S8 全 PASS（S1 grep NEEDS_CHANGE×1、S2 task-priority-analysis×2+1、S3 依赖状态理由×1+1、S4 check-projection-sync 15 投影 PASS、S5 check-version-consistency PASS、S6 Check 33 PASS + 子命令 exit=0、S7 fixture byte-equal、S8 18/18）；verify/crossref/manifest 全 PASS；全量回归 699+18+107+12+40 全绿；Design R0 + DEC-144 + Code R0 审查链关闭。
+- FIX-254：19 新测试红→绿（119 OK）；全量回归 159/159（task_priority + loop_exit_bridge + change_triage）+ test_verify_workflow 全绿；live CLI 输出 Unblock pick 非空 + all_blocked 结构化空原因；Code R0 APPROVED_WITH_NOTES/0。
+- 随行六 commit（FIX-247~252）：各自 evidence 记录完整（EVD-FIX-247~252）+ 审查链关闭（FIX-247 R0 APPROVED/0、FIX-248 R0 APPROVED/0、FIX-249 R0→R2 APPROVED_WITH_NOTES/0、FIX-250 R0 APPROVED_WITH_NOTES/0、FIX-251 R0 APPROVED_WITH_NOTES/0、FIX-252 R0 NEEDS_CHANGE→R1 APPROVED_WITH_NOTES/0）；合并回归 test_task_priority + test_loop_exit_bridge + test_change_triage 159/159 + test_verify_workflow 全绿 + test_archive 119 全绿。
+- 门禁（0.75.0 candidate，2026-08-21）：`check-version-consistency` PASS（1 advisory WARN——宿主 plan-tracker 仍 0.74.0，Coordinator 打包后 bump）；`check-projection-sync --fail-on-issues` PASS（15 投影，含 2 新投影达成态——dsh-persona-version / dsh-agents-bootstrap-version 首次发版实战）；`release-projection --write` written=15 exit=0（新投影首次实战记录）；`check-manifest-consistency` PASS（554 canonical / 580 actual）；`check-injection-contract` PASS（3 文件 12 锚点）；unittest test_release_ledger 39 OK + test_dsh_adapter 18 OK（版本断言动态化自动适配 0.75.0）+ test_verify_workflow 699 OK（254.9s）；`release-ledger --no-remote` 报告未提交候选过渡态 issue（git_commit_adding_path 派生要求文件已提交——commit 后重跑，同 REL-067 先例）；`check-release --version 0.75.0 --require-changelog --lineage-mode candidate` 记录 6 项 issue 按先例分类：3 = release docs 未跟踪（未提交态产物，commit 后消解）、1 = archive trigger gap 过渡态（既有基线，0 可迁 task）、1 = governance health 既有基线（宿主治理记录 217 issues，非本 diff 引入）、1 = unit tests 180s 环境超时（直跑 699 OK）——核心静态门禁（version consistency / projection sync / cross references / changelog / release lineage candidate / loop runtime claim 578/578 / one-dot-zero blockers）全 PASS。
+
+### Boundaries
+
+- 0.75.0 **RISK-036/RISK-039 remain open**。RISK-036（official marketplace operations）与 RISK-039（ArchGuard external validation）各自独立关闭标准未满足；本版本不重开任何已关闭风险。
+- 不声明 official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready；不关闭 RISK-036/RISK-039。
+- MINOR bump 来自注入面行为改进 + 空推荐降级两项新能力（新投影机制落地 + 推荐链降级路径），不引入 breaking changes（纯行为改进：注入为增量文本块、推荐仅在原空路径上增加降级输出，正常路径零行为变化）。
+- **迁移说明（RISK-D5——DSH preset 时滞）**：DSH 平台升级路径为 `git -C <plugin_root> pull && python <plugin_root>/adapters/dsh/launch.py --sync`（DSH 无 `/plugin update`）；persona/bootstrap 模板的 0.75.0 版本行与契约块在 `--sync` 重写 preset 后生效，未 sync 前旧 preset 仍携带旧版本行——升级后首次会话完成其余。
+
+## [0.74.0] - 2026-08-07
+
+### 0.74.0 - 入口确定性五修复链打包（archive 双 root / --auto 冷却端点 / --project-root fail-closed 三端对齐 / 审查遗留清理）（MINOR）
+
+0.74.0 是 MINOR 发布，把 HEAD `1a375e6` 上 0.73.0 released 之后已合入的 5 个 commit 打包成发布候选（FIX-242 / FIX-243 / FIX-244 / FIX-245 / FIX-246），并同步版本投影与 release 文档。发布目标：archive.py 双 root 宿主解析与 `--project-root`（FIX-242）、`--auto` 终点冷却期有界推进（FIX-243，DEC-140）、archive 端与 verify_workflow 端 `--project-root` fail-closed 校验逐字对齐（FIX-244/245）、审查遗留观察项清理与仓库 EOL 基线（FIX-246）——入口确定性三链（resolve-entry/bootstrap/archive）输入边界完整闭环。但**不关闭 RISK-036/RISK-039**：官方市场操作（Codex Desktop marketplace E2E / 官方提交包）与 ArchGuard 外部宿主验证各自独立关闭标准未满足。版本投影 0.73.0 -> 0.74.0 全 PASS（M-set：13 projections + `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。
+
+### Added
+
+- **FIX-242 archive.py 双 root 宿主解析 + `--project-root`**（EVD-886，2026-08-05）：根因 = `ROOT = Path(__file__).resolve().parents[3]` 单根同时承载宿主事实源与插件资产，CLI 无 `--project-root`——cache 安装宿主（bootstrap Step E 文档化路径）归档操作指向插件包自身 .governance 幻影数据（EVD-885 实证：python_game cwd dry-run 报 134 条幻影证据）。修复（镜像 FIX-187 双 root）：`_resolve_plugin_root()`/`_resolve_host_root()`（resolve_entry.PLUGIN_HOME / resolve_host_root cwd 优先，失败 fallback parents[3] dogfood 兼容）；PLUGIN_ROOT 承载插件资产（`_latest_released_version()` 读 SKILL frontmatter 不再受宿主影响）；ROOT 保留为宿主事实 seam；CLI 新增 `--project-root <path>`（migrate/build-index/verify/rollback 全可用，`_extract_project_root_arg` 预扫描位置无关，缺值 exit 2，override 只重绑定宿主根）。验证：test_archive.py 106 passed（新增 13 项 TestDualRootResolution/TestArchiveCliProjectRoot，先红后绿 75 failed/31 passed → 106 passed）；test_verify_workflow.py 688 + 87 subtests 零回归。Code Review R0 APPROVED_WITH_NOTES/0（P2-1/P3-1~P3-4 记遗留观察项）。
+- **FIX-243 archive --auto 终点冷却期有界推进**（EVD-887，DEC-140 方案 A，2026-08-05）：根因 = FIX-235 后 `--auto` 终点直接推进到 SKILL frontmatter 当前版本（0.73.0），连当前发布窗口证据一并归档过激进。修复：`_release_ledger_released_versions()`（读发布台账 `core/releases/*.json`，条件 lifecycle_state==released 且 withdrawn 非真——0.66.1 排除；单文件损坏/非 dict/非字符串 version fail-open 跳过不 crash）+ `_auto_archive_bounded_endpoint()`（台账 released 排序倒数第二）；终点公式 = bounded if（bounded 非 None 且 >= roadmap 终点）else roadmap 终点（`_version_to_tuple` 语义比较，advance-only 不回归 + 冷却上限），frontmatter 不再参与推进。验证：test_archive.py 115 passed（TestArchiveFix243 8 项 + fail-open 类型守卫 1 项，红→绿）；test_verify_workflow 688+87 零回归；仓库 dry-run 归档范围 v0.1.0~v0.72.0（128 条证据），0.73.0 证据 9 条保留热；check-archive-integrity trigger gap 范围同步。Code Review R0/R1 APPROVED_WITH_NOTES/0（P2-1 类型守卫 R1 关闭、P2-2 保留声明、P3 非阻塞）。
+- **FIX-244 archive `--project-root` fail-closed 校验**（EVD-889，2026-08-06，FIX-242 R0 P2-1/P3-1/P3-4 处置）：`_validate_project_root()`——空值拦截在 Path 解析前（空串 strict resolve 会静默落 cwd）、resolve(strict=True) 失败或非目录 → stderr 分类诊断 `spg-archive-error: invalid-project-root — <path> (<reason>)` + exit 2；校验先于任何读写（main 中 override 先于命令分发）；与 resolve_entry.resolve_host_root fail-closed 语义逐行对齐。验证：test_archive.py 118 passed（3 新测试先红后绿——旧代码 SystemExit not raised + 空值落 cwd 实证）；test_verify_workflow 688+87 零回归；手工矩阵 4 场景 exit 码 + 分类诊断。Code Review R0 APPROVED_WITH_NOTES/0（P2-1/P2-2 测试加固建议记遗留观察项；P3-1 em-dash 编码可选）。
+- **FIX-245 verify_workflow `--project-root` fail-closed 校验对齐**（EVD-890/891，2026-08-06，FIX-244 同型）：根因 = `_apply_project_root_override`（FIX-187 引入）对显式 `--project-root` 无存在性/目录/空值校验（Path.resolve() 无 strict），非法路径静默重绑定 phantom root 致 check 系列读错宿主；空值落 cwd。修复：`_validate_project_root()`（镜像 FIX-244 archive 端逐字一致——空值 Path 解析前拒绝/path is empty、strict resolve 失败/path does not exist、非目录/not a directory），`_apply_project_root_override` 入口先于任何宿主事实读取校验，失败输出 `verify_workflow: error: invalid-project-root — <path> (<reason>)` + exit 2（模块既有 CLI 错误约定）；默认路径零变化。验证：test_verify_workflow.py 693+87（5 新用例先红后绿——HEAD 版 5 failed）；test_archive.py 118 零回归；手工矩阵 3 场景。Code Review R0/R1 APPROVED_WITH_NOTES/0（P2-1 CLI 层 reason 后缀锁定 R1 关闭）。
+- **FIX-246 遗留观察项清理**（EVD-892，2026-08-07）：FIX-244 P2-1/P2-2——test_archive.py 3 个 fail-closed 用例补齐 HOST_PROJECT_ROOT 未重绑定断言（突变实证：HOST 提前重绑定 3/3 FAIL）+ 错误原因串锁定（path does not exist / not a directory / path is empty 逐字比对）；FIX-242 P3-3——`_load_archive_module` 同步重绑定 module.ROOT 与 module.HOST_PROJECT_ROOT（红相实证 + 注释/docstring 同步）；FIX-242 P3-2——新增 `.gitattributes`（`*.py text eol=lf`；实测 index 556/556 全 LF、零 commit diff、无 EOL 幻影 diff），登记 `core/manifest.json` root_entries.files（check-manifest-consistency 门禁必需）。验证：红相 1 failed → 全绿；突变实证 2 组已恢复；test_archive 118 passed、test_verify_workflow 695+87 全绿；verify_workflow 全量 PASSED、check-manifest-consistency PASS、check-cross-references PASS。Code Review R1 APPROVED_WITH_NOTES/0。
+- 版本声明与 e2e fixture 指针从 0.73.0 推进到 0.74.0（M-set：plugins、marketplace、package.json、source/e2e SKILL frontmatter、manifest、fixture plan-tracker、四个 source hooks，以及 `verify_workflow.py` 的 `REQUIRED_SNIPPETS` 6 版本钉；13 projections 由 `release-projection --write` 确定性写入）。
+- `project/CHANGELOG.md` 新增 0.74.0 条目；release docs 三件套创建。
+
+### Validation
+
+- REL-067（0.74.0 MINOR 候选打包，2026-08-07；candidate-only，transition 需用户授权后另行执行）。
+- FIX-242：test_archive.py 106 passed（13 新测试）+ test_verify_workflow 688+87 零回归；python_game cwd 双跑实证（修复后跳过 vs 基线 134 条幻影证据）；Code Review R0 APPROVED_WITH_NOTES/0。
+- FIX-243：test_archive.py 115 passed（8+1 新测试）+ test_verify_workflow 688+87 零回归；dry-run v0.1.0~v0.72.0/128 条实证、0.73.0 证据 9 条保留热；Code Review R0/R1 APPROVED_WITH_NOTES/0。
+- FIX-244：test_archive.py 118 passed（3 新测试）+ test_verify_workflow 688+87 零回归；手工验证矩阵 4 场景；Code Review R0 APPROVED_WITH_NOTES/0。
+- FIX-245：test_verify_workflow 693+87（5 新用例）+ test_archive 118 零回归；手工矩阵 3 场景；Code Review R0/R1 APPROVED_WITH_NOTES/0。
+- FIX-246：test_archive 118 passed、test_verify_workflow 695+87 全绿；红相+突变实证；verify_workflow 全量 PASSED、check-manifest-consistency PASS、check-cross-references PASS；Code Review R1 APPROVED_WITH_NOTES/0。
+- 门禁（0.74.0 candidate，2026-08-07）：`check-version-consistency` PASS（13 声明）；`check-projection-sync` PASS（13 投影）；`release-ledger --no-remote` 0.74.0 candidate 记录（candidate_commit 派生要求文件已提交，commit 后重跑 PASS）；`check-release --version 0.74.0 --require-changelog --lineage-mode candidate` 记录——静态门禁全 PASS，执行门禁 2 项既有 FAIL（governance health 宿主治理记录 112 issues；unit tests 180s 超时，环境性，pytest 直跑全绿）。
+
+### Boundaries
+
+- 0.74.0 **RISK-036/RISK-039 remain open**。RISK-036（official marketplace operations）与 RISK-039（ArchGuard external validation）各自独立关闭标准未满足；本版本不重开任何已关闭风险。
+- 不声明 official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready；不关闭 RISK-036/RISK-039。
+- MINOR bump 来自 archive/verify_workflow 双 root 契约与 fail-closed 输入边界生产强化（五修复链），不引入 breaking runtime API（CLI 新增参数为增量；默认路径零行为变化）。
+
+## [0.73.0] - 2026-08-03
+
+### 0.73.0 - 三链重构（入口/循环/任务规划）生产接线打包（MINOR）
+
+0.73.0 是 MINOR 发布，把 HEAD `c14bce7` 上 0.72.0 released 之后已合入的 13 个 commit 打包成发布候选（AUDIT-142 / FIX-237 / FIX-239 / FIX-236 / FIX-240 / FIX-241 / FIX-233~235 / FIX-238），并同步版本投影与 release 文档。发布目标：入口引导确定性兜底（FIX-238）、循环引擎生产接线（FIX-236）、任务规划数据债去环与变更控制 triage 强制（FIX-237）三链重构落地。但**不关闭 RISK-036/RISK-039**：官方市场操作（Codex Desktop marketplace E2E / 官方提交包）与 ArchGuard 外部宿主验证各自独立关闭标准未满足。版本投影 0.72.0 -> 0.73.0 全 PASS（M-set：13 projections + `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。
+
+### Added
+
+- **FIX-236 loop 生产接线**（EVD-875，DEC-139 + ADR-017 §3）：Wiring A `review-record` CLI（review_record.py，record/reopen/close + 结构化 token + 证据写回）+ Wiring B `auto_judge_gate` 循环接入；`loop_exit_bridge.py` loop_exit -> next-candidates 推荐桥（fuse corrupt fail-closed）；Check 30 V6（review closure 终态 token 校验）；调用点 AST check（verify_workflow.py 接线完整性）。TDD 红→绿 36 新测试 + R1 8 新测试。
+- **FIX-237 任务规划三件套**（EVD-872/873/880）：(1) 237.1 task-priority 数据债去环——12 行依赖去环 + 15 行状态回填，task-priority-analysis 0 cycle；(2) 237.2/237.3 工具过滤（open/plan 工具按角色过滤）+ cycle 默认 exit 0 + WARNING（--strict 保留）；(3) 237.4 变更控制 triage 强制集成——`change-triage` CLI（四步分析：依赖快照/优先级/冲突检查/版本适配）+ 机器 triage 记录（`.governance/change-triage/{id}.json` + TRIAGE- 证据行）+ Check 32（CLI 接线 AST 校验 + 无记录拦截，fail-closed）+ 237.5 交互边界 evidence 化（任务完成→下一步推荐写证据）。33 新测试红→绿。
+- **FIX-238 入口引导修复**（EVD-881）：vendor `bootstrap.sh`/`bootstrap.cmd`（SPG_RESOLVE_TIMEOUT 15s 非法回退 + 四类分类诊断 + 退出码契约 0/1/2/3/4/5）；`resolve-entry` 薄入口（resolve_entry.py 本体零改动 DEC-096）；`SPG_WEB_INSTALL_TIMEOUT`（120s）；`@bootstrap-version` 陈旧标记升级链 + 3 profile 模板注入 + 宿主入口标记。29 新测试红→绿，test_verify_workflow 688 OK。
+- **FIX-239 hook locale 硬化**（EVD-874）：has_approved_review_evidence 的 grep/sed 加 `LC_ALL=C`（pre-commit +6/-2、commit-msg +3/-1），消除 4 字节 UTF-8/emoji 下 GNU grep 字符类遍历失败导致的审查证据假阴性。
+- **FIX-240 CI 流水线修复**（EVD-876/877/878）：manifest AGENTS.md 登记 + fresh-checkout unit-test 确定性 + threading-determinism 测试 Linux 适配（CI 全量 1527 测试唯一失败消除）+ 临时 CI debug workflow 已 revert。
+- **FIX-241 resolve_entry 编码健壮性回归测试**（EVD-879）：外部 cp936 论断核验为不成立，检测缺口关闭（spy 断言 + write_bytes fixture）。
+- **FIX-233/234/235 债务包**（EVD-868/869）：Check 30 历史 review 行终态豁免 + check-release 执行门禁 unit-test 超时参数化（180s -> 可配置）+ archive 证据迁移（release-forced 版本范围推进 + evidence-only 迁移）。
+- **AUDIT-142 三链复诊 + ADR-017**（EVD-871）：entry/loop/task-planning 三链重构诊断报告（docs/requirements/entry-loop-planning-rearchitecture-0.72.0.md）+ 设计评审（docs/adr/ADR-017-loop-wiring-and-task-planning-0.73.0.md），REQ-104/105/106 已交付。
+- **FIX-232 evidence-log 列数结构修复**（EVD-867，治理记录，非 git commit）：20 行 evidence_col_mismatch 归零。
+- 版本声明与 e2e fixture 指针从 0.72.0 推进到 0.73.0（M-set：plugins、marketplace、package.json、source/e2e SKILL frontmatter、manifest、fixture plan-tracker、四个 source hooks，以及 `verify_workflow.py` 的 `REQUIRED_SNIPPETS` 6 版本钉）。
+- `project/CHANGELOG.md` 新增 0.73.0 条目。
+
+### Validation
+
+- REL-066（用户授权 "0.73.0 发布方向"，2026-08-03）。
+- FIX-236：36 新测试 + R1 8 新测试（review_record 271 行 / loop_exit_bridge 133 行 / loop_gate_processor 48 行 / test_verify_workflow +241 行）。
+- FIX-237：33 新测试（test_change_triage 431 行）+ test_task_priority +298 行；Code Review R0 NEEDS_CHANGE/1P1 -> R1 APPROVED_WITH_NOTES/0。
+- FIX-238：29 新测试；test_verify_workflow 688 OK；Code Review R0/R1 APPROVED_WITH_NOTES/0（P2-1 CI fresh-checkout 阻断已修）。
+- FIX-240：CI 全量 1527 测试唯一失败消除；FIX-241：核验 + 回归测试（R0 APPROVED_WITH_NOTES）。
+- `check-version-consistency` PASS（13 文件版本声明一致）；`check-projection-sync` PASS（13 投影同步）；release docs 三件套含保守边界 needle 且无未否定 forbidden claim。
+
+### Boundaries
+
+- 0.73.0 **RISK-036/RISK-039 remain open**。RISK-036（official marketplace operations）与 RISK-039（ArchGuard external validation）各自独立关闭标准未满足；本版本不重开任何已关闭风险。
+- 不声明 official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success、1.0.0 production-ready；不关闭 RISK-036/RISK-039。
+- MINOR bump 来自三链重构生产接线（入口/循环/任务规划），不引入 breaking runtime API（协议修正仅行为契约 MUST 强化，无接口破坏）。
+
+## [0.72.0] - 2026-08-01
+
+### 0.72.0 - Check 31 安装态消解打包 + release lineage 多版本授权 + 0.64.x docs 债务（MINOR）
+
+0.72.0 是 MINOR 发布，把 HEAD `e2537c0` 上四个已合入 commit 打包成发布候选（FIX-200 / FIX-230 / AUDIT-140 / FIX-231），并同步版本投影与 release 文档。发布目标：安装包 Check 31 安装态 finding（EVD-853，0.71.0 插件包内 audit-140 旧措辞）随 `/plugin update` 消解。但**不关闭 RISK-036/RISK-039**：官方市场操作（Codex Desktop marketplace E2E / 官方提交包）与 ArchGuard 外部宿主验证各自独立关闭标准未满足；RISK-040/041 已由 DEC-135/DEC-137 关闭（本版本不重开）。版本投影 0.71.0 -> 0.72.0 全 PASS（M-set：13 projections + `verify_workflow.py` REQUIRED_SNIPPETS 6 版本钉）。
+
+### Added
+
+- **FIX-200 identity attestation gate**：`verify_workflow.py` `_loop_runtime_claim_gate_detail` 运行真实 `build_identity_attestation`（替代硬编码 `IDENTITY_ATTESTATION_PENDING`）；`core/loop-runtime-claim-authority.json` 同步（`identity_attestation` -> FIXTURE_PASS、`open_risks` -> []，RISK-037/042 已按 DEC-133 关闭）；`checks/loop_runtime_claims.py` 期望值同步；测试覆盖真实 identity verdict PASS/FAIL 路径。Check 31 identity_verdict=PASS；Check 31 残余 BLOCKED 仅为安装包 audit-140 旧措辞（EVD-853，本发布消解）。
+- **FIX-230 release-ledger 多版本 tag 授权解析器**：`infra/release/ledger.py` 解析器按 `(decision_id, version, commit)` 三元组匹配（TDD）；8 个历史 `core/releases` manifest（0.63.0/0.63.1/0.63.2/0.63.3/0.63.4/0.64.0/0.64.1/0.65.0）回补 `tag_disposition=created_by_decision` / `tag_decision=DEC-136`；`test_release_ledger.py` +67 行（2 新测试）。RISK-041 关闭标准（DEC-137）最后一段（历史 tag 处置）闭环，EVD-859。
+- **AUDIT-140 claim-scanner-safe 措辞**：`docs/requirements/audit-140-loop-runtime-wiring-gap-0.71.0.md` 自然语言措辞调整为 claim-scanner-safe，仓库侧 Check 31 的 UNSUPPORTED_AFFIRMATIVE 消除（EVD-858）。
+- **FIX-231 0.64.x release docs 边界 token**：`docs/release/release-checklist-0.64.1.md`、`docs/release/rollback-plan-0.64.0.md`、`docs/release/rollback-plan-0.64.1.md` 补齐保守边界表述（DOC-001 回补 gap 闭环，EVD-863）。
+- 版本声明与 e2e fixture 指针从 0.71.0 推进到 0.72.0（M-set：plugins、marketplace、package.json、source/e2e SKILL frontmatter、manifest、plan-tracker、四个 source hooks，以及 `verify_workflow.py` 的 `REQUIRED_SNIPPETS` 版本钉）。
+- `project/CHANGELOG.md` 新增 0.72.0 条目。
+
+### Validation
+
+- REL-065（用户授权 "0.72.0 发布 + 0.64.x docs 债务"）。
+- FIX-200：identity attestation 测试覆盖真实 verdict PASS/FAIL；Check 31 identity_verdict=PASS。
+- FIX-230：ledger 解析器 TDD + 2 新测试（+67 行；39 测 38 PASS + 1 既有 0.66.2 FAIL）；8 个历史 manifest 回补并校验（DEC-136 / EVD-859）。
+- AUDIT-140：仓库侧 Check 31 unblock（EVD-858）；FIX-231：DOC-001 gap 闭环（EVD-863）。
+- `check-version-consistency` PASS（13 文件版本声明一致）；`check-projection-sync` PASS（13 投影同步）；release docs 三件套含 5 个保守边界 needle 且 0 个未否定 forbidden claim。
+
+### Boundaries
+
+- 0.72.0 **RISK-036/RISK-039 remain open**。Check 31 安装态消解（EVD-853）推进风险看护，但这两个风险各自独立关闭标准（官方市场操作 / ArchGuard 外部宿主验证）未满足。
+- 0.72.0 **does not close RISK-036/RISK-039**（official marketplace / ArchGuard external validation 各自独立关闭标准未满足）；RISK-040/041 已由 DEC-135/DEC-137 关闭，本版本不重开。
+- 不声明 official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success，不关闭 RISK-036/RISK-039，不声明 1.0.0 production-ready。
+- MINOR bump 来自 Check 31 修复打包（identity attestation gate + ledger 授权 + 措辞修复），不引入 breaking runtime API。
+
+## [0.71.0] - 2026-07-27
+
+### 0.71.0 - systematic UX fixes for entry/loop/task-planning（MINOR）
+
+0.71.0 是 MINOR 发布，完成 FIX-222~229 系统化 UX 修复：针对用户反馈的真实治理断裂——bootstrap 入口鸡生蛋（SYSGAP-047）、task-completion 推荐机械取最高优先级不分析依赖（AUDIT-140）、任务依赖与优先级系统三重断裂（AUDIT-141）。三份独立分析报告（sysgap-047/audit-140/audit-141）先定位根因，再分别修复：(1) 入口——AGENTS.md bootstrap 第一动作增加 3 方法定位 plugin_home（file: 路径推导 / dev fallback / 显式参数），消除 `<plugin_home>` 鸡生蛋（FIX-222）；(2) 循环——M7.4 step 6 + interaction-boundary.md:217 把 task-completion 从"机械取最高优先级"改为"依赖分析→推荐 next→AskUserQuestion"（FIX-223），step 4.6 增加 T1-T4 确定性 review 复审触发器（NEEDS_CHANGE→MUST 复审不问、APPROVED→终态、BLOCKED→escalation，FIX-224）；(3) 任务规划——plan-tracker 模板升级（`依赖` 列机器可解析格式 + `workflow_model`/`permission_mode` 字段，FIX-225），新增 `task_priority.py` 纯 DAG 解析器 + `compute_unblocked_tasks` + 环检测 + `task-priority-analysis` CLI 子命令（57 测试，FIX-226），behavior-protocol 依赖分析替代机械最高优先级（FIX-227），change-control stub 实质化为依赖分析+优先级+冲突检查（产品代码强制，FIX-228），change-impact-checklist 增加任务级依赖/冲突分析段（FIX-229）。但**不关闭 RISK-036/RISK-039/RISK-040/RISK-041**：这四个风险各自独立关闭标准（官方市场操作 / ArchGuard 外部验证 / 入口确定性宿主验证 / release-lineage 历史 tag 处置）未满足。版本投影 0.70.0 -> 0.71.0 全 PASS（M-set，纯字符串替换：plugins/marketplace/package.json/SKILL/manifest/plan-tracker/4 hooks/`verify_workflow.py` REQUIRED_SNIPPETS 版本钉）。
+
+### Added
+
+- **FIX-222 bootstrap 入口确定性**：`AGENTS.md` bootstrap 第一动作增加 3 方法定位 plugin_home——(a) 平台 skill `file:` 路径推导（最可靠，主流平台支持）、(b) dev fallback（开发环境 `skills/` 目录）、(c) 显式参数（用户传入）。所有原 `<plugin_home>` 引用从"来自 resolve_entry.py"改为"见上方 bootstrap 第一动作"，消除鸡生蛋（需先知道 plugin_home 才能运行获取 plugin_home 的脚本）。SYSGAP-047 分析报告归档 `docs/requirements/sysgap-047-entry-bootstrap-paradox-0.71.0.md`。
+- **FIX-223 task-completion 依赖分析推荐**：`behavior-protocol.md` M7.4 step 6 增强——task 完成后 MUST 运行依赖分析（`task-priority-analysis`）→ 推荐下一可执行任务 → 用 AskUserQuestion 呈现 → 不得直接结束。`interaction-boundary.md:217` 同步修正，从"机械取最高优先级未完成"改为"依赖分析推荐"。AUDIT-140 分析报告归档 `docs/requirements/audit-140-loop-runtime-wiring-gap-0.71.0.md`。
+- **FIX-224 review 复审确定性触发器**：M7.4 step 4.6 增加 T1-T4 确定性触发器——T1（NEEDS_CHANGE 且 round<3 → MUST 立即 spawn 同一 Reviewer 复审，round+1，不输出"是否需要复审"问句）、T2（APPROVED/APPROVED_WITH_NOTES → 通过终态，后者 `unresolved_blockers=0`）、T3（BLOCKED → escalation 闭链终态）、T4（round>3 仍 NEEDS_CHANGE → MUST 转 BLOCKED，不得无限循环）。Check 21/30 违反检测同步说明。
+- **FIX-225 plan-tracker 模板结构化依赖**：`core/templates/plan-tracker.md` 升级——新增 `workflow_model`/`permission_mode` 配置字段、`依赖` 列从自由文本升级为机器可解析格式（逗号分隔 task ID）、依赖格式规范说明。任务行新增结构化依赖数据，使机器可建依赖图。
+- **FIX-226 task-priority-analysis 工具**：新增 `infra/task_priority.py`（861 行）纯 DAG 解析器——`parse_task_dependencies`（从 plan-tracker 解析 task 表为 DAG，区分 task-family vs cross-entity 引用，遵循 FIX-171 先例）+ `compute_unblocked_tasks`（计算无未完成依赖的可执行任务）+ 环检测（cycle detection，避免循环依赖死锁）+ `format_report`（人类可读报告）。`verify_workflow.py` 新增 `task-priority-analysis` CLI 子命令（薄入口，逻辑全在纯模块）。57 个测试覆盖解析/计算/环检测/CLI。
+- **FIX-227 behavior-protocol 依赖分析替代机械优先级**：behavior-protocol M7.4 step 6 + interaction-boundary.md:217 依赖分析替代机械最高优先级（与 FIX-223 同 commit，此 FIX 显式登记行为协议修订范畴）。
+- **FIX-228 change-control 实质化**：`change-control` reference 从 2 行 stub 升级为实质步骤——变更提出 → **依赖分析**（运行 `task-priority-analysis`，检查新任务是否阻塞/被阻塞）→ **优先级判定**（P0/P1/P2，结合 in-flight 任务与版本依赖链）→ **冲突检查**（是否与 in-flight 任务修改相同文件）→ **版本适配** → 创建 task → 执行。产品代码变更 MUST 走完整依赖分析+优先级+冲突检查。
+- **FIX-229 change-impact-checklist 任务级分析**：`change-impact-checklist.md` 新增 2b 任务级依赖/冲突分析段——产品代码变更必须在影响评估中包含任务级依赖图分析与跨任务冲突检查。
+- 版本声明与 e2e fixture 指针从 0.70.0 推进到 0.71.0（M-set：plugins、marketplace、package.json、source/e2e SKILL frontmatter、manifest、plan-tracker、四个 source hooks，以及 `verify_workflow.py` 的 `REQUIRED_SNIPPETS` 版本钉）。
+- `project/CHANGELOG.md` 新增 0.71.0 条目。
+
+### Validation
+
+- DEC-134 授权（FIX-222~229 系统化 UX 修复），EVD-852。
+- `task_priority.py` 57 个测试覆盖 DAG 解析 / unblocked 计算 / 环检测 / CLI 全 PASS。
+- 3 份独立分析报告（sysgap-047/audit-140/audit-141）先定位根因再修复，遵循治理改进"分析先行"原则。
+- `check-version-consistency` PASS（13 文件版本声明一致）；`check-projection-sync` PASS（13 投影同步）。
+
+### Boundaries
+
+- 0.71.0 **RISK-036/039/040/041 remain open**。系统化 UX 修复推进入口确定性与任务规划可用性，但这四个风险各自独立关闭标准（官方市场操作 / ArchGuard 外部宿主验证 / 入口确定性宿主验证 / release-lineage 历史 tag 处置）均未满足。
+- 0.71.0 **does not close RISK-036/RISK-039/RISK-040/RISK-041**（official marketplace / ArchGuard external validation / entry determinism host validation / release lineage historical tags 各自独立关闭标准未满足）。
+- 不声明 zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success，不关闭 RISK-036/RISK-039/RISK-040/RISK-041，不声明 1.0.0 production-ready。
+- MINOR bump 来自系统化 UX 修复（入口/循环/任务规划），不引入 breaking runtime API。
+
+## [0.70.0] - 2026-07-26
+
+### 0.70.0 - verify_workflow Phase 5 extraction（MINOR）
+
+0.70.0 是 MINOR 发布，完成 FEAT-009：把 `verify_workflow.py` 的 evidence/risk/review 三个检查域真实抽取到 `checks/evidence_domain.py`（402 行，12 域函数）、`checks/risk_domain.py`（212 行，4 域函数）、`checks/review_domain.py`（2127 行，30 域函数），`verify_workflow.py` 由 22468 行降至 20183 行（净 −2285，真实抽取经 DEC-088 校验——函数体迁移而非 re-export 伪装，仅保留薄入口 re-export）。行为等价性由独立 byte-diff 验证：抽取前后 `check-governance` 最终 Result 行逐字节相同（两侧均 134 issues），626 tests + 82 subtests 抽取前后完全一致，0 回归。这是 DEC-104 路线图最后一段（原 0.67.0 verify Phase 5 顺延到 0.70.0），也是 RISK-039（架构腐化看护）关闭标准之一——verify_workflow.py 按域拆分退化为薄入口。但**不关闭 RISK-036/RISK-039/RISK-040/RISK-041**：RISK-039 关闭还需 ArchGuard 在外部宿主项目验证、source/projection 双写消除与技术债登记闭环；RISK-036 需官方市场操作（本地无法完成）。FEAT-009 独立 Code Review APPROVED_WITH_NOTES / 0 blocker，ADR-016 设计 Design Review APPROVED_WITH_NOTES / 0。版本投影 0.69.0 -> 0.70.0 全 PASS（M-set，纯字符串替换：plugins/marketplace/package.json/SKILL/manifest/plan-tracker/4 hooks/`verify_workflow.py` REQUIRED_SNIPPETS 版本钉）。
+
+### Added
+
+- **FEAT-009 verify_workflow Phase 5 extraction**：新增 `checks/evidence_domain.py`（402 行，14 函数：12 域函数 Check 1/1b/6/6b + `_vw` + `_resolve_shared`）、`checks/risk_domain.py`（212 行，6 函数：4 域函数 Check 2/8 + `_vw` + `_resolve_shared`）、`checks/review_domain.py`（2127 行，36 函数：30 域函数 Check 18/18b/21/21b/22/29/30 + 常量块 + `_vw` + `_resolve_shared`）。`verify_workflow.py` 22468→20183 行（git diff stat: +250 / −2535），仅保留薄 re-export 入口与 `sys.modules["verify_workflow"] = sys.modules["__main__"]` aliasing guard（与 Phase 1 manifest / Phase 2 capability_registry 先例一致）。KEEP rule + deferred `_vw()` pattern 正确实现。
+- **行为等价性独立验证**：byte-diff 抽取前后 `check-governance` 输出——最终 Result 行逐字节相同（134 issues 两侧），626 tests + 82 subtests 抽取前后完全一致，0 回归。`check-governance` 134 issues 与 baseline 相同（非新增缺陷）。
+- **DEC-104 路线图最后一段完成**：原 0.67.0 verify_workflow Phase 5 经 DEC-104 顺延到 0.70.0，至此 DEC-104 runtime-first 修复路线（0.66.1~0.70.0）全部段完成。RISK-039（架构腐化看护）关闭标准之一（verify_workflow.py 按域拆分退化为薄入口）由此推进，但 RISK-039 整体仍打开（还需 ArchGuard 外部验证 + 双写消除 + 技术债闭环）。
+- 版本声明与 e2e fixture 指针从 0.69.0 推进到 0.70.0（M-set：plugins、marketplace、package.json、source/e2e SKILL frontmatter、manifest、plan-tracker、四个 source hooks，以及 `verify_workflow.py` 的 `REQUIRED_SNIPPETS` 版本钉）。
+- `project/CHANGELOG.md` 新增 0.70.0 条目。
+
+### Validation
+
+- FEAT-009 Code Review：APPROVED_WITH_NOTES，0 blocker（P0=0，P1=0）；真实抽取经独立验证（函数体迁移而非 re-export 伪装，仅薄 re-export 残留）；行为等价性由 byte-diff `check-governance` 输出最终 Result 行逐字节相同确认（134 issues 两侧）；626 tests + 82 subtests 抽取前后一致，0 回归。
+- ADR-016 设计 Design Review：APPROVED_WITH_NOTES / 0（`review-ADR-016-DESIGN-R0.md`）。
+- 抽取符合 DEC-088（禁止以 re-export 伪装 God module 拆分），与 Phase 1（manifest）/ Phase 2（capability_registry）先例一致。
+- 共 626 tests + 82 subtests，0 P0。
+
+### Boundaries
+
+- 0.70.0 **RISK-036/039/040/041 remain open**。RISK-039 关闭标准之一（verify_workflow.py 按域拆分）由此推进，但整体仍打开（还需 ArchGuard 外部宿主项目验证 + source/projection 双写消除 + 技术债登记闭环）。
+- 0.70.0 **does not close RISK-036/RISK-039/RISK-040/RISK-041**（official marketplace / ArchGuard external validation / entry determinism host validation / release lineage historical tags 各自独立关闭标准未满足）。
+- 不声明 zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success，不关闭 RISK-036/RISK-039/RISK-040/RISK-041，不声明 1.0.0 production-ready。
+- MINOR bump 来自 verify_workflow.py 按域拆分（evidence/risk/review extraction），不引入 breaking runtime API；行为等价性经 byte-diff 验证 0 回归。
+
+## [0.69.0] - 2026-07-26
+
+### 0.69.0 - production telemetry + honest DORA metrics + dogfood/external validation proof（MINOR）
+
+0.69.0 是 MINOR 发布，完成 FEAT-008 + VAL-008 + VAL-009：从 0.68.0 可执行 Loop Engine 的事件日志产出诚实 flow/DORA 遥测（`loop_telemetry.py` 纯函数 `compute_metrics` + `MetricValue` + `MetricsReport`，unknown-when-insufficient + anti-proxy），并在两个独立验证场景证明引擎真实运行——VAL-008 dogfood（3 单元多 tier/依赖阻塞/restart/fuse/rollback 全链，修复 DEFECT-1/2 后 28 PASS / 0 FAIL / 1 INFO）与 VAL-009 shitu 首个外部类型执行（preview/apply plan_hash identity、v2 validator、真实 flow-unit 推导、native entry、CAS 写盘、PASS 含两个非阻塞缺陷如实归档）。但**不关闭 RISK-037/RISK-042**：第二个外部类型验证仍待完成。新增 29 个 telemetry 测试 + VAL-008/009 全链验证，FEAT-008 独立 Code Review APPROVED_WITH_NOTES / 0 blocker。版本投影 0.68.0 -> 0.69.0 全 PASS（M-set，纯字符串替换：plugins/marketplace/package.json/SKILL/manifest/plan-tracker/4 hooks/`verify_workflow.py` REQUIRED_SNIPPETS 版本钉）。
+
+### Added
+
+- **FEAT-008 production telemetry + honest DORA metrics**：新增 `loop_telemetry.py` 纯函数 `compute_metrics`（pure，从事件日志计算 flow lead time / DORA deployment frequency / lead time / change fail / MTTR / fuse trips），`MetricValue` + `MetricsReport` 类型化输出；unknown-when-insufficient（证据不足时显式 `unknown`，不编造数值）+ anti-proxy（不把活动/计划当成功）。`loop_health.py` `_compute_dora_metrics` 重命名为 `_dora_metrics_legacy_proxy` 并标注 deprecated，新增 advisory `telemetry` key；`verify_workflow.py` 新增 `cmd_loop_telemetry` CLI 入口。29 个新测试覆盖 purity / unknown-when-insufficient / anti-proxy。
+- **VAL-008 dogfood 验证 PASS**：`val008_dogfood_driver.py` 在 `tempfile.TemporaryDirectory` 隔离工作区驱动 3 单元（middle `feature-auth` + inner `auth-login-form`/`auth-token-refresh`，依赖链）走 plan→activate→forward PARO→gate-fail back-edges→fuse trip→system block→restart recovery→telemetry→rollback。修复 DEFECT-1（`loop_gate_processor._event()` 现含全部 REQUIRED_FIELDS，事件通过 `validate_event`）+ DEFECT-2（`fuse_trip` payload 携带持久化 `loop_count`，telemetry iteration_count 正确）。**28 PASS / 0 FAIL / 1 INFO**（修复前 26 PASS / 2 FAIL）。211 loop tests + 2 subtests 通过，0 回归。
+- **VAL-009 shitu 外部验证 PASS（首个类型）**：在真实外部项目 shitu（Android/Kotlin mobile-app，HEAD `c037a04`）执行 0.68.0/0.69.0 引擎：`build_migration_plan(shitu,"mobile-app")` + `confirm_decomposition` + `plan_to_payload`（v2 validator PASS）+ 真实 flow-unit 推导（mobile-app derive PASS）+ native entry 解析 + preview/apply plan_hash identity（REL-059/REL-060）+ `activate_unit`/`apply_transition` CAS 写盘（post-transition v2 validator PASS）+ v1/classic-gate rollback。**Overall verdict PASS**（含两个非阻塞缺陷如实归档：shitu 既存 VAL-007 @0.65.0 artifact 在 v1/v2 validator FAIL，属外部既有债务非引擎缺陷）。这是首个真实外部类型执行；第二个外部类型仍待完成以完全关闭 RISK-037/042。
+
+### Validation
+
+- FEAT-008 Code Review：APPROVED_WITH_NOTES，0 blocker（P0=0）；honesty 契约 purity/unknown-when-insufficient/anti-proxy 独立对源验证（非仅测试）；设计权威 ADR-015（review APPROVED_WITH_NOTES / 0）。
+- VAL-008 dogfood：28 PASS / 0 FAIL / 1 INFO（DEFECT-1/2 修复后）；211 loop tests + 2 subtests 通过，0 回归。
+- VAL-009 shitu：Overall verdict PASS（含两个非阻塞缺陷如实归档）；preview/apply plan_hash identity、v2 validator、真实 flow-unit 推导、CAS 写盘全 PASS。
+- 共 29 个新 telemetry 测试 + VAL-008/009 全链验证，0 P0。
+
+### Boundaries
+
+- 0.69.0 **RISK-037/042 remain open**（second external type validation pending for closure）。Loop Engineering runtime 仍 NOT_MET。
+- 0.69.0 **does not close RISK-037/RISK-042**（second external type validation pending）。
+- 不声明 zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success，不关闭 RISK-036/RISK-037/RISK-039/RISK-040/RISK-041/RISK-042，不声明 1.0.0 production-ready。
+- MINOR bump 来自新增 telemetry 能力 + dogfood/外部验证证明，不引入 breaking runtime API。
+
+## [0.68.0] - 2026-07-23
+
+### 0.68.0 - executable Loop Engine（MINOR）
+
+0.68.0 是 MINOR 发布，完成 FEAT-005~007：构建可执行 Loop Engine 的持久化 PARO 状态机 + 生产 gate back-edge/fuse/escalation + 重启安全 append-only 事件日志。三者合起来把 Loop runtime 从"规范契约"推进到"可执行引擎"：状态机以 CAS 写盘持久化、gate 失败触发 back-edge→round→fuse→escalation→system-level block、事件日志跨进程锁 + 单调性/合法性校验保证重启一致性。但**不关闭 RISK-037/RISK-042**（外部验证在 0.69.0）；执行引擎激活，但运行时完备性仍需 0.69.0 dogfood + 外部验证。新增 159 个测试，0 P0；FEAT-005~007 均独立 Code Review APPROVED。版本投影 0.67.0 -> 0.68.0 全 PASS（M-set，纯字符串替换：plugins/marketplace/package.json/SKILL/manifest/plan-tracker/4 hooks/`verify_workflow.py` REQUIRED_SNIPPETS 版本钉）。
+
+### Added
+
+- **FEAT-005 persistent PARO state machine + CAS**：`loop_paro_engine.py` 新增 `validate_transition`（6 legal + 3 terminal）+ `apply_transition` CAS writer + `activate_unit` + `recover_state`；`flow_unit_runtime_v2.py` +257/0 `validate_loop_runtime_v2_with_transitions`（0.67.0 byte-frozen 完整）。CAS threading 12-thread 1-success/11-conflict 60x stable；fuse boundary >max_rounds。
+- **FEAT-006 production gate back-edge/fuse/escalation + system-level fuse block**：`loop_gate_processor.py` 新增 `process_gate_result` terminal processor + `loop_fuse_check` pure read + `collect_loop_fuse_issues`；`verify_workflow.py` +25/0 `check_release_readiness` fuse check（system-level block，非 Coordinator advisory）。端到端 gate fail→back-edge→round→fuse→escalation→block；`loop_fuse_check` pure read CONFIRMED。
+- **FEAT-007 restart-safe event log + dependency blocking + WIP**：`loop_event_log.py` append-only JSONL event log（14 types，cross-process lock，monotonicity/legality checks）；`loop_admission.py` dependency blocking + WIP budget（setup=1/inner=5/middle=2/outer=1）；`loop_paro_engine.py` + `loop_gate_processor.py` additive event_log hook（state-first/event-second，backward compat）。multi-process 4×100=400 0 loss win32，restart consistency CONFIRMED。
+
+### Validation
+
+- FEAT-005 Code Review：APPROVE，0 blocker（CAS threading 12-thread 1-success/11-conflict 60x stable；fuse boundary >max_rounds）；61 新 + 104 regression 通过。
+- FEAT-006 Code Review：APPROVED_WITH_NOTES，0 blocker（`loop_fuse_check` pure read CONFIRMED，端到端 gate fail→back-edge→round→fuse→escalation→block）；45 新 + 101 regression 通过。
+- FEAT-007 Code Review：APPROVED_WITH_NOTES，0 blocker（multi-process 4×100=400 0 loss win32，restart consistency CONFIRMED）；53 新 + 146 regression 通过。
+- 共 159 个新测试，0 P0。
+
+### Boundaries
+
+- 0.68.0 **执行引擎激活，但运行时完备性仍需 0.69.0 dogfood + 外部验证**。Loop Engineering runtime 仍 NOT_MET，**RISK-037 remains open**，**RISK-042 remains open**。
+- 0.68.0 **does not close RISK-037/RISK-042**（外部验证在 0.69.0）。
+- 不声明 zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success，不关闭 RISK-036/RISK-037/RISK-039/RISK-040/RISK-041/RISK-042，不声明 1.0.0 production-ready。
+- MINOR bump 来自新增可执行 Loop Engine 能力（持久化状态机 + 生产 gate fuse + 重启安全事件日志），不引入 breaking runtime API。
+
+## [0.67.0] - 2026-07-23
+
+### 0.67.0 - canonical Loop Runtime Contract + shared migration planner + decomposition confirmation（MINOR）
+
+0.67.0 是 MINOR 发布，完成 FEAT-002~004：建立规范化的 Loop Runtime Contract 与共享迁移规划器，并锁定分解确认与规范初始 gate 状态。三者合起来把 Loop runtime 的字段、schema 版本、plan identity 与初始状态收敛为机器可校验的单一契约，但**不激活运行时执行引擎**（执行引擎为 0.68.0，RISK-037/RISK-042 保持打开）。新增 104 个测试，0 P0；FEAT-002~004 均独立 Code Review APPROVED。版本投影 0.66.3 -> 0.67.0 全 PASS（M-set，纯字符串替换：plugins/marketplace/package.json/SKILL/manifest/plan-tracker/4 hooks/`verify_workflow.py` REQUIRED_SNIPPETS 版本钉）。
+
+### Added
+
+- **FEAT-002 canonical Loop Runtime Contract**：新增 `core/loop-runtime-contract.json` v2 schema 与 `flow_unit_runtime_v2.py` validator（452 行），writer/validator/reader/rollup/health 共用单一契约和 schema version；`flow_unit_runtime.py` v1 字节冻结（byte-frozen containment boundary，FIX-195 containment 完整），新增 +76 行版本路由。消除 workflow_model、gate state、status source、rollup 字段漂移；v1/v2 drift parity 9/9 match，无回归。
+- **FEAT-003 shared migration planner + immutable plan hash**：抽取纯 `build_migration_plan()` 函数（purity 16-thread CONFIRMED）；`MigrationPlan` 为 frozen/immutable，`plan_hash` = 8 结构字段 SHA-256 NFC；dry-run 与 apply 序列化同一 plan，apply 只验证并执行该 plan；同 target 的 unit IDs/count/project_type/gate schema 必须一致。FIX-195 containment 字节完整。
+- **FEAT-004 decomposition confirmation + canonical initial gate state**：`confirm_decomposition` 全逻辑（候选验证 + operator 确认 + hash 重算）；`plan_to_payload` 产生规范初始状态（dormant/pending gate/example-fixture guard）；heuristic derivation 保持 advisory；激活前确认 flow-unit 分解，**不允许 dormant/example-data-only 冒充 active**（dormant-as-active 不可表达）。
+
+### Validation
+
+- FEAT-002 Code Review：APPROVED_WITH_NOTES，0 blocker；40 测试通过。
+- FEAT-003 Code Review：APPROVED，0 blocker（purity 16-thread CONFIRMED，FIX-195 containment byte-intact）；28+68 regression 通过。
+- FEAT-004 Code Review：APPROVED_WITH_NOTES，0 blocker；36+96 regression 通过。
+- 共 104 个新测试，0 P0。preview/apply plan hash 相同，apply 前后 validator PASS；双 unit 可持不同 gate/phase。
+
+### Boundaries
+
+- 0.67.0 **does not activate execution engine**（运行时执行引擎为 0.68.0）。Loop Engineering runtime 仍 NOT_MET，**RISK-037 remains open**，**RISK-042 remains open**。
+- 不声明 zcode official approval、marketplace approval、curated listing、universal/full runtime support、external first-session pilot success，不关闭 RISK-036/RISK-037/RISK-039/RISK-040/RISK-041/RISK-042，不声明 1.0.0 production-ready。
+- MINOR bump 来自新增可执行契约/规划器/分解确认能力，不引入 breaking runtime API。
+
+## [0.66.3] - 2026-07-23
+
+### 0.66.3 - 0.66.2 release docs content fix（PATCH）
+
+0.66.2 已发布（HEAD=T=`f859bb6`，tag v0.66.2），但 `check-release` 的 release docs 门禁有 3 项 FAIL：0.66.2 的 release-checklist/feature-flags/rollback-plan 边界文案（1）缺失 `RISK-036` 边界 token（`boundary_needles` 要求），且（2）使用过于冗长的否定语句使 `_line_has_scoped_claim_negation` 对 "external first-session pilot success" 等短语返回 False。0.66.3 是文档修复 PATCH：三份 0.66.3 release docs 改用 0.65.3 验证通过的紧凑边界模板（含 `RISK-036` token 且否定可被检测），使 release docs 门禁完全转绿、RISK-043 可关闭。版本投影同步 0.66.2 -> 0.66.3（plugins/marketplace/package.json/SKILL/manifest/plan-tracker/4 hooks/`verify_workflow.py` REQUIRED_SNIPPETS 版本钉）。无任何 runtime/逻辑/产品行为变更。DEC-131 授权。
+
+## [0.66.2] - 2026-07-23
+
+### 0.66.2 - 0.66.1 发布事故补偿与可信 lineage 恢复（PATCH）
+
+0.66.1 commits 已到达 origin/master 但独立 post-release 审查发现发布阻塞（远端 v0.66.1 tag 缺失、release docs/manifest transition/semantic identity gate 非绿）。0.66.2 是非破坏性补偿发布：保留 0.66.1 历史为 incident（withdrawn/untrusted），通过三个串行精确-subject slice（FIX-215 semantic historical ownership + FIX-216 independent three-root identity attestation + FIX-217 native incident ledger repair）建立可信 lineage，再以 REL-063 创建 candidate C + manifest-only transition T + annotated v0.66.2 tag。新增 `verify_rel063_evidence.py` 证据门禁验证器（pre_c/candidate/full 三相 + atomic rehearsal + 13-row ownership matrix）。RISK-043（发布事故）在独立 Release Review 与 released-lineage 全绿后关闭。Loop Engineering runtime activation 仍 NOT_MET，RISK-037/RISK-042 保持打开。
+
+## [0.66.1] - 2026-07-17
+
+### 0.66.1 - Loop runtime containment hotfix（PATCH）
+
+AUDIT-133 审计判定 Loop Engineering runtime activation 为 NOT_MET。0.66.1 把该审计结论固化为机器可校验的 fail-closed semantic claim gate（Check 31 + check-loop-runtime-claims CLI），防止 capability overclaim。所有 7 个 review SKILL 和 loop-role-mapping 的 overclaim 语句改为诚实的 experimental scaffolding 表述。loop_migration.py apply 路径由 FIX-195 canonical validator fail-closed 保护。性能门槛经 DEC-119 调整为绝对 8.0s（6 轮优化证明 paired improvement 数学不可达成）。RISK-037/RISK-042 保持打开。
+## [0.66.0] - 2026-07-11
+
+### 0.66.0 - Declarative release ledger、完整版本投影与 Phase 6（MINOR）
+
+0.66.0 是 MINOR 发布：新增每版本不可变 release manifest、Git 实时 lineage、完整 artifact projection generator 和 `verify_workflow.py` Phase 6 真拆分。它把 0.55.3 后审计暴露的 tag、发布文档 provenance 与版本投影漂移问题转化为可执行、fail-closed、可回滚的机器门禁，同时保持 0.65.3 `check-release` CLI 兼容。
+
+### Added
+
+- **Declarative release ledger**：新增 `core/release-ledger.schema.json`、0.62.0~0.65.3 historical manifests、0.66.0 native manifest、append-only event/effective-state 模型，以及 `release-ledger` CLI。Native release 要求 candidate commit、唯一单父 candidate-to-released transition、本地 tag 和选定 remote tag 全链路一致。
+- **完整 artifact projection generator**：`core/version-projections.json` 以 SKILL frontmatter 为唯一 active-version authority，覆盖 byte-copy、structured JSON 和 transformed text 投影；`release-projection --write` 使用预生成、symlink/path/JSON pointer/inventory 校验、原子替换和 rollback journal，失败时恢复原字节。
+- **Phase 6 真拆分**：release、commit、version 和 projection 检查移入 `infra/release/` 与 `infra/checks/`，通过 root/Git runner/clock/timeout/context 注入运行，不 import 或 re-export `verify_workflow.py`。
+- **可选质量工具探测**：`quality-tools` 对 Ruff/mypy 返回 `PASS`、`NOT_RUN` 或 `FAIL`；两者不是运行时依赖，未安装不会被包装为 PASS。
+
+### Changed
+
+- 版本声明由权威 SKILL frontmatter 推进到 0.66.0，并通过 projection registry 同步 canonical manifest、Claude/Codex/Zcode/Chrys metadata、package.json、四个 hooks 和 e2e fixture。
+- 发布工作流新增 declarative ledger、projection check/write 和 optional quality-tool 边界；候选 commit 与 release transition commit 分离，避免 release commit 自引用。
+- 0.62.0~0.65.3 historical manifests 只提供 `HISTORICAL_ONLY` 信任，不把缺失历史 tag 包装为 native lineage PASS。
+
+### Validation
+
+- FEAT-001 Code Review R3：`APPROVED`，`unresolved_blockers=0`。
+- QA R1：PASS；Test Review R1：`APPROVED_WITH_NOTES`，`unresolved_blockers=0`。
+- Full suite：882 tests 中 880 PASS、1 Windows real-symlink SKIP、1 个既有 Check 13 fixture isolation failure。该结果不是全绿。
+- Focused release-ledger/projection/Phase 6 validation：29 total = 28 PASS + 1 Windows real-symlink SKIP；compatibility：70/70 PASS。
+- Ruff 与 mypy：`NOT_RUN`，未安装；不作为运行时依赖或通过证据。
+
+### Boundaries
+
+- 本候选的 committed parent 必须精确为 `8bd283c2f77cf49a3ec17a7f58c823c2ecc46ddd`；最终 commit/tag/push 后仍需运行 remote ledger 与 released-lineage 复验。
+- 不回补任何历史 tag，不关闭 RISK-039 或 RISK-041，不声明 zcode official approval、marketplace approval、curated listing、universal/full runtime support 或 1.0.0 production readiness。
+- 0.66.0 不引入 breaking runtime API；MINOR bump 来自新增可调用 CLI、ledger schema、projection workflow 与 Phase 6 模块能力。
+
+## [0.65.3] - 2026-07-11
+
+### 0.65.3 - release lineage/tag gate 与 marketplace source 事实修复 (PATCH)
+
+0.65.3 是 PATCH 发布包，版本化 FIX-192 对发布边界和 marketplace source 事实的修复。它为后续发布增加 candidate/released 双模式 lineage 校验，记录 0.62.0~0.65.2 的发布链路审计，并明确本地、离线、远程 marketplace 与 direct git URL 的支持边界。它不创建或回补历史 tag，也不实现 0.66.0 规划的完整 declarative release ledger。
+
+### Added
+
+- **FIX-192 - release lineage fail-closed 门禁**（commit `1c734c7`）：`check-release` 新增 `--lineage-mode candidate|released`。candidate 模式用于 release commit/tag 产生前的候选包，不证明 tag 已存在；released 模式要求显式 `--release-commit`，并验证本地 `vX.Y.Z`、release commit 与远端 tag 指向一致。
+- lineage Git 查询使用 `HOST_PROJECT_ROOT`，remote 只接受安全配置名；查询前验证 remote 存在，并使用 `GIT_TERMINAL_PROMPT=0`、15 秒 timeout 和脱敏诊断。URL、userinfo、option-like、unknown remote 或无法解析的 commit/tag 均 fail-closed。
+- 新增 `docs/release/release-lineage-audit-0.65.3.md`：审计 0.62.0~0.65.2 的 release commit、本地/远端 tag 与 release docs provenance。0.62.0~0.63.4 的 18 份历史三件套均明确标为 `BACKFILLED`，但未创建历史 tag。
+- 新增 `docs/marketplace/marketplace-source-matrix-0.65.3.md`：区分 local marketplace add + install、offline zip/package、remote marketplace clone/add 后使用 `source: "./"`，以及 0.64.1+ 当前不支持 direct git URL 的契约边界。
+
+### Changed
+
+- 版本声明同步到 0.65.3：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、四个 source hooks，以及 e2e fixture 指针。
+- 发布流程明确要求候选态使用 `--lineage-mode candidate`；release commit 创建且 tag 推送后，必须使用 `--lineage-mode released --release-commit <commit>` 复验本地与远端不可变锚点。
+
+### Validation
+
+- FIX-192 独立 Code Review：R0/R1 为 `NEEDS_CHANGE`，分别发现 source/direct-URL/timeout 与 credential diagnostic 问题；R2 为 `APPROVED`，`unresolved_blockers=0`。
+- Focused validation：53/53 PASS。
+- Full unit suite：609/610；唯一失败为既有 Check 13 fixture 隔离问题。该结果不是全绿，不得包装为 full-suite PASS。
+- 发布候选执行：`check-version-consistency`、`check-projection-sync`、`check-hot-fact-source --fail-on-issues`、`check-archive-integrity`、`check-release --version 0.65.3 --require-changelog --skip-execution-gates --lineage-mode candidate`、`verify` 与 `git diff --check`。
+
+### Boundaries
+
+- Candidate lineage 明确不要求也不证明 `v0.65.3` 已存在；只有 release commit/tag 创建并推送后，released lineage 复验才能证明完整链路。
+- 不回补 0.63.0~0.65.0 的历史缺失 tag；任何回补必须先有独立治理决策批准 version-to-commit 映射。
+- 不声明 zcode official approval、zcode marketplace approval、curated listing、universal/full runtime support 或 external first-session pilot success。
+- 不关闭 RISK-036、RISK-037、RISK-039、RISK-040 或 RISK-041，也不声明 1.0.0 production-ready。
+
+## [0.65.2] - 2026-07-11
+
+### 0.65.2 - SKILL Loop Role 与审查终态规范一致性修复 (PATCH)
+
+0.65.2 是 PATCH 发布包，收口 AUDIT-132 发现的 review SKILL Loop Role 表达与可执行语义问题，并修复发布审查 R0 暴露的 Check 30 审查终态协议不一致。它不改变 loop runtime、迁移数据格式或既有 P0-P3 审查职责。
+
+### Fixed
+
+- **FIX-191 - review SKILL Loop Role 规范化**（commit `35e13bd`）：7 个 review SKILL 统一使用稳定中文标题 `## 循环角色`；版本信息移至正文，避免把发布版本写入通用规范标题。
+- 修复 Loop Role mapping 的相对引用，并明确失败结果回到所属 loop/fuse、Reviewer 不直接修改产品代码，以及终态由 Check 30 与复审链消费。
+- 新增 fail-closed `check-loop-role-skills` 校验及正/负例覆盖，能拒绝缺失文件、错误标题、坏引用与缺失关键语义。
+- **FIX-193 - Check 30 四态协议与 blocker 证据门禁**：统一 Check 30、M7.4、Agent 通信/路由、共享 mapping 与 7 个 review SKILL 的审查终态契约。`APPROVED_WITH_NOTES` 仅在存在唯一且无矛盾的结构化 `unresolved_blockers=0` 时通过；`APPROVED` 保持兼容；`BLOCKED` 可闭合审查链但不构成通过；`NEEDS_CHANGE(S)`、unknown 和 malformed evidence 均 fail-closed。
+- **REL-055 R0 阻断闭环**：发布审查 R0 的 `NEEDS_CHANGE` 已通过 FIX-193 R0-R3 独立复审链解决，R3 Code Review 为 `APPROVED`。live Check 30 当前为 WARN，且无 V5/closure violations；7 条历史 `APPROVED_WITH_NOTES` evidence marker 已补充 `unresolved_blockers=0`。
+
+### Changed
+
+- 版本声明同步到 0.65.2：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、四个 source hooks，以及 e2e fixture 指针。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-projection-sync`
+- `python skills/software-project-governance/infra/verify_workflow.py check-hot-fact-source --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-loop-role-skills`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.65.2 --require-changelog --skip-execution-gates`
+- `git diff --check`
+
+### Known Release-Gate Conditions
+
+- `check-release` 的 archive trigger gap 仍是既有失败，未被包装为 PASS。
+- 当前其余 governance health 仍有 43 issues，未由本 PATCH 关闭或包装为健康全绿。
+- FIX-193 后未获得新的全量单测全绿证据；已验证的是 CheckReviewClosureTests 17/17、R2 focused 19/19 与 Loop Role 7/7。不得用 focused PASS 替代未验证的 full-suite 结论。
+- 本发布包不回补历史 tag，不声明 zcode 官方 marketplace approval，不关闭 RISK-036、RISK-037、RISK-039、RISK-040 或 RISK-041，也不声明 1.0.0 readiness。
+
+## [0.65.1] - 2026-07-11
+
+### 0.65.1 — 证据可信度 + post-0.65.0 hotfix 收口（PATCH）
+
+0.65.1 是 PATCH 发布包：不引入新 loop-engineering 能力、不实现 0.65.2/0.65.3 的 SKILL Loop Role 或 tag-gate 机制，只把 0.65.0 后发现的证据口径、入口双 root、hook 审查状态兼容和 release-lineage 风险记录收口为一个可安装版本。
+
+### Fixed
+- **FIX-187 — 双 root crash 修复**（commit `407b74c`）：修复入口双 root 场景中 host/project root 解析导致的崩溃风险，保持 PLUGIN_HOME 与 HOST_PROJECT_ROOT 分离的 DEC-096 边界。
+- **FIX-188 — 显式 `--project-root` 覆盖 + hook `APPROVED_WITH_NOTES` 兼容**：`verify_workflow.py` 支持在子命令后传入 `--project-root <host>` 并重新绑定 host `.governance` 事实路径；pre-commit / commit-msg hook 接受独立审查结论 `APPROVED_WITH_NOTES`，避免 REL-053 这类真实 review evidence 被误挡。
+- **FIX-190 — 0.65.0 release checklist / session snapshot 证据口径修正**：纠正 0.65.0 发布资产中把 `check-archive-integrity` 写成 PASS 的错误口径；权威口径是 REL-053 审查时存在 pre-existing archive integrity FAIL，作为 non-blocking P2 / out-of-scope 处理，不追溯包装成全绿。
+
+### Changed
+- **AUDIT-132 / RISK-041 — 0.55.3 后质量审计与 release-lineage 风险归档**：把 0.55.3 后 release-lineage / tag 缺口作为显式风险边界记录进入 0.65.1 发布叙述；本版本不回补历史 tag、不创建 0.65.1 tag、不关闭 RISK-041。
+- 版本声明同步到 0.65.1：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、4 hook `@version`、`verify_workflow.py` REQUIRED_SNIPPETS，以及 e2e fixture 指针（`project/e2e-test-project/skills/software-project-governance/SKILL.md` + `project/e2e-test-project/.governance/plan-tracker.md`）。
+
+### Validation
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-projection-sync`
+- `python skills/software-project-governance/infra/verify_workflow.py check-hot-fact-source --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.65.1 --require-changelog`
+- `git diff --check`
+
+### Boundaries
+- No git tag created. No commit or push performed by the release package preparation step.
+- No official approval, marketplace approval, universal/full runtime support, external first-session pilot success, RISK closure, or 1.0.0 readiness is claimed.
+- Pre-existing archive/tag/lineage failures remain visible and must be reported honestly by release checks.
+
+## [0.65.0] - 2026-07-10
+
+### Loop-Engineering Workflow Refactor (DEC-097/098/099, RISK-037)
+
+**Major architectural evolution:** the linear G1-G11 stage model is superseded by a three-tier nested loop model (Outer/Middle/Inner) with AI's Plan-Act-Observe-Reflect cycle as a first-class citizen. Classic G1-G11 gates are preserved as loop-exit/entry certifications (DEC-098 criterion-4 compatibility).
+
+#### New Modules (FX-188~FX-194, 7 implementation slices)
+- **`core/loop-engineering-registry.json`** (FX-188): loop_gate_semantics G1-G11, PausePoints, LoopFuses, back-edges
+- **`infra/loop_engine.py`** extensions (FX-189/193): loop_state activation, stateless round derivation (sacred parallel-safe property), fuse generalization (setup=2/inner=5/middle=3/outer=2), per-flow-unit rollup view
+- **`infra/flow_unit_derive.py`** (FX-190): target-derived flow-unit generation — closes VAL-006 gap (non-game targets now derivable)
+- **`infra/loop_migration.py`** (FX-191): `--apply` + `--rollback` with SHA-256 backup, manifest-verified hash integrity, collision-safe naming, 5 fail-closed cases, RISK-040 divergence guard
+- **`infra/loop_health.py`** (FX-192): velocity-justification enforcement (Part 1 BLOCKING) + cost-exceedance advisory (Part 2) + DORA bridge metrics
+
+#### New CLI Commands
+- `loop-engineering-migration --apply/--rollback/--dry-run`: migrate classic-phase-gate → loop-engineering
+- `check-loop-health`: velocity justification + DORA metrics (advisory-only, not blocking Check 28)
+- `loop-rollup`: per-flow-unit loop_state view (resolves RISK-037 criterion 2 — no more single global stage)
+
+#### Semantic Updates
+- 7 review skills (requirement/design/tech/code/test/release/retro-review) re-labeled with loop-role semantics (ADR §3.5)
+- `cmd_dynamic_lifecycle_migration` --apply path unblocked (was sys.exit(1) in 0.55.0)
+
+#### Backward Compatibility
+- Classic-phase-gate execution unchanged
+- Rollback path fully restores pre-migration state (DEC-098 criterion-4)
+- advisory-only checks don't block release gate
+
+### RISK-037 Progress (1.0.0 hard blocker)
+- Criterion 2 (plan-tracker rollup): IMPL-MET (FX-193)
+- Criterion 4 (gate engine classic compat): IMPL-MET (FX-188 + FX-194)
+- Criterion 5 (loop runtime activation): IMPL-MET (FX-189)
+- Criterion 6 (apply path): IMPL-MET (FX-191)
+- Criterion 8 (non-game generalization): IMPL-MET (FX-190)
+- Criteria 5/7/8 external validation: still pending (not closed by 0.65.0)
+
+### Tests
+- 827 infra tests + 82 subtests passing
+- Sacred property tests: stateless round derivation parallel-safety proven
+- VAL-006 closure test: cli-tool 3 commands → 3 units (3 fixture forms)
+- Data integrity: manifest-verified backup, tamper detection, rollback totality
+
+## [0.64.1] - 2026-07-10
+
+### 0.64.1 — marketplace.json source 改回 "./" 恢复本地/离线安装能力（FIX-186）（PATCH）
+
+0.64.1 是 PATCH——修复 0.62.0 引入的离线安装回归。用户反馈：在网络受限环境，下载 zip 后解压到本地目录，通过 `/plugin marketplace add <本地目录>` + `/plugin install` 安装时，install 仍访问 GitHub 导致失败。根因：0.62.0（REL-051/DEC-093）为适配 zcode marketplace 把 `.claude-plugin/marketplace.json` 的插件 source 从 `"./"`（相对路径，读本地 marketplace 目录）改成 `{"source":"github","repo":"peterwangze/software-project-governance"}`（git source，install 时 clone GitHub）。Claude Code/zcode 的 `/plugin install` 按 marketplace.json 的 source 字段决定取插件内容——`github` source 触发联网 clone，`"./"` 读取本地目录。修复：source 改回 `"./"`（恢复 0.61.2 配置），保留 repository/homepage 做元信息。zcode 调查确认 `"./"` 兼容（zcode marketplace add 支持 local path + 复用 Claude marketplace 协议）。
+
+### Fixed
+- **FIX-186 — marketplace.json source `"./"` 恢复**：`.claude-plugin/marketplace.json` 插件 source 从 `{"source":"github","repo":"..."}` 改回 `"./"`（相对路径指向 marketplace 根）。插件是单仓自包含（skills/commands/agents/adapters 在仓根），`"./"` 让 install 读取本地 marketplace 目录而非联网 clone。影响：本地 add + install 全程不联网（恢复 0.61.2 之前能力）；远程 `/plugin marketplace add owner/repo` 仍可工作（clone 整个仓后 `"./"` 指向 clone 目录根）。
+
+### Changed
+- 版本声明同步到 0.64.1：4 plugin.json、marketplace.json、package.json、SKILL.md、manifest.json、verify_workflow.py REQUIRED_SNIPPETS、4 hook @version + e2e fixture 版本指针。
+
+### Migration Notes
+- **行为变更（breaking）**：`/plugin install https://github.com/peterwangze/software-project-governance.git` 直接 git-URL 安装路径不再可用（source 不再是 github 对象）。标准 `/plugin marketplace add` + `/plugin install software-project-governance@spg` 在所有场景（本地/远程/离线）都工作。
+- **离线/网络受限环境**：下载 zip → 解压到本地目录 → `/plugin marketplace add <本地目录路径>` → `/plugin install software-project-governance@spg`——全程不联网。
+
+## [0.64.0] - 2026-07-09
+
+### 0.64.0 — 入口确定性重构（resolve_entry.py 双 root 模型 + WORKFLOW_HOME 消除 + 版本权威源切换）（MINOR，DEC-096）
+
+0.64.0 是 MINOR——入口架构级重构（非纯 bug fix）。用户反馈 `/governance` 入口三大缺陷：(1) 版本激活探测不自洽（安装 0.63.4 实际激活 0.54.1）；(2) 依赖未定义的 `WORKFLOW_HOME` 环境变量（全仓 grep 零设置点）；(3) 入口靠 LLM 推理，启动成本 5min+/十万 token。本 release 用确定性解析器替换 LLM 概率推理，并把版本权威源从滞后的 `installed_plugins.json` 切到 SKILL.md frontmatter。**避免 0.54.2/0.54.3 回归（DEC-080/RISK-038）的关键设计**：双 root 模型——PLUGIN_HOME（从 `__file__` 推导，仅定位可执行文件+读 SKILL frontmatter active_version 权威源）vs HOST_PROJECT_ROOT（从 cwd/平台/显式 `--project-root` 解析读事实源，绝不从 `__file__` 推导）+ fail-closed。RISK-040（双 root 发散测试 + 真实宿主项目验证）已 PASSED——验证在独立 host project/e2e-test-project 上（scenario_hint=F there vs D in dev repo，证明读 host 不读 plugin-self）。经 DEC-090/091 降级 SoD 沿用——产品代码由 Coordinator spawn Governance Developer + 只读 Code Reviewer，本 release 评估由 Coordinator spawn Release Agent + 独立 Release Reviewer R0 审查。
+
+### Added
+- **AUDIT-129 — `/governance` 入口确定性重构诊断 ADR**（commit 77df046）：基于本会话入口架构深度探索（Explore sub-agent 全映射入口设计：版本检测三机制/WORKFLOW_HOME 14 处引用/三层入口 prose/manifest 结构）+ 0.54.2/0.54.3 失败链考古（RISK-038/AUDIT-115/EVD-577~587/DEC-080），产出入口架构 ADR（docs/）。核心结论：三缺陷同根——确定性工作（路径/版本/状态）与语义工作（场景判断）混淆且全部以自然语言编码交由 LLM 概率执行。关键设计约束（DEC-080/RISK-038）：双 root 分离——PLUGIN_HOME vs HOST_PROJECT_ROOT 绝不混用。详见 EVD-668, DEC-096。
+- **FX-130 — resolve_entry.py 确定性入口解析器 + 20 测试**（commit c7a9942）：新增 `infra/resolve_entry.py`（352 行纯 stdlib，不 import verify_workflow）+ `infra/tests/test_resolve_entry.py`（328 行 20 测试）。双 root 模型（DEC-080/RISK-038 C1-C4 全满足）：PLUGIN_HOME=Path(__file__).resolve().parent.parent（仅定位可执行文件+读 SKILL frontmatter active_version 权威源）；HOST_PROJECT_ROOT 从 --project-root/cwd 解析（绝不从 __file__）；fail-closed（root 不可解→resolved_root_ok=false+diagnostic+安全默认，事实读取块结构性不可达）。输出 12 字段 JSON。RISK-040 C3 发散测试（0.54.2/0.54.3 缺失的）：两独立 temp dir + 9.9.9 vs 1.2.3 版本断言 + 插件自身 .governance/ 种入断言不泄漏。Code Reviewer R0 APPROVED_WITH_NOTES（6/6，0 P0/P1，4 P2）。详见 EVD-669。
+
+### Changed
+- **FX-131 — 入口 prose 重构 + WORKFLOW_HOME 消除 + 版本权威源切换**（commit d70b9f3）：4 commands root + 4 e2e mirror + AGENTS.md 接入 resolve_entry.py。**WORKFLOW_HOME 消除**：commands/ 44→5（全说明性注释零活跃考古）+ canonical 4 层优先级 resolve 块全删。**决策树收敛**：governance.md 25 行 ASCII 树→scenario_hint 指针（resolved_root_ok==false fail-closed）。**版本权威源切换**：版本比较→scenario_hint=="C"（active_version SKILL frontmatter）；GOV-ERR-004 降级检测保留 LLM 侧。**check_plugin_freshness 降 advisory**（governance-status Step 3.5，函数保留不删）。check-projection-sync PASSED。Code Reviewer R0 APPROVED_WITH_NOTES（7/7，0 P0/P1，3 P2）。详见 EVD-670。
+- **RISK-040 — 双 root 发散测试 + 真实宿主项目验证 PASSED**：验证在独立 host project/e2e-test-project 上——scenario_hint=F there vs D in dev repo，证明 resolve_entry.py 读 host 不读 plugin-self。关闭标准满足（双 root 发散测试 + 真实宿主项目验证 + fail-closed + 独立审查）。
+- 版本声明同步到 0.64.0：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、4 hook @version、verify_workflow.py `REQUIRED_SNIPPETS`、CHANGELOG、plan-tracker 工作流版本指针 + 路线图。
+- e2e fixture 版本指针同步：`project/e2e-test-project/skills/software-project-governance/SKILL.md` + `project/e2e-test-project/.governance/plan-tracker.md` 的版本指针 0.63.4→0.64.0。
+
+### Migration Notes
+- **版本权威源切换（行为变更）**：激活版本权威源从 `installed_plugins.json`（可能滞后的元数据）切到 SKILL.md frontmatter `version` 字段。用户无需手动操作——resolve_entry.py 自动从 SKILL frontmatter 读取 active_version。
+- **WORKFLOW_HOME 消除**：未定义的环境变量依赖全部删除。如有用户曾手动设置 `WORKFLOW_HOME`（非推荐），不再被读取——改用 resolve_entry.py 的 `--project-root` 或 cwd。
+- **非 breaking change**：resolve_entry.py 输出 JSON 供 LLM 消费，向后兼容现有 `.governance/` 结构；SKILL.md frontmatter `version` 字段原本就存在（0.63.4 起即如此）。
+- **避免 0.54.2/0.54.3 回归（DEC-080/RISK-038）**：双 root 模型确保 PLUGIN_HOME（从 `__file__` 推导）绝不用于读事实源——HOST_PROJECT_ROOT 始终从 cwd/平台解析。RISK-040 发散测试守卫此不变量。
+
+### Validation
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency` — PASSED（Files checked: 13, all 0.64.0）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-projection-sync` — PASSED。
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.64.0 --require-changelog` — PASSED。
+- `python skills/software-project-governance/infra/verify_workflow.py check-archive-integrity` — PASSED。
+- **RISK-040 真实宿主项目验证 PASSED**（project/e2e-test-project，独立 host，scenario_hint=F vs dev repo D）。
+- resolve_entry.py test suite 20 passed（FX-130 commit 已验证）。
+
+### Boundaries
+- **不关闭** RISK-039（架构腐化看护——需外部宿主验证）。RISK-040 关闭标准满足但不自动关闭（独立 Release Reviewer R0 确认）。
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support（1.0.0 阻塞 RISK-036/037/039 + 外部验证）。
+- **MINOR 版本号选择理由**：0.64.0 是入口架构级重构（新增 resolve_entry.py 能力 + 行为变更：版本权威源切换 + WORKFLOW_HOME 消除），非纯 bug fix。与 0.63.0（MINOR，Coordinator 检视循环协议修复 + verify Check 29/30）MINOR 先例同构。占用路线图预留号 0.64.0（DEC-096：原预留给 verify_workflow.py 拆分 Phase 6 顺延到 0.66.0）。
+
+## [0.63.4] - 2026-07-07
+
+### 0.63.4 — check_version_consistency VERSION_FILES 覆盖盲区修复（FIX-182）
+
+0.63.4 发布 FX-183 patch：把 FIX-182（`check_version_consistency` 的 `VERSION_FILES` 字典只覆盖 3/4 plugin.json 目录——缺 `.zcode-plugin/plugin.json` 和 `.chrys-plugin/plugin.json`，打印串硬编码 "3 plugin.json" 但实际有 4 个 plugin.json 目录）版本化为 patch release。FX-181 Release Reviewer R0 独立发现的覆盖盲区。纯 bug fix，**只影响检查工具的覆盖范围、不影响运行时行为**，无 behavior change、无新能力、无 breaking change、无 migration 影响。FIX-182 已通过 Code Reviewer APPROVED（6/6 checklist，0 P0/P1/P2；打印串 N=13 独立核实）+ 703 测试全绿。
+
+经 DEC-090/091 降级 SoD 沿用——产品代码由 Coordinator spawn Governance Developer + 只读 Explore Code Reviewer，本 release 评估由 Coordinator spawn Release Agent + 独立 Release Reviewer R0 审查。
+
+### Fixed
+- **FIX-182 — check_version_consistency VERSION_FILES 覆盖全部 4 个 plugin.json（zcode + chrys 覆盖盲区修复）**：`verify_workflow.py check_version_consistency`（行 ~9480）的 `VERSION_FILES` 字典原本只覆盖 3 个 plugin 相关文件（`.claude-plugin/plugin.json` + `marketplace.json` + `.codex-plugin/plugin.json`），缺 `.zcode-plugin/plugin.json` 和 `.chrys-plugin/plugin.json`。打印串（行 ~20100）硬编码 "11 files, 3 plugin.json" 但项目实际有 4 个 plugin.json 目录（Claude/Codex/Zcode/Chrys）。影响：若未来 release 漏更新 `.zcode-plugin` 或 `.chrys-plugin` 的 plugin.json version，`VERSION_FILES` 循环不会检测到（`REQUIRED_SNIPPETS` snippet self-check 只扫 `verify_workflow.py` 内嵌字面量，不检查实际 plugin.json 文件内容——真实覆盖盲区）。本次无实际漂移（手动核实 + projection-sync 兜底），但未来潜在风险。**修复**：(1) `VERSION_FILES` 补 `.zcode-plugin/plugin.json` 和 `.chrys-plugin/plugin.json` 两个条目；(2) 打印串修正为 "13 files (SKILL.md, manifest.json, marketplace.json, 4 plugin.json, CHANGELOG, plan-tracker, 4 hooks)"（N=13 = VERSION_FILES 7 + CHANGELOG 1 + plan-tracker 1 + HOOK_FILES 4）；(3) 新增回归测试 `test_fix182_version_files_covers_zcode_and_chrys_plugin`：PASS-after-fix 调真实 `check_version_consistency` 构造 `.zcode-plugin` version 漂移断言检测到；FAIL-on-buggy 自包含回放演示 pre-fix 5-entry dict 盲区。
+
+### Changed
+- 版本声明同步到 0.63.4：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、4 hook @version、verify_workflow.py `REQUIRED_SNIPPETS`、CHANGELOG、plan-tracker 工作流版本指针 + 路线图。
+- e2e fixture 版本指针同步：`project/e2e-test-project/skills/software-project-governance/SKILL.md` + `project/e2e-test-project/.governance/plan-tracker.md` 的版本指针 0.63.3→0.63.4（与 FX-177/179/181 先例一致）。
+
+### Migration Notes
+- **无 migration 影响**：纯检查工具覆盖范围修复（VERSION_FILES 补 2 条目 + 打印串修正），不影响运行时行为、协议层或检测能力。无用户可感知变化。
+
+### Validation
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency` — PASSED（Files checked: 13, 4 plugin.json, all 0.63.4）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.63.4 --require-changelog --runtime-adapters` — baseline-consistent with 0.63.3（FAIL 项 pre-existing，非本次引入）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-projection-sync` — PASSED（4 mirrored files, no drift）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-archive-integrity` — PASS。
+- infra suite 703 passed / 64 subtests passed（FIX-182 commit 已验证，无回归）。
+
+### Boundaries
+- **不关闭** RISK-039（架构腐化看护——需外部宿主验证）。
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support（1.0.0 阻塞 RISK-036/037/039 + 外部验证）。
+- **纯 bug fix，无 behavior change**：仅 `check_version_consistency` 工具覆盖范围修复（VERSION_FILES 补 2 条目 + 打印串修正），无运行时行为变化、无协议层改动、无新 Check、无新能力声明。降级 SoD（DEC-090/091）沿用。
+- **PATCH 版本号选择理由**：FIX-182 是单一检查工具覆盖盲区修复，与 0.63.3（FIX-180）/ 0.63.2（FIX-178）/ 0.63.1（FIX-176）/ 0.54.1（FIX-140）PATCH 先例同构——纯 bug fix、无 behavior change、无新能力。这是连续第 4 个 patch（0.63.1/0.63.2/0.63.3/0.63.4），但每个都是独立的 bug fix，符合 SemVer PATCH 语义。不占用路线图预留号（0.64.0/0.65.0 不变）。
+
+## [0.63.3] - 2026-07-06
+
+### 0.63.3 — e2e fixture SKILL.md adapter 表结构对齐（FIX-180）
+
+0.63.3 发布 FX-181 patch：把 FIX-180（e2e fixture `project/e2e-test-project/skills/software-project-governance/SKILL.md` 的 adapter 表缺 opencode + Chrys 两行，导致 `check-projection-sync` 持续报 "target fixture drift: skills/software-project-governance/SKILL.md" FAIL）版本化为 patch release。纯 bug fix，**只影响 e2e 测试数据、不影响运行时行为**，无 behavior change、无新能力、无 breaking change、无 migration 影响。FIX-180 已通过 Code Reviewer APPROVED（6/6 checklist，0 P0/P1/P2）+ projection-sync FAIL→PASS + 702 测试全绿。
+
+经 DEC-090/091 降级 SoD 沿用——产品代码由 Coordinator spawn Governance Developer + 只读 Explore Code Reviewer，本 release 评估由 Coordinator spawn Release Agent + 独立 Release Reviewer R0 审查。
+
+### Fixed
+- **FIX-180 — e2e fixture SKILL.md adapter 表对齐 opencode + Chrys（projection-sync FAIL 修复）**：source `skills/software-project-governance/SKILL.md` 的 agent adapter 表含 6 行（Claude Code/Codex/Gemini/opencode/Chrys/国内 Agent CLI），但 e2e fixture `project/e2e-test-project/skills/software-project-governance/SKILL.md` 只有 4 行——0.61.2 引入 Chrys 集成（opencode + Chrys 行）时 fixture 未对齐，造成 fixture 与 source 的 adapter 表结构漂移。这使 `check-projection-sync`（Check 28）持续报 "target fixture drift" FAIL，在 FX-175/177/179 Release Reviewer R0 中被标记为超出 PATCH 范围的 pre-existing 结构性漂移。**修复**：在 fixture SKILL.md 的 adapter 表 Gemini 行后、国内 Agent CLI 行前补入 opencode + Chrys 两行，byte-for-byte 与 source 一致（单文件 +2 行，无 source 改动）。projection-sync FAIL→PASS。
+
+### Changed
+- 版本声明同步到 0.63.3：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、4 hook @version、verify_workflow.py `REQUIRED_SNIPPETS`、CHANGELOG、plan-tracker 工作流版本指针 + 路线图。
+- e2e fixture 版本指针同步：`project/e2e-test-project/skills/software-project-governance/SKILL.md` + `project/e2e-test-project/.governance/plan-tracker.md` 的版本指针 0.63.2→0.63.3（与 FX-177/179 先例一致）。
+
+### Migration Notes
+- **无 migration 影响**：纯 e2e fixture 对齐（补 2 行 adapter 表），不影响运行时行为、协议层或检测能力。无用户可感知变化。
+
+### Validation
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency` — PASSED（所有版本声明一致）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.63.3 --require-changelog --runtime-adapters` — baseline-consistent with 0.63.2（FAIL 项 pre-existing，非本次引入）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-projection-sync` — PASSED（FIX-180 核心交付：4 mirrored files, no drift）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-archive-integrity` — PASS。
+- infra suite 702 passed / 64 subtests passed（FIX-180 commit 已验证，无回归）。
+
+### Boundaries
+- **不关闭** RISK-039（架构腐化看护——需外部宿主验证）。
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support（1.0.0 阻塞 RISK-036/037/039 + 外部验证）。
+- **纯 bug fix，无 behavior change**：仅 e2e fixture adapter 表补 2 行（对齐 source），无运行时行为变化、无协议层改动、无新 Check、无新能力声明。降级 SoD（DEC-090/091）沿用。
+- **PATCH 版本号选择理由**：FIX-180 是单一 e2e fixture 对齐修复（解除 projection-sync FAIL），与 0.63.2（FIX-178）/ 0.63.1（FIX-176）/ 0.54.1（FIX-140）PATCH 先例同构——纯 bug fix、无 behavior change、无新能力。这是连续第 3 个 patch（0.63.1/0.63.2/0.63.3），但每个都是独立的 bug fix，符合 SemVer PATCH 语义。不占用路线图预留号（0.64.0/0.65.0 不变）。
+
+## [0.63.2] - 2026-07-05
+
+### 0.63.2 — Check 29 auto-discovery 排除 session-snapshot 误报修复（FIX-178）
+
+0.63.2 发布 FX-179 patch：把 FIX-178（Check 29 `check_m5_runtime_triggers` 的 auto-discovery 模式把 `session-snapshot.md` 事后记录文件误判为 agent 运行时输出，对 snapshot 中合法的编号步骤/选项记录误报 T2 FAIL）版本化为 patch release。纯 bug fix，无 behavior change、无新能力、无 breaking change、无 migration 影响。FIX-178 已通过 Code Reviewer APPROVED（6/6 checklist，0 P0/P1）+ 真实数据验证（check-governance Check 29 FAIL→PASS）。
+
+经 DEC-090/091 降级 SoD 沿用——产品代码由 Coordinator spawn Governance Developer + 只读 Explore Code Reviewer，本 release 评估由 Coordinator spawn Release Agent + 独立 Release Reviewer R0 审查。
+
+### Fixed
+- **FIX-178 — Check 29 auto-discovery 排除 session-snapshot（误报修复）**：`verify_workflow.py check_m5_runtime_triggers`（行 ~14316）在 `text=None` auto-discovery 模式下原本把 `session-snapshot.md` 当作一段运行时段扫描（`has_tool=False` 硬编码）。但 session-snapshot 是**事后记录文件**（snapshot 格式规范要求会话末尾写入；其结构化字段可能合法地含编号步骤引用与选择/选项/计划词汇），不是 agent 运行时输出。T2 启发式无法区分"被记录的菜单"与"运行时菜单"，于是 snapshot 里的合法记录（如"第(1)(2)步…第(3)步"引用 + 邻近选择词汇）触发 T2 且无 AskUserQuestion 工具调用 → check-governance Check 29 持续 FAIL。**方案 A 修复（从 auto-discovery 中剔除 session-snapshot）**：(1) `check_m5_runtime_triggers` auto-discovery 分支不再把 session-snapshot 作为 segment 添加，只扫描 evidence-log "事实依据"字段（真正的 agent 输出摘要）；(2) 函数契约不变——调用方仍可显式经 `corpus_sources=[('session-snapshot', text, False)]` 扫描 snapshot（向后兼容）；(3) docstring + 内联注释更新说明 FIX-178 设计决策。**检测能力完整保留**：inline `text=` 路径（真正的运行时扫描入口）逐字节未改；12 个既有 FIX-29 系列测试全部 PASS；新增反向保护回归测试 `test_fix178_detection_capability_preserved_on_fake_runtime_output` 构造真实违规（选项菜单 + 选择词 + 无工具调用）断言 FAIL+T2，证明检测未被削弱。
+
+### Changed
+- 版本声明同步到 0.63.2：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、4 hook @version、verify_workflow.py `REQUIRED_SNIPPETS`、CHANGELOG、plan-tracker 工作流版本指针 + 路线图。
+
+### Migration Notes
+- **无 migration 影响**：纯 bug fix，收紧 Check 29 auto-discovery 的扫描源（不再扫事后记录文件），检测能力完整保留。inline `text=` 运行时扫描路径零改动。
+
+### Validation
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency` — PASSED（所有版本声明一致）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.63.2 --require-changelog --runtime-adapters` — baseline-consistent with 0.63.1。
+- `python skills/software-project-governance/infra/verify_workflow.py check-archive-integrity` — baseline-consistent。
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance` — Check 29 PASS（FIX-178 修复有效，Scanned segments 2→1，Verdict FAIL→PASS）。
+- test_verify_workflow.py 579 passed / 64 subtests passed；infra suite 702 passed / 64 subtests passed（无回归）。
+
+### Boundaries
+- **不关闭** RISK-039（架构腐化看护——需外部宿主验证）。
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support（1.0.0 阻塞 RISK-036/037/039 + 外部验证）。
+- **纯 bug fix，无 behavior change**：Check 29 auto-discovery 扫描源收紧，inline 运行时扫描路径零改动、检测能力完整保留（反向保护测试守卫）。无用户可感知行为变化、无协议层改动、无新 Check、无新能力声明。降级 SoD（DEC-090/091）沿用。
+- **PATCH 版本号选择理由**：FIX-178 是单一 Check 29 auto-discovery 误报修复，与 0.63.1（FIX-176 archive bug fix）/ 0.54.1（FIX-140 hotfix patch）PATCH 先例同构——纯 bug fix、无 behavior change、无新能力。0.63.0 的 MINOR 升级因 M5.4 收紧是 behavior change，本次无此类变更。不占用路线图预留号（0.64.0/0.65.0 不变）。
+
+## [0.63.1] - 2026-07-05
+
+### 0.63.1 — archive 引擎 build_index 非结构化归档登记修复（FIX-176）
+
+0.63.1 发布 FX-177 patch：把 FIX-176（archive 引擎 `build_index` 不登记 narrative/recent-completed 类非结构化归档文件）版本化为 patch release。纯 bug fix，无 behavior change、无新能力、无 breaking change、无 migration 影响。FIX-176 已通过 Code Reviewer APPROVED（6/6 checklist，0 P0/P1）+ 真实数据验证（archive-integrity 双重 PASS）。
+
+经 DEC-090/091 降级 SoD 沿用——产品代码由 Coordinator spawn Governance Developer + 只读 Explore Code Reviewer，本 release 评估由 Coordinator spawn Release Agent + 独立 Release Reviewer R0→R1 审查。
+
+### Fixed
+- **FIX-176 — archive build_index 登记非结构化归档文件**：`archive.py build_index()`（行 1389-1540）原本只从归档文件**内容**提取条目生成 index 行（tasks 用 `_extract_tasks_from_archive_file` 从表格行、evidence 用 EVD ID、decisions 用 `## DEC-` 头、risks 用 `| RISK-` 行），`narrative-*.md`/`recent-completed-*.md` 是自由叙述类归档文件（无 task 表行、无 DEC 头、无 RISK 行）→ build_index 不为它们生成任何 index 条目 → rebuild 后变 orphan → `verify_archive_integrity` Check 2（每个 archive 文件必须被 index 引用）FAIL。FIX-169 曾手动登记 narrative，但 build_index rebuild 会丢失该手动条目。**方案 A 修复**：(1) 新增 `_UNSTRUCTURED_ARCHIVE_PREFIXES` 元组 + 3 个 helper（`_is_unstructured_archive_file`/`_unstructured_archive_kind`/`_unstructured_archive_description`，基于文件名前缀匹配 + 从 frontmatter 防御性解析描述）；(2) `build_index()` 加 `elif _is_unstructured_archive_file(f)` 分支登记到 `narrative_entries`；(3) index.md 在 Risk 索引后追加 `## 非结构化归档` section（三列表 `| 归档文件 | 类型 | 描述 |`）；(4) `verify_archive_integrity._parse_index_section` 加 `"非结构化归档"` 分支并入 `all_index_refs`；(5) Check 3 per-category 计数双重保险不污染（新 section 不在 `section_map` + narrative 行不匹配 `[A-Z]+-\d+` 正则）。**避免重复登记**：含 60 行 task 表格的 `recent-completed-*.md` 走结构化分支，不进 narrative_entries。
+
+### Changed
+- 版本声明同步到 0.63.1：source SKILL、canonical manifest、Claude/Codex/Zcode/Chrys plugin metadata、Claude marketplace metadata、package.json、4 hook @version、verify_workflow.py `REQUIRED_SNIPPETS`、CHANGELOG、plan-tracker 工作流版本指针 + 路线图。
+
+### Migration Notes
+- **无 migration 影响**：纯 bug fix，修复归档引擎覆盖盲区（让 build_index 正确登记非结构化归档文件，不再误报 orphan），无 breaking change。下次 `archive.py migrate --auto` 运行时 build_index 会自动重建 index.md 含新 section。
+
+### Validation
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency` — PASSED（所有版本声明一致）。
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.63.1 --require-changelog --runtime-adapters` — baseline-consistent with 0.63.0。
+- `python skills/software-project-governance/infra/verify_workflow.py check-archive-integrity` — PASS。
+- test_archive.py 89 passed（86 baseline + 3 new FAIL-on-buggy/PASS-after-fix），infra suite 700 passed（0 regressions）。
+
+### Boundaries
+- **不关闭** RISK-039（架构腐化看护——本体已修，build_index 治标自动化，但 RISK-039 需外部宿主验证）。
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support（1.0.0 阻塞 RISK-036/037/039 + 外部验证，DEC-095 已记录）。
+- **纯 bug fix，无 behavior change**：archive 引擎覆盖盲区补全，无用户可感知行为变化、无协议层改动、无新 Check、无新能力声明。降级 SoD（DEC-090/091）沿用。
+- **PATCH 版本号选择理由**：FIX-176 是单一 archive 引擎 bug 修复，与 0.54.1（FIX-140 hotfix patch）先例同构——纯 bug fix、无 behavior change、无新能力。0.63.0 的 MINOR 升级因 M5.4 收紧是 behavior change，本次无此类变更。
+
+## [0.63.0] - 2026-07-04
+
+### 0.63.0 — Coordinator 检视循环协议修复 + verify Check 29/30（FIX-173/174）+ archive 引擎修复（FIX-168/170/171/172）
+
+0.63.0 修复 Coordinator 检视循环三行为缺陷（用户反馈：忽略 AskUserQuestion / 不发起检视 / 不复审循环），协议层（FIX-173）+ verify 基础设施层（FIX-174）双落地。同时发布 0.62.0 后累积的 4 个 archive 引擎/CI 修复（FIX-168/170/171/172，原未单独发版）。
+
+经 Architect v2 + Design Reviewer round2 APPROVED + AUDIT-128 诊断 + 用户 3 决策。Code Reviewer R0 APPROVED 6/6（FIX-173）+ R0→R1 闭环（FIX-174）。
+
+### Added
+- **Check 29（M5 运行时扫描）** — verify_workflow.py `check_m5_runtime_triggers`：best-effort 扫描 behavior-protocol.md M5.1b 运行时确定性触发器（T1 裸问句收尾+词集 / T2 编号选项菜单+选择词邻近上下文），检测"段尾问号或选项菜单但无 AskUserQuestion"违规。advisory，无语料降级 no-verdict。
+- **Check 30（复审终态校验）** — verify_workflow.py `check_review_closure`：校验 M7.4 step 4.6 review 闭环状态机——每条 REVIEW 证据须收敛到 APPROVED(✓) 或 BLOCKED(✗→escalation)，不得停留中间态；含熔断（最大 3 轮）+ degraded 限额（≤2 次）+ 向后兼容（裸 REVIEW-{id}=R0 / 旧 review-{id}-v*.md→UNKNOWN）。
+- **M5.1b 确定性触发器** — behavior-protocol.md：运行时确定性触发器定义（问号主信号 + 词集辅 + 4 类豁免区）。
+- **M5.4b 纯通知结构性定义** — behavior-protocol.md：N1 无问号 / N2 无编号选项 / N3 ℹ️/📢/> 注：/>> 派发 前缀。⚠️ **behavior change**——既有 SHOULD 收紧为 MUST。
+- **M7.4 step 4.5b（spawn 守卫，DIFF-GATED）** — behavior-protocol.md：产品代码 diff + 路由表后置审查 Agent + 无 REVIEW 证据 → BLOCKING。3 类豁免。
+- **M7.4 step 4.6（Review 闭环状态机）** — behavior-protocol.md：C1-C7 强制条款（NEEDS_CHANGE 必须 spawn 复审 / 复审引用前轮 / 熔断 3 轮 / 终态仅 APPROVED 与 BLOCKED / round 由 evidence-log 派生并行安全）+ degraded 限额 + escalation 4 选项。
+- **methodology-routing.md 后置审查列** — 路由表 4→6 列重构，新增"后置审查 Agent(s)"+"触发条件"列对齐 SKILL.md，保留"执行方法"列。
+- **agent-communication-protocol.md Review 处理流程** — Review 结论 Coordinator 处理流程表 + 复审协议 4 条 MUST + escalation 上下文区分 + REVIEW-{id}-R{n} 字段约定。
+- **6 Reviewer agent + developer.md 复审协议** — code/design/requirement/test/release/retro reviewer + developer 注入复审协议（逐条比对前轮 findings + round 号 + 不看前轮不得 APPROVED）。
+- **FIX-174 单测** — test_verify_workflow.py +580 行（Check 21 强化 / Check 29 / Check 30 覆盖）。
+
+### Changed
+- ⚠️ **behavior change — M5.4 "纯通知"收紧为 MUST（behavior-protocol.md M5.4b）**：既有 SHOULD 升级为结构性硬定义（N1 无问号 / N2 无编号 / N3 通知前缀）。违反任一 → 不得援引 M5.4 跳过 AskUserQuestion。既有"输出通知。不需要 AskUserQuestion"须加 ℹ️ 前缀且不含问号。
+- **Check 21 强化** — verify_workflow.py `check_review_debt` → `review_spawn_gap`（三源交叉：产品代码 diff ∧ 路由表后置审查 Agent ∧ 无 REVIEW 证据）+ degraded fuse（同 task ≥3 → FAIL）。
+- **verify_workflow.py Check 18-27 编号漂移系统性修正** — 52 行无逻辑改动，函数头/docstring/子命令/print/help 标签全部对齐主运行 cmd_check_governance。
+
+### Fixed
+- **FIX-173 / 问题 1（忽略 AskUserQuestion）** — M5.1b 确定性触发器 + Check 29 运行时扫描。
+- **FIX-173 / 问题 2（不发起检视）** — M7.4 step 4.5b spawn 守卫 + methodology-routing.md 后置审查列 + Check 21/30 强制。
+- **FIX-173 / 问题 3（不复审循环）** — M7.4 step 4.6 闭环状态机（C1-C7 + 熔断 + degraded 限额）+ 6 Reviewer agent 复审协议 + Check 30 终态校验。
+- **FIX-168** — CI manifest-consistency 失败修复（Chrys adapter 遗漏 5 个 manifest/scope 同步点）。
+- **FIX-170** — archive.py `_migrate_risks`/`_migrate_decisions` 增加状态过滤，跳过 OPEN/活跃状态条目（AUDIT-127 根因）。
+- **FIX-171** — evidence 迁移 subset gate 放宽（忽略 RISK/DEC/REVIEW 跨实体引用）+ legacy 版本解析 + 路线图修正（AUDIT-126 根因 B）。
+- **FIX-172** — archive migrate body-write 数据丢失修复（FIX-158 回归，priority-table task 的 target_version 永不匹配 section → body 空 + 行被删）。
+
+### Migration Notes
+- ⚠️ **M5.4 收紧（behavior change）**：升级后"纯通知"段必须以 ℹ️ / 📢 / > 注： / >> 派发 之一开头，且不得含问号、不得含编号选项列表。否则判非纯通知 → 必须 AskUserQuestion。既有无前缀裸通知加前缀即可合规。
+- **Check 29/30 是 advisory**：Check 29 best-effort runtime scan，非产品代码硬 gate；Check 30 针对 governance 证据。
+- 版本号全量同步 0.62.0→0.63.0（17 文件）。
+
+### Boundaries
+- **不关闭** RISK-036（官方收录准备）/ RISK-037（1.0.0 阻塞）/ RISK-039（架构腐化看护，本体已修但需外部宿主验证）。
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support。
+- **0.62.0..0.63.0 含 4 个 pre-release fix**（FIX-168/170/171/172），原未单独发版，本次一并发布。
+- **版本号占用声明**：0.63.0 原规划为"verify_workflow.py 拆分 Phase 5"（DEC-088 路线图），本次占用为"协议层+verify check 闭环"主题，拆分 Phase 5 顺延到 0.65.0+。
+- **降级 SoD（DEC-090/091）**：本版本产品代码由 Coordinator 降级 Developer + 只读 Explore Code Reviewer（FIX-173/174 已 R0 APPROVED）；FX-175 release 评估由 Coordinator spawn Release Agent + 独立 Release Reviewer R0→R1 审查。
+
+## [0.62.0] - 2026-07-01
+
+### 0.62.0 — zcode 插件市场适配(废弃逆向 local-load 机制)
+
+0.62.0 把 zcode 的适配方式从"逆向工程硬编码植入本地安装"改为"通过 zcode 新版插件市场原生安装"。zcode 新版运行时已支持完整的市场链(`addMarketplace`/`installMarketplacePlugin`/`clonePluginSource`/`known_marketplaces.json`),接受 `{source:"github",repo}` 源,与 Claude Code 市场协议同构。0.56.0 的逆向 seed-hash 工具因此废弃。
+
+### Added
+- `.claude-plugin/marketplace.json` 的 `source` 字段从本地相对路径 `"./"` 改为结构化 github 对象 `{"source":"github","repo":"peterwangze/software-project-governance"}`——与 zcode 新版运行时 `resolveGitPluginSource` 接受的格式、Claude 官方市场格式一致。
+- `docs/marketplace/zcode-marketplace-install.md`——新版市场安装文档(两步:`/plugin marketplace add` + `/plugin install`),含从 0.56.0 local-load 迁移指引。
+- README Tier 1 加载表新增 zcode 行(走 marketplace 协议);中文安装段新增 zcode 小节。
+
+### Changed
+- zcode 安装路径统一为 marketplace 协议(`/plugin marketplace add peterwangze/software-project-governance` + `/plugin install software-project-governance@spg`),zcode 与 Claude Code 共享同一协议。
+- `docs/marketplace/zcode-local-load-0.56.0.md` 顶部加 DEPRECATED 横幅,指向新文档(保留为历史记录)。
+- `docs/marketplace/official-readiness-gap-analysis-0.56.0.md` 与 `docs/release/feature-flags-0.56.0.md` 加 0.62.0 更新注记(local-load 机制已废弃)。
+
+### Removed
+- `project/zcode-local-load.py`(20KB 逆向 seed-hash 工具)。verify_workflow.py 不引用、无测试引用,删除零代码破坏。该工具逆向 `D:\app\zcode\resources\glm\zcode.cjs` 的 `rdt()`/`sCr()` 算法绕过 `isSeedCurrent`,是脆弱的运行时耦合(DEC-093)。
+
+### Fixed
+- (none)
+
+### Upgrade Notes
+- **无破坏性变更**。已用 0.56.0 local-load 装上本地 zcode 的安装不受影响(zcode 不主动 re-seed 第三方插件);新装一律走 marketplace。
+- 这是**协议一致性安装**,不是 zcode 官方收录或审核批准。RISK-036(官方收录准备)继续打开。
+- verify 输出:check-version-consistency 仅 plan-tracker 本地滞后(WARN,非阻塞)、check-agent-adapters 5/5、全量测试绿。
+
+## [0.61.2] - 2026-07-01
+
+### Added
+- Chrys agent adapter (`adapters/chrys/`) — new Tier 1 agent platform with native ask_user_question, sub_agent, and tool_calling support. Chrys is the first adapter with native AskUserQuestion-equivalent capability.
+- Chrys entries in README Tier 1 loading guide, SKILL.md adapter table, core/manifest.md supported_agents, mainstream-agent-loading-0.47.0.md, and runtime-readiness-matrix-0.43.0.md.
+- Chrys validation in verify_workflow.py (MAINSTREAM_AGENT_ADAPTERS, ADAPTER_RUNTIME_CAPABILITY_POLICY, PROJECTION_SNIPPETS, OPTIONAL_PROJECTION_FILES, MAINSTREAM_AGENT_LOADING_TIER1, MAINSTREAM_AGENT_LOADING_REQUIRED_DOCS, MAINSTREAM_AGENT_LOADING_ADAPTERS, RUNTIME_MATRIX_AGENT_IDS).
+- AGENTS.md title updated to acknowledge Chrys alongside Codex.
+
+### Changed
+- verify_workflow.py agent adapter contract check now validates 5 adapters (was 4).
+- opencode added to supported_agents in core/manifest.md and SKILL.md adapter table (pre-existing omission fixed alongside Chrys addition).
+
+### Fixed
+- (none)
+
+### Upgrade Notes
+- No breaking changes. All existing adapter contracts unchanged.
+- Chrys adapter is runtime-verified from live Chrys session on 2026-07-01.
+- verify output: 653 tests passed, check-agent-adapters 5/5 synchronized, check-mainstream-agent-loading PASSED.
+
+## [0.61.1] - 2026-06-30
+
+### 0.61.1 - Patch: archive engine decision/risk migration + verify cross-check (TD-014/015)
+
+0.61.1 是 0.61.0 的补丁版本，兑现 0.61.0 遗留的两个技术债：TD-014（archive.py decision/risk 迁移逻辑未实现）和 TD-015（verify_archive_integrity Check 3 死统计）。这两个是 AUDIT-125 治理数据膨胀修复的覆盖盲区残留——decision-log/risk-log 此前永不归档、归档完整性检查不交叉比对。
+
+### Added
+- `skills/software-project-governance/infra/archive.py` — 新增 `_migrate_decisions`（archive.py:585-647）、`_migrate_risks`（archive.py:650-686）、`_entry_version_for_archive`（archive.py:567-579）helper。按 task_id→version lookup（this-run archived + 已归档历史 task）扫描 decision-log/risk-log 行，引用已归档 task 且版本在范围的行迁出到 archive/decisions、archive/risks。dry-run 对真实数据：**29 decisions + 11 risks 可迁出**。
+- `skills/software-project-governance/infra/tests/test_archive.py` — +TestDecisionRiskMigration（5 测试：decision 迁移/不迁移/risk 迁移/_version_to_tuple 防御/_version_in_range None）+ test_verify_check3_symmetric_with_decisions_risks（耦合回归 guard）
+
+### Changed
+- `skills/software-project-governance/infra/archive.py` — `_version_to_tuple` 改用 re.search 提取 x.y.z token（对"未规划版本"返回 None，对"未规划版本（0.61.0）"返回 (0,61,0) 合理）；`_version_in_range` 处理 None 返回 False；verify_archive_integrity Check 3 从只统计改为 **per-category 对称交叉比对**（tasks/evidence/decisions/risks 各自比对，任一 category 文件数≠索引数则 FAIL）
+- `skills/software-project-governance/core/technical-debt-ledger.md` — TD-014/TD-015 标记 RESOLVED
+- 版本号全量同步 0.61.0→0.61.1（13 文件）
+
+### Fixed
+- **FIX-162/163 耦合回归**（审查员发现的 P0）：FIX-163 Check 3 原本 total_in_files 只算 tasks+evidence、total_in_index 算全部 ID，FIX-162 真实迁移 decisions/risks 后 verify 必假阳性。改为 per-category 对称计数修复。新增 test_verify_check3_symmetric_with_decisions_risks 守护。
+- **FIX-162 decision 保真**（审查员 P2-1）：decision 迁移原只保留 dec_id+title（丢 9 列核心字段），改为同时保留原始 `| DEC-... |` 整行作为附录（与 risks 一致）
+
+### Boundaries
+- **不关闭** RISK-039（治理数据膨胀本体已修，但 RISK-039 关闭需外部宿主验证）
+- **不关闭** RISK-036/RISK-037（1.0.0 阻塞）
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support
+- **降级 SoD 诚实标注**（DEC-090/091）：产品代码由 Coordinator 直写 + 事后 Explore 审查（REVIEW-FIX-162/163 APPROVED）
+- **P2-2 留 follow-up**：多 task 混合引用、dry_run 写隔离、版本超上界 3 个测试场景未补（审查员 P2-2，非阻断）
+
+## [0.61.0] - 2026-06-28
+
+### 0.61.0 - Governance Data Bloat Remediation (archive engine + size guard + doc align)
+
+0.61.0 落地 **AUDIT-125 诊断的治理数据膨胀根因彻底修复**（4 Phase，FIX-157~160）。这是 RISK-039（架构腐化看护缺口）的**本体修复**——治理数据自身膨胀此前完全无 check 守护，归档机制静默失效但 dry-run 报"健康假象"。
+
+**起因**：会话恢复时发现 plan-tracker.md 达 298KB（超出 agent 256KB 单次读取上限），但 `archive.py migrate --auto --dry-run` 报"无可归档数据"。AUDIT-125 只读调查查明 3 层根因：(1) archive.py 解析逻辑与 plan-tracker 实际格式不匹配（task 行正则要求 ID 在第1列，实际在第2列；状态列硬编码 parts[10]；版本 section 模型不识别"目标版本"列归类）；(2) early-return（archive.py:1364）让 release_forced/fallback_90d 触发器成死代码；(3) 覆盖盲区（叙述段 219KB 无归档机制、decision/risk 迁移是未实现 stub、无体积 check 守护）。
+
+**4 Phase 修复**：
+- **FIX-157**：plan-tracker "当前活跃事项"段 298KB→91.7KB（-69%），迁出 212KB 历史至 3 个归档文件（narrative/completed-tasks/recent-completed）。事后 Explore 审查 APPROVED。
+- **FIX-158**：archive.py 6 点根因修复——新增 `_parse_priority_table_tasks`（支持 7 列宽表 ID 第2列+目标版本列归类）、`_find_status_column`（表头动态定位状态列，替代硬编码 parts[10]）、`_task_status_is_archivable`（认 ✅变体：已发布/保守闭环/完成候选等）、early-return 移除让触发器评估照常、`_extract_tasks_from_archive_file` 双格式支持。+9 单测。实测 `_extract` 对真实归档 0→198 提取。
+- **FIX-160**：新增 `check_governance_data_size`（Check 28s，ArchGuard 声明式范式，warn 200KB/error 250KB，advisory）——治理数据体积现在被 check 直接守护。CLI `check-governance-data-size`。+5 单测。实测 evidence-log 1.3MB 触发 ERROR。
+- **FIX-159**：commands/governance.md Scenario E 新增"归档失效检测" P1 检查（超阈值但 dry-run 报无可归档 = 异常）。
+- **FIX-161**：修复 2 个测试隔离缺陷（`test_real_interruption_policy_passes` / `test_cmd_status_outputs_stable_permission_mode_line`）——之前测试未隔离 ROOT/module 路径，读到真实 `.governance/` 的 in-flight 任务导致失败。现在 patch `EXECUTION_PACKET_PATH`/`INTERACTION_BOUNDARY_PATH`/`SESSION_SNAPSHOT_PATH` 等模块路径使用隔离 fixture。unit-tests gate 从 2 失败变为全绿（547 passed）。
+
+**测试**：81 passed（archive 62 + arch_health 19），0 回归。2 项 pre-existing 测试失败（测试隔离缺陷，非本次回归，REVIEW-FIX-153 已记录）。
+
+### Added
+- `skills/software-project-governance/infra/archive.py` — 3 新函数（`_find_status_column`/`_parse_priority_table_tasks`/`_task_status_is_archivable`）+ priority-table 扫描分支 + early-return 重构 + 双格式提取
+- `skills/software-project-governance/infra/verify_workflow.py` — `check_governance_data_size` + `cmd_check_governance_data_size` + Check 28s 块（CLI 接入 6 处）
+- `skills/software-project-governance/core/architecture-health.json` — `governance_data_size` section（声明式阈值预算）
+- `.governance/archive/tasks/narrative-2026-04-30_2026-06-27.md`（gitignored 运行态，+99 段历史叙述归档）
+- `.governance/archive/tasks/completed-tasks-2026-04-30_2026-06-27.md`（gitignored，+138 行已完成 task 归档）
+- `.governance/archive/tasks/recent-completed-2026-04-30_2026-06-27.md`（gitignored，+60 行最近完成归档）
+
+### Changed
+- `skills/software-project-governance/infra/archive.py` — `_parse_task_status` 从硬编码 parts[10] 改动态 status_col 参数；`_find_version_sections` 捕获 header_line（含 sample table 子章节）；`migrate_by_version` 状态匹配从 `== "已完成"` 改 `_task_status_is_archivable`；`_extract_tasks_from_archive_file` 支持 ID 第1列+第2列双格式；`analyze_auto_archive_candidates` early-return 移除
+- `skills/software-project-governance/core/technical-debt-ledger.md` — +TD-014（decision/risk 迁移未实现）/TD-015（verify Check 3 死统计未修）
+- `commands/governance.md` — Scenario E P1 检查表新增"归档失效（FIX-159/160）"
+- `skills/software-project-governance/infra/tests/test_archive.py` — +TestPriorityTableArchive（9 单测：_find_status_column 3 表头格式+边界、_parse_priority_table_tasks 7 列解析+legacy 不误匹配、_task_status_is_archivable 变体、_parse_task_status 动态列）
+- `skills/software-project-governance/infra/tests/test_architecture_health.py` — +GovernanceDataSizeTest（5 单测：超阈值 ERROR/达 warn/阈值内 PASS/schema 缺失/disabled）+ SCHEMA_JSON fixture 补 governance_data_size section
+- 版本号全量同步 0.60.0→0.61.0（SKILL.md/plugin.json×3/marketplace.json/manifest.json/hooks×4/verify_workflow.py/capability_registry.py）
+
+### Known Issues (non-blocking)
+- 2 个 pytest（`test_cmd_status_outputs_stable_permission_mode_line` / `test_real_interruption_policy_passes`）因读取 `.governance/plan-tracker.md`（gitignored 实时状态）含 in-flight 任务而失败——预先存在的测试隔离缺陷，非本次修复回归
+- TD-014：archive.py decision-log/risk-log 迁移逻辑未实现（path getter + 目录创建 + index/verify 读取就绪，但 migrate 无迁移分支）——留 0.62.0+
+- TD-015：verify_archive_integrity Check 3 只统计不交叉比对（文件数 vs 索引数）——留 0.62.0+
+
+### Boundaries
+- **不关闭** RISK-039（治理数据膨胀本体已修，但 RISK-039 关闭需外部宿主验证 ArchGuard 持续有效）
+- **不关闭** RISK-036/RISK-037（1.0.0 阻塞，截止 2026-07-30 延期窗口期）
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support
+- **降级 SoD 诚实标注**（DEC-090/091）：产品代码由 Coordinator 直写 + 事后 Explore 只读审查（REVIEW-FIX-157~160 APPROVED），非标准先审后合路径
+- **decision/risk 归档盲区**（TD-014）和 verify Check 3 死统计（TD-015）已知未修，留 0.62.0+
+
+## [0.60.0] - 2026-06-26
+
+### 0.60.0 - verify_workflow.py Incremental Split Phase 2 (capability-registry domain)
+
+0.60.0 落地 DEC-083 路线图第 (3) 项：verify_workflow.py 渐进式按 check 域拆分的第二步。抽出 **capability-registry 域**（check_capability_registry + _capability_registry_text_values + cmd + 7 CAPABILITY_REGISTRY_* 常量，304 行）到新 `infra/checks/capability_registry.py` 模块，verify_workflow.py 退化为薄入口委托——20,516 → **20,321**（净减 **−195 行**）。两轮累计净减 **616 行**（20,937 → 20,321）。
+
+这是 ArchGuard（0.58.0 advisory）**连续第二次实战守护真实重构**：拆分后 capability_registry.py 零 ERROR/WARN，verify_workflow.py 净减——进一步证明 advisory 能力对真实重构有效（RISK-039 自验证证据增强）。与 Phase 1 manifest 域完美同构（registry schema 校验模式），方法论连续验证成功。
+
+设计先行（REQ-103/AUDIT-123，Explore 实测 4 候选域选 capability-registry），实现经 DEC-087 授权主 agent 直写（沿用 DEC-085/086）+ 事后 Explore 只读审查 APPROVED（REVIEW-FIX-154）。54 个 CLI 命令契约零变化。
+
+### Added
+- `skills/software-project-governance/infra/checks/capability_registry.py` — capability-registry 域迁入（check_capability_registry + _capability_registry_text_values + cmd_check_capability_registry + 7 CAPABILITY_REGISTRY_* 常量，304 行）
+
+### Changed
+- `skills/software-project-governance/infra/verify_workflow.py` — 删除迁出函数/常量定义（净减 195 行）、加 `from checks.capability_registry import ...` 薄入口委托（含常量 re-export 保测试兼容）、dispatch/argparse/governance-pack Check 28k 注册全保留
+- `skills/software-project-governance/core/manifest.json` — 登记 `infra/checks/capability_registry.py`（type:file）
+- 版本号全量同步 0.59.0→0.60.0（SKILL.md/plugin.json×4/marketplace.json/package.json/manifest.json/hooks×4 @version/REQUIRED_SNIPPETS×6/target fixture）
+
+### Design Decisions (D1~D5, REQ-103)
+- **D1** 7 个 CAPABILITY_REGISTRY_* 常量全迁 capability_registry.py（含死常量 CAPABILITY_REGISTRY_PATH 改纯字符串清理）
+- **D2** 通用 helper（`_is_valid_string_list` 21 处 / `_line_has_scoped_claim_negation` 18 处）留 verify_workflow.py
+- **D3** `_manifest_artifact_entries` 用延迟 import（设计原定顶层 import，实测引发循环，改函数内延迟）
+- **D4** `cmd_check_capability_registry` 迁移 capability_registry.py
+- **D5** 沿用 Phase 1 `_vw()` 延迟 import 模式（含 _VW_CACHE 缓存）
+
+### Known Issues (non-blocking)
+- 2 个 pytest（`test_cmd_status_outputs_stable_permission_mode_line` / `test_real_interruption_policy_passes`）因读取 `.governance/plan-tracker.md`（gitignored 实时状态）含 in-flight 任务而失败——预先存在的测试隔离缺陷，非本次重构回归，REL-046 任务关闭后自动修复
+- P2（不阻断）：延迟 import 在直接脚本运行时产生双模块实例（与 Phase 1 同，留 common 模块化时消除）
+
+### Boundaries
+- **只拆 capability-registry 域**——其它 check 域留 0.61.0~0.64.0（agent/runtime 成对、lifecycle-registry、governance-pack 等）
+- **不引入** src/pyproject.toml/ruff/mypy（F2 留 0.64.0）
+- **不关闭** RISK-039（拆分 Phase 2/6 非全部完成，且关闭需外部宿主验证）
+- **不关闭** RISK-036/RISK-037
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support
+- DEC-087 降级 SoD 诚实标注：主 agent 直接实现 + 事后 Explore 只读审查
+
+## [0.59.0] - 2026-06-26
+
+### 0.59.0 - verify_workflow.py Incremental Split Phase 1 (manifest domain)
+
+0.59.0 落地 DEC-083 路线图第 (3) 项：verify_workflow.py 渐进式按 check 域拆分的第一步。抽出 **manifest 域**（A 组 12 函数 ~401 行）到新 `infra/checks/manifest.py` 模块，verify_workflow.py 退化为薄入口委托——God Module 首次实质性缩减（20,937 → 20,516，净减 **−421 行**）。这是 ArchGuard（0.58.0 advisory）**首次实战守护真实重构**：拆分后 manifest.py 零 ERROR/WARN，verify_workflow.py 净减——证明 advisory 能力对真实重构有效（RISK-039 部分自验证证据）。
+
+设计先行（REQ-102/AUDIT-122，Explore 实测勘察定边界），实现经 DEC-086 授权主 agent 直写（沿用 DEC-085，当前 harness 仅只读 Explore sub-agent）+ 事后 Explore 只读审查 APPROVED（REVIEW-FIX-153）。54 个 CLI 命令契约零变化。
+
+### Added
+- `skills/software-project-governance/infra/checks/` — 新建 check 域子包（为 0.60.0~0.64.0 各域预留位置）
+- `skills/software-project-governance/infra/checks/__init__.py` — 包标记 + 用途 docstring
+- `skills/software-project-governance/infra/checks/manifest.py` — manifest 域 12 函数迁入（build_required_files_from_manifest / expand_manifest_to_canonical_set / _path_to_label / _manifest_product_file_entries / _manifest_artifact_entries / check_manifest_canonical_product_artifacts / check_manifest_cleanup_scope / _manifest_requires_product_artifact_guards / scan_actual_files / scan_manifest_visible_files / check_manifest_consistency / cmd_check_manifest_consistency），含 `_vw()` 延迟 import（带 _VW_CACHE 缓存）规避循环依赖
+
+### Changed
+- `skills/software-project-governance/infra/verify_workflow.py` — 删除 12 个迁出函数定义（净减 421 行）、加 `from checks.manifest import ...` 薄入口委托、dispatch/argparse/governance-pack 注册全保留、Check 24 REQUIRED_SNIPPETS 正则适配新结构锚点（`\n{2,}# ── Manifest`，未削弱守护）
+- `skills/software-project-governance/core/manifest.json` — 登记 `infra/checks/__init__.py` + `infra/checks/manifest.py`（type:file）
+- 版本号全量同步 0.58.0→0.59.0（SKILL.md/plugin.json×4/marketplace.json/package.json/manifest.json/hooks×4 @version/REQUIRED_SNIPPETS×6/target fixture SKILL.md + plan-tracker/snapshot）
+
+### Design Decisions (D1~D6, REQ-102)
+- **D1** `PLUGIN_SCOPE_DIRS` 留 verify_workflow.py（plugin-scope 域未拆，避免反向依赖）
+- **D2** `_manifest_artifact_entries` 迁 manifest.py，3 个 registry 域改 import 共享（跨域依赖显式化）
+- **D3** `REQUIRED_FILES`/`OPTIONAL_PROJECTION_FILES` 留 verify_workflow.py（files-check 域消费方语义）
+- **D4** Check 11 打印段留 cmd_verify（编排逻辑，不撕裂）
+- **D5** `cmd_check_manifest_consistency` 迁 manifest.py
+- **D6** 新建 `infra/checks/` 子包
+
+### Known Issues (non-blocking)
+- 2 个 pytest（`test_cmd_status_outputs_stable_permission_mode_line` / `test_real_interruption_policy_passes`）因读取 `.governance/plan-tracker.md`（gitignored 实时状态）含 in-flight 任务而失败——预先存在的测试隔离缺陷，非本次重构回归，REL-045 任务关闭后自动修复
+- P2（不阻断）：`_vw()` 延迟 import 在直接脚本运行时产生 verify_workflow 双模块实例（`__main__` + `verify_workflow`）——当前能跑通，留 0.60.0+ 抽 common 模块时改单向顶层 import 消除
+
+### Boundaries
+- **只拆 manifest 域**——其它 check 域（release/governance/agent/capability 等）留 0.60.0~0.64.0
+- **不引入** src/pyproject.toml/ruff/mypy 等现代工程基础设施（F2 留 0.64.0）
+- **不关闭** RISK-039（拆分 Phase 1/6 非全部完成，且关闭需 1 个外部宿主项目验证 ArchGuard）
+- **不关闭** RISK-036/RISK-037
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support
+- DEC-086 降级 SoD 诚实标注：主 agent 直接实现 + 事后 Explore 只读审查（当前 harness 仅只读 Explore sub-agent），不如标准先审后合
+
+## [0.58.0] - 2026-06-25
+
+### 0.58.0 - ArchGuard Architecture Health Stewardship (advisory-only)
+
+0.58.0 把 AUDIT-121 F6 架构腐化看护缺口从设计变为可运行产品能力——交付 **ArchGuard**：4 个可独立调用的架构健康 check 命令，让采用本工作流的大型项目在零外部依赖下持续守护架构健康。ArchGuard 守护自身：对 verify_workflow.py（约 2 万行 God Module）触发 module_size ERROR、对 PRODUCT_CODE_PATTERNS 重复定义触发 duplicate_constant ERROR。
+
+**advisory-only 边界**：0.58.0 `gate_integration.fatal_on_error=false`，ArchGuard 的 WARN/ERROR 告警但不阻断 release gate——先观测后收紧，未来版本可启用 fatal。这是 DEC-083 规划的"0.58.0 作为独立产品能力版本交付 ArchGuard，阈值保守默认不阻断现有 release gate，可复用于其他大型项目"。
+
+设计先行（REQ-101/DEC-084），实现前经独立只读复核（EVD-621 READY WITH MINOR GAPS），实现经事后 Explore 只读审查 APPROVED（REVIEW-FIX-152，DEC-085 授权降级 SoD）。约束合规：G6 manifest 双重登记、G7 advisory 不递增 all_issues、G8 ledger 登记、G9 hooks-drift 复用既有 helper（root-leak 已修复+回归测试）。
+
+### Added
+- **ArchGuard 4 check 命令**（`check-architecture-health` / `check-duplicate-code` / `check-technical-debt` / `check-complexity`，advisory-only）——模块/函数/常量大小阈值检测（AST）、source/projection 语义重复检测（normalize CRLF+忽略空白）、技术债巡检（游离脚本/release文档/hooks漂移/ledger交叉验证）、复杂度 line-based proxy
+- `skills/software-project-governance/core/architecture-health.json` — 声明式架构健康阈值预算 schema（module_size/function_size/module_constants/duplicate_code/complexity/technical_debt/gate_integration）
+- `skills/software-project-governance/infra/tests/test_architecture_health.py` — 14 个 unittest（覆盖 module/function/常量大小、重复常量、CRLF 归一化、空白忽略、ledger 交叉验证、hooks 漂移含 G9 root-isolation 回归、G7 advisory、真实 God Module 触发）
+- Check 28o~28r 接入 `cmd_check_governance`（3 级 PASS/WARN/ERROR，advisory 不阻断）
+- TOOL-043~046（TOOLS.md）
+
+### Changed
+- `skills/software-project-governance/infra/verify_workflow.py` 新增 4 个 self-contained `check_*` 函数 + 4 个 `cmd_check_*` handler + CLI subparser + dispatch dict（+~647 行）
+- `skills/software-project-governance/core/manifest.json` — G6 双重登记 architecture-health.json（product.entries + canonical_product_artifacts）+ G8 technical-debt-ledger.md 登记
+- 版本号全量同步 0.57.0→0.58.0（SKILL.md/plugin.json/marketplace.json/codex-plugin/manifest/hooks/REQUIRED_SNIPPETS/target fixture）
+
+### Known Issues (advisory, non-blocking)
+- **TD-012**：`check_duplicate_code` 用"归一化行集合对称差"而非设计 §2.2 的"行计数 diff"计算 duplicate_pct——重复样板行去重使数值偏高于 diff 校准基线。0.59.0+ 承载
+- **TD-013**：`check-architecture-health` 全仓库扫描含 `project/e2e-test-project/` projection 副本，导致 module_size/function_size 发现计数虚高（source + projection 双计）。0.59.0+ 承载
+
+### Boundaries
+- **不关闭** RISK-036（官方收录准备）/ RISK-037（动态生命周期）/ RISK-039（架构腐化看护——核心缓解 ArchGuard 已就绪，关闭需外部宿主项目验证）
+- **不声明** 1.0.0 production-ready / official approval / marketplace approval / universal runtime support
+- 0.58.0 ArchGuard 是 advisory-only（fatal_on_error=false），不阻断现有 release gate
+- DEC-085 降级 SoD 诚实标注：主 agent 直接实现 + 事后 Explore 只读审查（当前 harness 仅只读 Explore sub-agent），不如标准先审后合
+
+## [0.57.0] - 2026-06-25
+
+### 0.57.0 - Architecture Degradation Audit Archive
+
+0.57.0 是文档/治理记录专用版本，承载 AUDIT-121 全项目架构腐化深度审视归档。该版本**无功能代码变更**——只改版本号字符串断言和新增诊断文档/治理记录。新增诊断报告 `docs/requirements/architecture-degradation-audit-0.57.0.md`（F1-F6 六项腐化事实：verify_workflow.py God Module 20,294 行/439 def+class/54 CLI 子命令；缺失现代工程基础设施 src/lint/type/package；source/projection 双写差异 6,128 行；命令面冗余；自演进遗留物堆积；架构腐化看护缺口根因），新增技术债登记表 `skills/software-project-governance/core/technical-debt-ledger.md`（TD-001~006），清理根目录遗留物（`nul` + `_fix_030_reconstruct.py`）。规划后续 0.58.0 ArchGuard 独立能力版本 + 0.59.0~0.64.0 verify_workflow.py 渐进式按域拆分。该版本不修改 verify_workflow.py 功能代码、不实现 ArchGuard、不拆分任何模块、不引入 lint/type 基础设施、不关闭 RISK-036/RISK-037/RISK-039、不声明 1.0.0 readiness。
+
+### Added
+- `docs/requirements/architecture-degradation-audit-0.57.0.md` — AUDIT-121 全项目架构腐化深度审视诊断报告（F1-F6 事实清单 + 影响分析 + 重构路线图）
+- `skills/software-project-governance/core/technical-debt-ledger.md` — 技术债登记表 TD-001~006（ArchGuard 0.58.0 将消费）
+- `docs/release/release-checklist-0.57.0.md`、`docs/release/feature-flags-0.57.0.md`、`docs/release/rollback-plan-0.57.0.md` — 0.57.0 release docs（含 no-overclaim boundary）
+- DEC-083（架构审视三项决策）、RISK-039（架构腐化看护缺口）、EVD-619（AUDIT-121 证据）入账
+- plan-tracker 版本路线图扩展 0.57.0~0.64.0 + 活跃事项 + 风险数（2→3）
+
+### Changed
+- 版本声明 bump 0.56.1 → 0.57.0：SKILL.md、core/manifest.json、4 个 plugin metadata（Claude/Codex/zcode/marketplace）、顶层 package.json、4 个 source hooks + 4 个 installed hooks @version、zcode-local-load.py、verify_workflow.py REQUIRED_SNIPPETS（6 处版本断言）、README readiness boundary、e2e-test-project projection（SKILL.md + plan-tracker）
+- 发现并修复 hooks 内容漂移：4 个已安装 .git/hooks 长期未跟随源更新（post-commit 停在 0.32.0），从 0.57.0 源全覆盖对齐（含 self-upgrade 机制，未来 commit 自动保持同步）
+
+### Removed
+- `nul`（根目录，Windows 设备名误创建的未跟踪文件，189 字节，无引用）
+- `_fix_030_reconstruct.py`（根目录，FIX-030 一次性重构脚本残留，90 行，FIX-030 早已完成）
+
+## [0.56.1] - 2026-06-24
+
+### 0.56.1 - Web Console Real-Data Dashboard Patch
+
+0.56.1 发布 REL-043 Web console real-data dashboard patch：把已完成、审查通过并经运行时验证的 FIX-151 版本化。该版本修复 Web console 从 100% 硬编码 mock 改为真实数据驱动，解决用户报告的 Project root 假数据和按键无功能问题。Web console 保持只读本地 dashboard 边界不变。
+
+### Added
+
+- **`web/server.py` local API server**: 轻量 stdlib-only Python HTTP server，复用 verify_workflow.py 的 parse 函数读真实 `.governance/` 文件，提供 `/api/governance` JSON 端点 + serve dist 静态文件。
+- **`web/vite.config.js`**: Vite 配置 + `/api` proxy 到 API server（dev 模式），无新 npm 依赖。
+- **0.56.1 release docs**: 新增 release checklist、feature flags、rollback plan。
+
+### Changed
+
+- **`web/src/main.jsx` refactored to real-data driven**: 删除所有硬编码 mock 常量数组，改为 `fetch('/api/governance')` 真实数据驱动；Project root/project_name/version/gates/evidence/risks 全部来自真实 governance 文件；loading/error/refreshing/notice 状态完整。
+- **所有按键功能修复**: 17 个 button 全部有明确 onClick（refresh 刷新数据、navigate 切换路由、notice 显示说明），不能执行的诚实标注 read-only/CLI-only。
+- **`cmd_web_console` updated**: 启动 Vite 前后台启动 API server（PID 记录 + 停止提示）。
+- **`web/src/styles.css`**: 追加 loading/error/notice/spin 状态类。
+- 版本声明同步到 0.56.1。
+
+### Verification
+
+- `npm run build` PASS（1700 modules，dist 生成）。
+- `check-manifest-consistency --fail-on-issues` PASS（web/server.py + vite.config.js 在 repo_only 登记）。
+- live API 验证：`GET /api/governance` 返回真实数据（project_name=project_management_workflow、release_version=0.56.0、gates=11、evidence_count=595、open_risks=RISK-036/037 真实 deadline）。
+- 重启验证通过：API server (5174) + Vite proxy (5173/api) + 前端渲染真实数据三层链路全通。
+- Code Reviewer APPROVED（无 P0/P1，3 个 P2 已处理）。
+
+### Boundary
+
+RISK-036 与 RISK-037 保持打开。Web console 仍是只读本地 dashboard（不执行 agent/release/approval 动作），不声明 official approval、marketplace approval、universal runtime support 或 1.0.0 readiness。
+
+## [0.56.0] - 2026-06-24
+
+### 0.56.0 - zcode Plugin Marketplace Adapter Patch
+
+0.56.0 发布 REL-042 zcode plugin marketplace adapter patch：把已完成、审查通过并经运行时验证的 AUDIT-118 版本化。该版本新增 zcode 原生插件市场格式适配产物，并验证本插件能以 zcode 原生格式加载到本机 zcode 运行。这是向 zcode 官方插件市场提交的基础工作，但 0.56.0 本身不提交到官方市场、不声明 marketplace approval。Web console governance-entry、summary-link read-only 行为、动态生命周期边界均不变。
+
+### Added
+
+- **AUDIT-118 zcode plugin marketplace adapter**: 新增 `.zcode-plugin/plugin.json`（zcode 原生插件清单，字段对齐官方 superpowers/restore-legacy-sessions/skill-creator）+ `.zcode-plugin/assets/{logo,composer-icon,governance-preview}.svg` 品牌资产。
+- **Top-level `package.json`**: `@zcode/software-project-governance-plugin` npm 包标识，对齐官方 `@zcode/<name>-plugin` scope。
+- **`project/zcode-local-load.py` local load tool**: 忠实移植 zcode 运行时种子 hash 算法（`rdt`/`sCr`），提供 `load/--verify/--reload/--unload` 幂等操作 + 备份回滚；实测对官方 skill-creator 字节级复现种子 hash。
+- **0.56.0 release docs**: 新增 release checklist、feature flags、rollback plan，并纳入 manifest 覆盖。
+
+### Changed
+
+- `skills/software-project-governance/core/manifest.json` 在 product.entries/glob_patterns/cleanup_scope/root_entries 四处登记 `.zcode-plugin/` 与顶层 `package.json`。
+- `verify_workflow.py` 与 `cleanup.py` 的 `PLUGIN_SCOPE_DIRS` 同步新增 `.zcode-plugin`；`verify_workflow.py` REQUIRED_SNIPPETS 补充 `.zcode-plugin/plugin.json` 与 `package.json` 版本断言。
+- 版本声明同步到 0.56.0：source SKILL、canonical manifest、Claude/Codex/zcode plugin metadata、Claude marketplace metadata、顶层 package.json、hook `@version`、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+
+### Verification
+
+- `check-manifest-consistency --fail-on-issues` PASS（Canonical/Actual 一致，含 `.zcode-plugin` 覆盖）。
+- `check-version-consistency` PASS（11+ 文件版本声明一致为 0.56.0）。
+- 本机加载四项产物就绪（缓存/seed/marketplace/config），运行时验证通过（EVD-610：用户重启 zcode 后 `/governance` 被本插件消费，Coordinator 激活，Web console 启动）。
+- Code Reviewer APPROVED（P0 无；P1 marketplace 重启覆盖风险已用 `--verify`/`--reload` 工具化解决；P2 算法忠实化与拼写已修正）。
+
+### Boundary
+
+RISK-036 与 RISK-037 保持打开。0.56.0 仅证明本插件能本机 zcode 加载运行，不声明 official approval、marketplace approval（zcode 官方市场收录）、universal runtime support、external validation full PASS、Codex Desktop lifecycle PASS、RISK closure 或 1.0.0 readiness。已知限制：手动模拟种子输出依赖 zcode 当前内部逻辑；zcode 升级若改变种子流程，本加载方式可能失效（缓解：`--verify` 复查 + `--reload` 恢复）。
+
+## [0.55.3] - 2026-06-22
+
+### 0.55.3 - Web Console Governance Entry Correction Patch
+
+0.55.3 发布 REL-041 Web console governance-entry correction patch：把已完成并审查通过的 FIX-150 版本化。该版本纠正 0.55.2 对用户意图的误解：用户手动执行 `/governance` 时，产品应该默认启动或复用本地 Web console，并输出 URL，方便后续使用 Web UI 查看工作流状态和继续交互。阶段性任务、工作单元或 session 总结仍只追加 `web-console --summary-link` 的只读结果，不额外启动服务。
+
+### Added
+
+- **FIX-150 Web console governance-entry correction**: 新增 `web-console --governance-entry`，作为手动 `/governance` 的默认 Web UI 启动/复用入口。
+- **Governance-entry regression coverage**: 新增 focused tests 覆盖已运行复用、缺依赖显式 `--install`、非 SPG 端口占用 fail-closed、真实 start path 和 summary-link/start conflict。
+- **REL-041**: 新增 0.55.3 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- `/governance` source 与 target fixture 改为 SHOULD 在解析 `WORKFLOW_HOME` 后运行 `web-console --governance-entry`，启动或复用本地 Web console 并输出 URL。
+- README 与 TOOL-042 将 manual `/governance` 表述为默认 Web UI 入口；`web-console --summary-link` 仍只用于 task/phase/session summary footer。
+- `web-console --status` 输出新增 `/governance entry command`，同时保留手动 start/install 命令。
+- 版本声明同步到 0.55.3：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook `@version`、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+
+### Verification
+
+- `python -m py_compile skills/software-project-governance/infra/verify_workflow.py`
+- `python -m unittest skills.software-project-governance.infra.tests.test_verify_workflow.WebConsoleGovernanceEntryTests -v`
+- `python -m unittest discover -s skills/software-project-governance/infra/tests -v`
+- `python skills/software-project-governance/infra/verify_workflow.py web-console --governance-entry --port 59997 --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py web-console --summary-link --port 59997`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.55.3 --require-changelog --runtime-adapters`
+
+### Boundaries
+
+- RISK-036 remains open. 0.55.3 does not include official approval, marketplace approval, two real external projects full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.55.3 does not implement an apply/write path, does not migrate projects, does not make `dynamic-flow-gate` the default, does not claim non-game preset generalization complete, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+- Web remains an optional local companion dashboard. Manual `/governance` may start or reuse it, but Web does not replace CLI/client execution, does not execute agent tasks, does not silently install dependencies, and summary footer mode remains read-only.
+
+## [0.55.2] - 2026-06-21
+
+### 0.55.2 - Web Console Passive Summary Entry Patch
+
+0.55.2 发布 REL-040 Web console passive summary entry patch：把已完成并审查通过的 FIX-149 版本化。该版本让阶段性任务、工作单元或 session 总结可以追加 `web-console --summary-link` 的只读结果；如果 Web console 已运行则报告本地 URL，如果未运行则只报告手动启动命令。手动执行 `/governance` 不会默认启动 Web console、Vite dev server、`npm run dev` 或 `web-console --start`。
+
+### Added
+
+- **FIX-149 Web console passive summary entry**: 新增 `web-console --summary-link`，作为 task/phase/session summary footer 的无副作用入口。
+- **Summary-start conflict guard**: `web-console --summary-link --start --fail-on-issues` 在启动逻辑前阻断，避免 summary footer 意外启动服务。
+- **REL-040**: 新增 0.55.2 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- `/governance` source 与 target fixture 明确禁止默认启动 Web/Vite/npm dev server，并要求 summary footer 使用解析后的 `WORKFLOW_HOME` 路径，而不是 repo-local `python skills/...` 命令。
+- README 与 TOOL-042 将 `--start` 统一表述为用户明确要求时才运行的手动/显式启动路径。
+- 版本声明同步到 0.55.2：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook `@version`、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+
+### Verification
+
+- `python -m py_compile skills/software-project-governance/infra/verify_workflow.py`
+- `python skills/software-project-governance/infra/verify_workflow.py web-console --summary-link --port 59997`
+- `python skills/software-project-governance/infra/verify_workflow.py web-console --summary-link --start --fail-on-issues --port 59997`
+- `python -m unittest discover -s skills/software-project-governance/infra/tests -v`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.55.2 --require-changelog --runtime-adapters`
+
+### Boundaries
+
+- RISK-036 remains open. 0.55.2 does not include official approval, marketplace approval, two real external projects full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.55.2 does not implement an apply/write path, does not migrate projects, does not make `dynamic-flow-gate` the default, does not claim non-game preset generalization complete, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+- Web remains an optional local companion dashboard. It does not replace CLI/client execution or `/governance`, does not execute agent tasks, and does not start by default from manual `/governance`.
+
+## [0.55.1] - 2026-06-21
+
+### 0.55.1 - Web Console CLI/Client Entry Patch
+
+0.55.1 发布 REL-039 Web console CLI/client entry patch：把已完成并审查通过的 FIX-148 版本化。该版本让 CLI/客户端用户可以通过 `web-console --status` 发现本地 Web companion dashboard，并通过 `web-console --start [--install]` 启动它；同时保持 Web 只是本地状态/配置可视化 companion，不替代 `/governance`、不执行 agent 任务、不声明 Desktop embedded UI 或 marketplace lifecycle PASS。
+
+### Included
+
+- **FIX-148 Web console CLI/client entry redesign**: 新增 `web-console --status/--start/--install/--open`，README/TOOLS 改为 CLI 入口优先，Web 首屏和移动端突出 CLI companion 与启动命令。
+- **Fail-closed identity probing**: `web/index.html` 新增 SPG identity meta，`verify_workflow.py` 只在页面含 SPG identity 时认定 dashboard running；非 SPG 服务占用端口时报告 `occupied` 并阻断 `--start`。
+- **Mobile entry usability**: Web 首屏移动端压缩 topbar/nav/entry，使 Start/Copy 操作在 390x844 首屏内可见。
+- **REL-039**: 新增 0.55.1 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Release Sync
+
+- 版本声明同步到 0.55.1：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook `@version`、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.55.1 Web console entry patch + 0.55.0 migration preview/external validation archive，继续保留 `classic-phase-gate` 默认、`dynamic-flow-gate` inactive/non-default opt-in preview。
+
+### Verification
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.55.1 --require-changelog --runtime-adapters`
+
+### Boundaries
+
+- RISK-036 remains open. 0.55.1 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.55.1 does not implement an apply/write path, does not migrate projects, does not make `dynamic-flow-gate` the default, does not claim non-game preset generalization complete, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+- Web console remains an optional local companion dashboard. It does not replace CLI/client execution, does not execute agent tasks, does not silently install dependencies, and is not a Desktop embedded UI lifecycle PASS.
+
+## [0.55.0] - 2026-06-20
+
+### 0.55.0 - Dynamic Lifecycle Migration Preview and External Validation Archive
+
+0.55.0 发布 REL-035 Dynamic Lifecycle migration/external validation package：把已完成并审查通过的 FIX-139 dry-run-only migration preview、VAL-005 python_game validation archive、VAL-006 shitu non-game validation archive 版本化。该版本发布迁移预览和保守外部验证事实，不迁移项目、不把 `dynamic-flow-gate` 设为默认、不关闭 RISK-036/RISK-037、不声明 external validation full PASS 或 1.0.0 readiness。
+
+### Added
+
+- **FIX-139 Dynamic lifecycle migration preview**: 新增 `dynamic-lifecycle-migration --target <path> --dry-run` / `dynamic-flow-gate-migration` 只读预览、0.55.0 migration guide、TOOL-041、manifest coverage 和 dry-run fail-closed 边界。
+- **VAL-005 python_game validation archive**: 真实 `python_game` 目标 dry-run preview `READY_FOR_REVIEW`，保留 plan/evidence hash，10 个 chapter flow units 覆盖 released/testing/development/backlog；installed-state full PASS 被 `CLAUDE.md:32` repo-local workflow home assumption 阻断。
+- **VAL-006 shitu non-game validation archive**: 真实 Android/Kotlin `shitu` 目标 dry-run preview `READY_FOR_REVIEW`，保留 plan/evidence hash 与 89 条 evidence rows；非 game preset 泛化仍 PARTIAL，因为 flow units 仍来自 `python_game_10_chapters` 示例，installed-state validation 被 native entry/hook drift 阻断。
+- **REL-035**: 新增 0.55.0 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- 版本声明同步到 0.55.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook `@version`、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.55.0 migration preview + external validation archive，明确 `classic-phase-gate` 仍为默认、`dynamic-flow-gate` 仍为 inactive/non-default opt-in preview。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.55.0 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.55.0 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.55.0 releases a dry-run migration preview and validation archives only; it does not implement an apply/write path, does not migrate projects, does not make `dynamic-flow-gate` the default, does not claim non-game preset generalization complete, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+
+## [0.54.1] - 2026-06-16
+
+### 0.54.1 - Governance Hook Nested Plugin Hotfix
+
+0.54.1 发布 REL-036 governance hook hotfix release package：把已完成并审查通过的 FIX-140 版本化为 patch release。该版本只包装 nested plugin/workflow product path detection 与 commit-msg dated evidence row matching hotfix，不改变 0.55.0 Dynamic Lifecycle migration/external validation 规划，不修改 hook 修复逻辑本身，不关闭 RISK-036/RISK-037。
+
+### Fixed
+
+- **FIX-140 nested plugin product path detection**: governance hooks 已能识别根目录产品段和 nested plugin/workflow 产品段，并显式排除 `.governance/**`，避免插件内产品代码提交绕过看护。
+- **FIX-140 dated evidence row matching**: `commit-msg` 证据行匹配兼容 `EVD | TASK_ID` 与 `EVD | date | TASK_ID` 两类格式，避免带日期证据行误阻断已审查提交。
+
+### Changed
+
+- **REL-036**: 新增 0.54.1 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+- 版本声明同步到 0.54.1：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.54.1 hook hotfix package，明确 RISK-036/RISK-037 继续打开。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.54.1 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.54.1 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, project migration, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.54.1 is a hook hotfix patch only; it does not change 0.55.0 migration/external validation planning, does not migrate projects, does not make dynamic-flow-gate the default, does not change registry automation command execution, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+
+## [0.54.0] - 2026-06-16
+
+### 0.54.0 - Declarative Gate Engine Classic Registry Execution
+
+0.54.0 发布 REL-034 Declarative Gate Engine release package：把 FIX-138 classic registry-backed gate execution 版本化为 lifecycle registry gate execution metadata、TOOL-040 guard、release docs 和 metadata。该版本让 classic G1-G11 gate judgment 从 lifecycle registry 的 `gate_execution_registry` 读取 required artifacts、checks、evidence query、human confirmation policy、severity 和 project-type override metadata，同时保持 automation commands 为 metadata。
+
+### Added
+
+- **FIX-138 classic registry-backed gate execution**: `gate_execution_registry` 覆盖 classic G1-G11 required artifacts、checks、evidence query、automation command metadata、human confirmation policy、severity 和 project-type override metadata。
+- **Registry-backed gate judgment**: `auto_judge_gate()` 已改为读取 registry definitions，并在运行前 fail-closed 校验 registry contract。
+- **TOOL-040 Declarative Gate Engine guard**: `check-lifecycle-registry --fail-on-issues` 校验 gate execution registry 完整性、executor 合法性、evidence query、override contract、malformed checks runtime fail-closed behavior 和 no-overclaim boundaries。
+- **REL-034**: 新增 0.54.0 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- 版本声明同步到 0.54.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.54.0 Declarative Gate Engine classic registry execution package，明确 RISK-036/RISK-037 继续打开。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-lifecycle-registry --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.54.0 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.54.0 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.54.0 releases classic registry-backed gate judgment only; it does not migrate projects, does not make dynamic-flow-gate the default, does not execute registry automation commands as part of gate judgment, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+
+## [0.53.0] - 2026-06-16
+
+### 0.53.0 - Project-Type Gate Presets
+
+0.53.0 发布 REL-033 Project-Type Gate Presets release package：把 FIX-137 project-type gate presets 版本化为 lifecycle registry preset data、TOOL-039 guard、release docs 和 metadata。该版本覆盖 game、web-app、mobile-app、library、cli-tool、ai-agent-plugin、internal-script，并为每类声明 profile/project-type 正交边界、default packs、quality budget、acceptance templates、release checks、gate policy 和 gate standards。
+
+### Added
+
+- **FIX-137 project-type gate presets**: `project_type_gate_presets` 已覆盖 game/web-app/mobile-app/library/cli-tool/ai-agent-plugin/internal-script；game 标准覆盖 chapter、level、asset、narrative、playability，library 标准覆盖 api、semver、docs、downstream-tests。
+- **TOOL-039 Project-Type Gate Presets guard**: `check-lifecycle-registry --fail-on-issues` 校验 preset 完整性、preset/hook 对应、default flow unit type、profile/project-type 正交、game/library 必需标准和 no-overclaim variants。
+- **LifecycleRegistry coverage**: FIX-137 证据记录 LifecycleRegistryTests 28/28 PASS，支撑 release package 版本化。
+- **REL-033**: 新增 0.53.0 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- 版本声明同步到 0.53.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill/plan、CHANGELOG、README 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.53.0 Project-Type Gate Presets package，明确 RISK-036/RISK-037 继续打开。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-lifecycle-registry --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.53.0 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.53.0 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.53.0 releases project-type preset data and guard coverage only; it does not activate a declarative gate engine, does not migrate projects, does not make dynamic-flow-gate the default, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+
+## [0.52.0] - 2026-06-15
+
+### 0.52.0 - Flow Unit Runtime Visibility
+
+0.52.0 发布 REL-032 Flow Unit Runtime Visibility release package：把 FIX-136 optional flow-unit hot-state visibility 版本化。该版本新增 `.governance/flow-unit-runtime.json` 的可选热状态校验、`check-flow-unit-runtime` CLI，以及 governance context/status 对 flow-unit lanes、per-unit gate_state、loop counters、blocked downstream units 和 rollup status 的只读可见性。
+
+### Added
+
+- **FIX-136 flow-unit runtime visibility**: 新增 optional `.governance/flow-unit-runtime.json` hot-state validator；缺失时 NOT_FOUND safe，格式错误或越界声明 fail-closed。
+- **Flow-unit context/status facts**: governance context/status discovery 可以展示 active lanes、per-unit gate_state、loop counters、blocked downstream units 和 rollup status。
+- **CLI guard**: `check-flow-unit-runtime [--fixture <path>] [--fail-on-issues]` 用于验证 visibility-only hot state 和 no-overclaim 边界。
+- **REL-032**: 新增 0.52.0 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- 版本声明同步到 0.52.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill、CHANGELOG 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.52.0 Flow Unit Runtime Visibility package，明确 RISK-036/RISK-037 继续打开。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-flow-unit-runtime --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.52.0 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.52.0 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.52.0 releases optional runtime visibility only; it does not activate a declarative gate engine, does not migrate projects, does not make dynamic-flow-gate the default, does not close RISK-037, and does not claim dynamic lifecycle readiness.
+
+## [0.51.0] - 2026-06-15
+
+### 0.51.0 - Dynamic Lifecycle Spec Schema-Only Release
+
+0.51.0 发布 REL-031 schema-only release package：把 FIX-135 dynamic lifecycle registry 版本化为 registry/schema/validator/docs。该版本保留 `classic-phase-gate` 作为 active/default compatibility preset，把 `dynamic-flow-gate` 明确为 inactive schema-only mode，并提供 python_game 10 章节示例数据来表达不同章节处于 released/testing/development/backlog 的状态。
+
+### Added
+
+- **FIX-135 lifecycle registry**: `skills/software-project-governance/core/lifecycle-registry.json` 登记 classic stage vocabulary、subphase vocabulary、G1-G11 gate references、allowed transitions、loop policy、flow unit schema、project type hooks 和 python_game 10-chapter example data。
+- **Lifecycle validator**: `check-lifecycle-registry` 校验 registry 保持 schema-only、classic-compatible，并阻断 runtime activation、dynamic mode active/default、project type default drift、non-object root crash 和 no-overclaim 文案漂移。
+- **REL-031**: 新增 0.51.0 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Changed
+
+- 版本声明同步到 0.51.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill、target fixture plan tracker、CHANGELOG 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.51.0 Dynamic Lifecycle Spec schema-only package，明确 RISK-036/RISK-037 继续打开。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.51.0 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.51.0 does not include official approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+- RISK-037 remains open. 0.51.0 releases registry/schema/validator/docs only; it does not activate flow-unit runtime, does not migrate projects, does not replace classic G1-G11 behavior, and does not claim dynamic lifecycle runtime readiness.
+
+## [0.50.3] - 2026-06-15
+
+### 0.50.3 - External Installed Runtime Field Repair
+
+0.50.3 发布 REL-030 conservative patch release package：把 FIX-132、FIX-133、FIX-134、VAL-003 和 VAL-004 纳入同一版本边界。该版本修复外部安装态 runtime 路径解析和 hook commit message source 风险，并把 external-project-validation 扩展到 target-native diagnostics；shitu 与 python_game 两个真实外部目标只归档为 FAIL/PARTIAL diagnostic，不构成 external validation full PASS。
+
+### Changed
+
+- **FIX-132 external installed runtime path resolver**: hooks 和 governance command templates 解析 `SOFTWARE_PROJECT_GOVERNANCE_HOME` / `SPG_HOME`、repo-local install 或全局 plugin cache，不再只依赖目标仓库内的 repo-local `skills/software-project-governance/`。
+- **FIX-133 hook message source hardening**: pre-commit 不再使用 stale `.git/COMMIT_EDITMSG` / `.git/GOV_COMMIT_MSG` 作为当前提交消息语义来源；commit-msg 继续以实际消息文件为权威来源。
+- **FIX-134 target-native field checks**: `external-project-validation --target` 报告目标原生入口 repo-local path assumption、installed hook version/content drift、legacy stale message source 和 repo-local self-upgrade source diagnostics。
+- **REL-030**: 新增 0.50.3 release checklist、feature flags、rollback plan、manifest coverage、README readiness boundary 和 release no-overclaim boundary。
+
+### Validation Archives
+
+- **VAL-003 shitu**: `D:\AI\agent\claude\coding\android\shitu` enhanced validation returned exit 1 and is archived as FAIL/PARTIAL diagnostic. It found `CLAUDE.md` repo-local path / verify / hook-copy assumptions plus installed hook drift and legacy pre-commit message-source semantics. Target files were not mutated.
+- **VAL-004 python_game**: `D:\AI\agent\claude\coding\python_game` enhanced validation returned exit 1 and is archived as FAIL/PARTIAL diagnostic. Native `CLAUDE.md` passed the repo-local path check, but installed hooks remained at 0.49.0 and pre-commit retained legacy message-source / self-upgrade semantics. Target files were not mutated.
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.50.3 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.50.3 releases field repairs and diagnostic archives, not two real external project full PASS evidence.
+- 0.50.3 release package does not include official submission approval, marketplace approval, two-real-project external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+
+## [0.50.2] - 2026-06-13
+
+### 0.50.2 - External Project Validation Harness
+
+0.50.2 发布 REL-029 patch release package：把 FIX-131 的 external project validation harness 版本化。该版本新增 `external-project-validation --target <path>`，在隔离临时工作区复制 workflow surface、生成最小治理记录、安装 hooks，并运行 status/G1/governance-context/check-governance 矩阵；target 目录保持只读，不被 harness 写入。
+
+### Added
+
+- **REL-029**: 新增 0.50.2 release checklist、feature flags、rollback plan、manifest coverage 和 release boundary。
+- **FIX-131 external validation harness**: 新增 `external-project-validation` CLI、temporary workspace builder、generated external validation governance profile、hook installation、command matrix execution、target mutation boundary、workspace-parent containment guard、sentinel-scoped hot fact-source skip 和 timeout/OSError structured failure。
+- **TOOL-036**: 在 `infra/TOOLS.md` 中登记 External Project Validation harness。
+
+### Validation
+
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k ExternalProjectValidationHarnessTests -v`
+- `python skills/software-project-governance/infra/verify_workflow.py external-project-validation --target <temp-target> --fail-on-issues --timeout 120`
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -v`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.50.2 --require-changelog --runtime-adapters`
+
+### Boundary
+
+- RISK-036 remains open. 0.50.2 releases only the validation harness, not two real external project full PASS evidence.
+- 0.50.2 release package does not include official submission approval, marketplace approval, external validation full PASS for two real projects, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+
+## [0.50.1] - 2026-06-13
+
+### 0.50.1 - 1.0.0 Release Gate Blocker Guard
+
+0.50.1 发布 REL-028 patch release package：把 FIX-130 的 1.0.0 release gate blocker guard 版本化。该版本确保 `check-release --version 1.0.0 --require-changelog --runtime-adapters` 不会因为缺少 1.0.0 release docs/changelog 而掩盖真实硬阻塞；输出必须显式报告 RISK-036、外部验证 full PASS、official submission result/approval、Codex Desktop lifecycle PASS 或明确保守处置等 blocker。
+
+### Changed
+
+- **REL-028**: 新增 0.50.1 release checklist、feature flags、rollback plan、manifest coverage 和 release boundary。
+- **FIX-130 release gate guard**: 0.50.1 release package 消费 `check_one_dot_zero_release_blockers()`，保留 patch release 可发布，同时要求 1.0.0 release gate 在证据不足时显式失败。
+- 版本声明同步到 0.50.1：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill、target fixture plan tracker、root plan tracker、CHANGELOG 和 `verify_workflow.py` REQUIRED_SNIPPETS。
+- README 的 1.0.0 Readiness Boundary 更新为 0.50.1 guard package，同时保留 0.50.0 四平台 target-cwd read E2E 证据范围。
+
+### Validation
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.50.1 --require-changelog --runtime-adapters`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 1.0.0 --require-changelog --runtime-adapters` (expected FAIL with explicit blockers)
+- `git diff --check`
+
+### Boundary
+
+- RISK-036 remains open. 0.50.1 releases only the 1.0.0 release gate blocker guard.
+- 0.50.1 release package does not include official submission approval, marketplace approval, external validation full PASS, Codex Desktop lifecycle PASS, RISK-036 closure, or 1.0.0 production-ready approval.
+
+## [0.50.0] — 2026-06-12
+
+### 0.50.0 — Mainstream Agent E2E Risk Release
+
+0.50.0 发布 Mainstream Agent E2E Risk Release：把 FIX-129 的四平台真实 target-cwd read E2E 证据打包为版本化 release package。该版本记录用户完成 Codex、Claude Code、Gemini CLI 和 opencode 配置后，最终 runtime harness 返回 `pass=4, blocked=0, fail=0, total=4`；同时继续明确这只是主流 agent read/bootstrap E2E 分项风险释放，不关闭 RISK-036，不代表 official approval、marketplace approval、external validation PASS、Codex Desktop lifecycle PASS 或 1.0.0 readiness。
+
+### 新增
+
+- **REL-027**: 新增 0.50.0 release checklist、feature flags、rollback plan、manifest coverage 和 release boundary。
+- **FIX-129 evidence package**: 0.50.0 release docs 消费 `docs/requirements/mainstream-agent-e2e-risk-release-0.50.0.md`，把四个平台的 target-cwd read E2E PASS/DEGRADED 事实版本化。
+
+### 变更
+
+- 版本声明同步到 0.50.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill 和 target fixture plan tracker。
+- README 的 1.0.0 Readiness Boundary 更新为 0.50.0 evidence package，明确四平台 read E2E 已通过，但外部验证、Desktop lifecycle、official approval/marketplace approval 与 RISK-036 仍未关闭。
+- `verify_workflow.py` REQUIRED_SNIPPETS 版本字面量更新为 0.50.0。
+
+### 验证
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.50.0 --require-changelog --runtime-adapters`
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -v`
+- `git diff --check`
+
+### 发布边界
+
+- No official approval, marketplace approval, universal/full runtime support, external validation PASS, Codex Desktop marketplace-management E2E PASS, Desktop lifecycle E2E PASS, automatic best-tool selection, universal plugin/skill/tool availability, catalog entry runtime PASS, or 1.0.0 production-ready claim.
+- RISK-036 remains open. 0.50.0 consumes FIX-129 as mainstream agent target-cwd read E2E sub-risk release evidence only.
+- 0.50.0 release package does not include official submission, official approval, marketplace approval, RISK-036 closure, or 1.0.0 release approval.
+
+## [0.49.0] — 2026-06-11
+
+### 0.49.0 — External Validation and Official Submission Closure
+
+0.49.0 发布 External Validation and Official Submission Closure：把 VAL-001、VAL-002、FIX-126 与 FIX-128 的保守证据打包为 pre-1.0.0 release package。该版本记录两个真实外部项目 smoke、Codex CLI marketplace source sync、official-submission candidate bundle final review 和外部新项目空治理 ID 崩溃修复，同时明确 external validation 仍未 full PASS，Codex Desktop marketplace-management lifecycle 仍为 BLOCKED/NOT_RUN，RISK-036 remains open，0.49.0 不是 1.0.0。
+
+### 新增
+
+- **VAL-001**: 新增 `docs/requirements/external-project-validation-0.49.0.md`，记录 `pallets/click` 与 `psf/requests` 真实公开仓库 target-cwd smoke；`status`、`gate G1` 与 `governance-context` 可运行，但完整治理健康仍因临时部分安装缺 README/docs/adapters、无 owner/user pilot、无 full Agent Team E2E 而不标记 external validation PASS。
+- **VAL-002**: 新增 `docs/requirements/codex-desktop-marketplace-lifecycle-0.49.0.md`，记录 Codex CLI `codex-cli 0.125.0`、marketplace `add`/`upgrade`/`remove` command surface 和 configured source sync；该证据只证明 CLI marketplace source sync，不证明 Desktop UI install/enable/visibility/invocation/upgrade/uninstall lifecycle。
+- **FIX-126**: 新增 `docs/requirements/official-submission-final-bundle-review-0.49.0.md`，把 0.46.0 marketplace submission materials、0.47.0 loading guidance、0.48.0 readiness reconciliation、VAL-001、VAL-002 与 FIX-128 收口为 conservative official-submission candidate bundle review。
+- **REL-026**: 新增 0.49.0 release checklist、feature flags、rollback plan、manifest coverage 和 release boundary。
+
+### 变更
+
+- **FIX-128**: 外部新项目空 DEC/EVD/RISK 序列不再让 `check-governance --fail-on-issues` 在 Check 13 崩溃；空序列输出 `no entries found`，DEC/RISK gaps 与当前 completed missing evidence 仍保持阻断，EVD gaps/orphans/historical missing evidence 保持 info-only。
+- 版本声明同步到 0.49.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill 和 target fixture plan tracker。
+- README 的 1.0.0 Readiness Boundary 更新为 0.49.0 evidence package，明确外部验证、Desktop lifecycle、official approval/marketplace approval 与 RISK-036 仍未关闭。
+- `verify_workflow.py` REQUIRED_SNIPPETS 版本字面量更新为 0.49.0。
+
+### 验证
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.49.0 --require-changelog --runtime-adapters`
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -v`
+- `git diff --check`
+
+### 发布边界
+
+- No official approval, marketplace approval, universal/full runtime support, external validation PASS, Codex Desktop marketplace-management E2E PASS, Desktop lifecycle E2E PASS, automatic best-tool selection, universal plugin/skill/tool availability, catalog entry runtime PASS, or 1.0.0 production-ready claim.
+- RISK-036 remains open. 0.49.0 consumes VAL-001, VAL-002, FIX-126, and FIX-128 as conservative evidence only.
+- 0.49.0 release package does not include commit, push, tag, official submission, official approval, marketplace approval, RISK-036 closure, or 1.0.0 release approval.
+
+## [0.48.0] — 2026-06-10
+
+### 0.48.0 — 1.0.0 Readiness Reconciliation
+
+0.48.0 发布 1.0.0 Readiness Reconciliation：把用户要求推进到 1.0.0 的大目标拆成可验证的 pre-1.0.0 发布链。该版本确认 1.0.0 当前不可发布，完成 readiness gap analysis、legacy requirement reconciliation、final command E2E ledger 和 governance health release-gate false blocker 修复，并把外部验证、Codex Desktop marketplace-management disposition、official submission bundle final review 和 RISK-036 open-risk disposition 保守移交到 0.49.0 或后续正式发布边界。
+
+### 新增
+
+- **AUDIT-113**: 新增 `docs/requirements/one-dot-zero-readiness-gap-analysis-0.48.0.md`，确认当前没有 `v1.0.0` tag，RISK-036 仍打开，缺少两个外部项目验证、Desktop marketplace-management lifecycle PASS 或保守 blocked disposition、final official submission bundle review。
+- **FIX-124**: 新增 `docs/requirements/legacy-requirement-reconciliation-0.48.0.md`，把旧 1.0.0 降级需求映射为 absorbed、superseded、still blocking 或 needs final ledger，避免历史路线图误导当前正式发布边界。
+- **FIX-125**: 新增 `docs/requirements/final-command-e2e-ledger-0.48.0.md`，集中记录 source proxy、target cwd、target fixture、runtime readiness、mainstream loading、capability context、official submission guard 和 agent-runtime E2E 事实，同时诚实暴露 release-gate blocker。
+- **FIX-127**: 修复 governance health release gate 中 historical hot evidence structural WARN 被 `--fail-on-issues` 误当成 blocking issue 的问题；WARN-only structural validity 继续打印但不阻断 governance health，缺省 ERROR 仍阻断。
+- **REL-025**: 新增 0.48.0 release checklist、feature flags、rollback plan、manifest coverage 和 release boundary。
+
+### 变更
+
+- 版本声明同步到 0.48.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill 和 target fixture plan tracker。
+- README 新增 1.0.0 Readiness Boundary，明确 0.48.0 不是 1.0.0 正式发布。
+- `check-release --version 0.48.0 --require-changelog --runtime-adapters` 走通用 release docs coverage、version consistency、manifest consistency、governance health、E2E 和 unit execution gates。
+
+### 验证
+
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -v`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.48.0 --require-changelog --runtime-adapters`
+- `git diff --check`
+
+### 发布边界
+
+- No official approval, marketplace approval, universal/full runtime support, external first-session pilot success, Codex Desktop marketplace-management E2E PASS, automatic best-tool selection, universal plugin/skill/tool availability, catalog entry runtime PASS, or 1.0.0 production-ready claim.
+- RISK-036 remains open. VAL-001, VAL-002, FIX-126, REL-026, final official submission bundle review, external validation completion, and Desktop marketplace-management disposition are not included in 0.48.0.
+- 0.48.0 release package does not include commit, tag, push, official submission, marketplace approval, or 1.0.0 release approval.
+
+## [0.47.0] — 2026-06-10
+
+### 0.47.0 — Mainstream Agent Loading Readiness
+
+0.47.0 发布 Mainstream Agent Loading Readiness：把 Codex、Claude Code、Gemini CLI、opencode 作为 Tier 1 loading guide 目标，把 Cursor、GitHub Copilot coding agent、Cline、Windsurf/Cascade、Kiro 保持为 Tier 2 compatibility/research rows，并用 Check 28n / TOOL-035 防止加载指南、source citations、validation commands 和 no-overclaim boundary 漂移。本 release package 同时披露 tag 范围内已完成的 FIX-120 `0.46.0-post` Codex marketplace root schema hotfix，作为 FIX-123 和 0.47.0 Codex loading readiness 的 carried-forward prerequisite，而不是 0.47.0 新主线功能。
+
+### 新增
+
+- **AUDIT-112**: 新增 `docs/requirements/mainstream-agent-loading-0.47.0.md`，调研主流 agent 加载入口并规划 0.47.0 范围。
+- **FIX-120 (carried-forward `0.46.0-post` prerequisite)**: 披露 `.agents/plugins/marketplace.json` 已修复 Codex marketplace root schema（top-level `name`、Codex entry `source` object、policy/category metadata），为后续 Codex manifest asset path validation 和 loading guide 提供前置 schema 基础；该 hotfix 不声明 Codex Desktop marketplace lifecycle E2E PASS。
+- **FIX-123**: 修复 Codex manifest asset paths，使 `.codex-plugin/plugin.json` 在 repo-root marketplace source 下引用 `.codex-plugin/assets/*.svg`。
+- **FIX-121**: README 与 Tier 1 adapter READMEs 新增 Mainstream Agent Loading 指南、验证命令和运行时边界。
+- **FIX-122 / TOOL-035**: 新增 `check-mainstream-agent-loading [--fail-on-issues]`、`check-governance` Check 28n 和 MainstreamAgentLoading 回归测试，阻断 Tier 2 runtime PASS、approval、universal/full runtime support、Desktop marketplace E2E PASS、automatic best-tool selection、catalog runtime PASS 和 1.0.0 overclaim。
+- **REL-024**: 新增 0.47.0 release checklist、feature flags、rollback plan、manifest coverage 和 release-doc mainstream loading detail。
+
+### 变更
+
+- 版本声明同步到 0.47.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill 和 target fixture plan tracker。
+- `check-release --version 0.47.0 --require-changelog --runtime-adapters` 要求 0.47.0 release docs 存在、被 manifest 覆盖、保留 conservative no-overclaim boundary，并运行 mainstream loading release detail。
+
+### 验证
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.47.0 --require-changelog --runtime-adapters --skip-execution-gates`
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k MainstreamAgentLoading -v`
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k ReleaseReadiness -v`
+
+### 发布边界
+
+- No official approval, marketplace approval, universal/full runtime support, external first-session pilot success, Codex Desktop marketplace-management E2E PASS, automatic best-tool selection, universal plugin/skill/tool availability, catalog entry runtime PASS, or 1.0.0 production-ready claim.
+- Tier 2 rows remain compatibility/research only until native entry projection and target-cwd E2E evidence exist.
+- 0.47.0 release package does not include commit, tag, push, official submission, or marketplace approval.
+
+## [0.46.0] — 2026-06-09
+
+### 0.46.0 — Ecosystem & Official Submission Positioning
+
+0.46.0 发布 Ecosystem & Official Submission 定位包：把 0.45.0 的 capability context selection trace、external capability registry、restricted-environment benchmark fixtures、Governance Eval & Benchmark report 和 Codex Desktop marketplace-management BLOCKED/NOT_RUN 结果消费进官方提交材料、生态定位页、对比页、迁移指南、示例和 release checks。本 release 将 workflow 定位为 governance trust layer：负责编排、记录和审查外部 plugin/skill/tool/MCP/browser/host-native capability 的选择与降级边界，而不是替代 Superpowers、Agent Skills、MCP servers、browser tools、host-native plugins 或其他生态能力。
+
+### 新增
+
+- **FIX-118**: 新增 `docs/marketplace/official-submission-0.46.0.md`、`ecosystem-positioning-0.46.0.md`、`comparison-0.46.0.md`、`migration-guide-0.46.0.md` 和 `examples-0.46.0.md`，说明互补定位、迁移路径、受限环境选择示例和官方提交边界。
+- **TOOL-034**: 新增 `check-official-submission-ecosystem [--fail-on-issues]`、`check-governance` Check 28m 和 `check-release --version 0.46.0` release-doc detail，确定性阻断官方提交/生态材料缺失 0.45.0 证据消费或出现越界声明。
+- **REL-023**: 新增 0.46.0 release checklist、feature flags 和 rollback plan，覆盖官方提交材料、ecosystem boundary、validator、manifest coverage 和 no-overclaim release boundary。
+
+### 变更
+
+- 版本声明同步到 0.46.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、Claude marketplace metadata、hook @version、target fixture skill 和 target fixture plan tracker。
+- `check-release --version 0.46.0 --require-changelog --runtime-adapters` 要求 0.46.0 官方提交生态材料被 git 跟踪、被 manifest 覆盖、保留 conservative no-overclaim boundary，并消费 0.45.0 capability selection trace、capability registry、restricted benchmark 与 Codex Desktop marketplace-management BLOCKED/NOT_RUN evidence。
+
+### 验证
+
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k official_submission -v`
+- `python skills/software-project-governance/infra/verify_workflow.py check-official-submission-ecosystem --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.46.0 --require-changelog --runtime-adapters --skip-execution-gates`
+- `git diff --check`
+
+### 发布边界
+
+- No official approval, marketplace approval, universal/full runtime support, external first-session pilot success, Codex Desktop marketplace-management E2E PASS, automatic best-tool selection, universal plugin/skill/tool availability, catalog entry runtime PASS, or 1.0.0 production-ready claim.
+- Codex Desktop marketplace-management lifecycle remains **BLOCKED / NOT_RUN** until real Desktop add/install/enable/invoke/upgrade/uninstall evidence is captured or the official submission package explicitly preserves the blocked status.
+- 0.46.0 release package does not include commit, tag, push, official submission, or marketplace approval.
+
+## [0.45.0] — 2026-06-08
+
+### 0.45.0 — Governance Eval & Benchmark + Capability Discovery
+
+0.45.0 发布 Governance Eval & Benchmark + Capability Discovery：把 capability context trace、external capability registry、restricted-environment benchmark fixtures 和 Codex Desktop marketplace-management E2E report boundary 纳入 release package。本 release 不声明 official approval、marketplace approval、universal/full runtime support、external first-session pilot success、Codex Desktop marketplace-management E2E PASS、automatic best-tool selection、universal plugin/skill/tool availability、catalog entry runtime PASS 或 1.0.0 production-ready。RISK-036 继续打开，0.46.0 official submission materials 必须消费本 release 的 blocked Desktop E2E 事实和 capability selection 证据。
+
+### 新增
+
+- **FIX-115**: 新增 `capability-context [--fixture <project-root>] [--fail-on-issues]`、fact-backed capability selection trace、TOOL-031 和 Check 28j；输出 scenario、host facts、available capabilities、selected capability、rejected alternatives、degradation、side-effect boundary、validation command、review requirement 和 no-overclaim boundary。
+- **FIX-116**: 新增 canonical `skills/software-project-governance/core/capability-registry.json`、`check-capability-registry`、TOOL-032、Check 28k 和 manifest canonical artifact coverage；registry 记录 plugin/skill/tool/MCP/browser/sub-agent/script/fallback 候选能力，但 catalog membership 不是 runtime PASS。
+- **FIX-117**: 新增 `check-host-capability-context`、TOOL-033、Check 28l 和 restricted-environment benchmark fixtures，覆盖 no network、no plugin install、no MCP、no browser、no sub-agent、local skill only、Codex CLI blocked、Gemini auth blocked。
+- **REL-022**: 新增 0.45.0 release checklist、feature flags、rollback plan、Governance Eval & Benchmark report 和 Codex Desktop marketplace-management E2E result matrix。
+
+### 变更
+
+- 版本声明同步到 0.45.0：source SKILL、canonical manifest、Claude/Codex plugin metadata、marketplace metadata、governance pack registry、capability registry、hook @version、target fixture skill 和 target fixture plan tracker。
+- `check-release --version 0.45.0 --require-changelog --runtime-adapters` 要求 release docs 存在、被 manifest 覆盖、保留 conservative no-overclaim boundary，并对 0.45.0 Codex Desktop marketplace-management report 执行 no-PASS-without-real-evidence guard。
+
+### 验证
+
+- `python skills/software-project-governance/infra/verify_workflow.py check-version-consistency`
+- `python skills/software-project-governance/infra/verify_workflow.py check-release --version 0.45.0 --require-changelog --runtime-adapters`
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -v`
+- `python skills/software-project-governance/infra/verify_workflow.py check-governance --fail-on-issues`
+- `python skills/software-project-governance/infra/verify_workflow.py check-manifest-consistency --fail-on-issues`
+- `git diff --check`
+
+### 发布边界
+
+- Codex Desktop marketplace-management lifecycle is **BLOCKED / NOT_RUN** in this release because no real Desktop add/install/enable/invoke/upgrade/uninstall evidence was executed or captured.
+- No official approval, marketplace approval, universal/full runtime support, external first-session pilot success, Codex Desktop marketplace-management E2E PASS, automatic best-tool selection, universal plugin/skill/tool availability, catalog entry runtime PASS, or 1.0.0 production-ready claim.
+- 0.45.0 release package does not include commit, tag, or push.
+
+## [0.44.1] — 2026-06-07
+
+### 0.44.1 — Patch Release: no-overclaim 与 context fact coverage
+
+0.44.1 是 0.44.x patch release，发布 FIX-113 和 FIX-114：修复 0.43.0~0.44.0 post-review 发现的 no-overclaim false-pass 与 governance-context fact coverage 缺口。本 release 不改变 pack semantics、不进行物理拆包、不改变 runtime/readiness matrix 或 first-session measurement 状态；不声明 official approval、marketplace approval、universal/full runtime support、external first-session pilot success、Codex Desktop marketplace-management E2E PASS 或 1.0.0 production-ready。RISK-036 继续打开，0.45.0~0.46.0 仍承载评测、Desktop marketplace E2E 与官方提交准备链。
+
+### 修复
+
+- **FIX-113**: no-overclaim direct-claim 检查改为 claim-scoped negation，防止 `No physical split; marketplace approved.` 这类同一行无关否定词掩盖 official approval、marketplace approval、universal/full runtime support、external first-session pilot success 或 1.0.0 production-ready 的肯定式越界声明。
+- **FIX-114**: governance context discovery 补齐 evidence-log 与 root-scoped git fact discovery，避免把历史 completed/approved/closed/resolved evidence 或父仓库 dirty state 发明成当前 unfinished work，同时让真实 evidence/git/recent work facts 能进入 context handoff。
+- **REL-021**: 版本声明、CHANGELOG、release checklist、rollback plan、feature flag 状态、target fixture/projection 版本、hook @version、pack registry workflow version 与 release validation command 同步到 0.44.1。
+
+### 验证
+
+- FIX-113 commit `777bd66758cb6515c488c2eac25dde5f7a7ddd1b` 已推送且 GitHub Governance CI success。
+- FIX-114 commit `fa4f2d115a762afe8c92f7debea0cfa8f89beed9` 已推送且 GitHub Governance CI success。
+- `check-version-consistency` 作为 REL-021 版本一致性门禁。
+- `check-release --version 0.44.1 --require-changelog --runtime-adapters --skip-execution-gates` 作为 REL-021 发布门禁。
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k ProjectionSync -v` 作为投影同步回归。
+- `git diff --check` 作为 whitespace 门禁。
+
+### Release 边界
+
+- 0.44.1 只准备 patch release package，不包含 commit、tag、push。
+- Pack enabled / pack membership 仍不是任务证据、独立审查、质量门禁、发布门禁、official approval、marketplace approval、universal/full runtime support 或 1.0.0 production-ready 证明。
+- `governance-core` context resume 只基于事实源承接 unfinished work；没有事实时不得编造。
+- 0.44.1 不改变 0.43.0 runtime/readiness matrix 和 first-session measurement 事实边界：外部 first-session pilot 仍未被本 release 声明为成功。
+
+## [0.44.0] — 2026-06-07
+
+### 0.44.0 — Composable Governance Packs
+
+0.44.0 将治理能力从单一整包叙事推进为 registry-first 的 Composable Governance Packs：先建立可检查的 pack registry、README 首跑映射、manifest/cleanup 保护、上下文恢复能力和 status/release 边界，而不进行物理拆包。现有 `lite` / `standard` / `strict` profiles 保持为治理强度预设；packs 是能力模块。 本 release 不声明 official approval、marketplace approval、universal/full runtime support、external first-session pilot success、Codex Desktop marketplace-management E2E PASS 或 1.0.0 production-ready；RISK-036 继续打开，0.45.0~0.46.0 仍承载评测、Desktop marketplace E2E 与官方提交准备链。
+
+### 新增
+
+- **AUDIT-108**: 完成 0.44.0 Composable Governance Packs 需求拆解，确定 registry-first/no physical split 最小切片，并规划 `governance-core`、`quality-gates`、`release-governance`、`agent-team`、`enterprise` 五类能力包。
+- **AUDIT-109 / FIX-112**: 新增 context-aware governance resume：`governance-context`、`/governance`/status contract、target fixture 与 Check 28g 基于 plan/session/risk/evidence/git facts 发现 unfinished work；无事实时必须输出 `not found` / `do not invent`。
+- **FIX-108**: 新增 canonical `skills/software-project-governance/core/governance-packs.json`、`check-governance-packs`、Check 28f 与 TOOL-026，阻断缺字段、未知/重复 pack、缺引用文件、未知检查和 pack overclaim。
+- **FIX-109**: README 中英文 5-Minute Start 新增 packs vs profiles 说明和首跑映射：lite -> `governance-core`；standard -> `governance-core` / `quality-gates` / `release-governance` / `agent-team`；strict -> 五个 pack 全部启用。
+- **FIX-110**: `core/manifest.json` 将 pack registry 声明为 canonical product artifact，并新增 manifest/cleanup scope guard 与 TOOL-029，防止 registry 漏发、未跟踪或被 cleanup 范围漂移误删。
+- **FIX-111**: `/governance`、`/governance-status` 与 release readiness 新增 Pack summary、Default packs、Enabled packs、Pack boundary；新增 `check-governance-pack-status`、Check 28i 与 TOOL-030，逐行阻断把 pack membership/enablement 包装成任务证据、审查通过、质量门禁、发布门禁、官方/市场批准、全量 runtime 支持或 1.0.0 readiness。
+- **REL-020**: 版本声明、CHANGELOG、release checklist、rollback plan、feature flag 状态、target fixture/projection 版本和 hook @version 同步到 0.44.0。
+
+### 验证
+
+- `check-governance-packs --fail-on-issues` PASS。
+- `governance-context --fixture project/e2e-test-project --fail-on-issues` PASS。
+- `check-readme-pack-guidance --fail-on-issues` PASS。
+- `check-manifest-consistency --fail-on-issues` PASS。
+- `check-governance-pack-status --fail-on-issues` PASS。
+- 完整 unittest PASS：351/351。
+- `check-governance --fail-on-issues` PASS。
+- `check-version-consistency` 与 `check-release --version 0.44.0 --require-changelog --runtime-adapters` 作为 REL-020 发布门禁。
+
+### Pack 与 Release 边界
+
+- 0.44.0 是 registry-first/no physical split；安装包仍向后兼容现有入口。
+- Pack enabled / pack membership 不是任务证据、独立审查、质量门禁、发布门禁、official approval、marketplace approval、universal/full runtime support 或 1.0.0 production-ready 证明。
+- `governance-core` 的 context resume 只基于事实源承接 unfinished work；没有事实时不得编造。
+- 0.44.0 不改变 0.43.0 runtime/readiness matrix 和 first-session measurement 事实边界：外部 first-session pilot 仍未被本 release 声明为成功。
+
+## [0.43.0] — 2026-06-05
+
+### 0.43.0 — Cross-Harness E2E Closure
+
+0.43.0 关闭 0.40.1~0.42.0 发布后复核发现：把跨会话恢复事实、主流 agent runtime/readiness 状态和 first-session measurement 边界转成 tracked artifacts 与机器检查。本 release 不声明 official approval、marketplace approval、universal/full runtime support、external first-session pilot success 或 1.0.0 production-ready；RISK-036 继续打开，后续 0.44.0~0.46.0 仍承载官方收录准备链。
+
+### 新增
+
+- **FIX-105**: `check-hot-fact-source` / `check-governance` 新增 session snapshot freshness 与 1.0.0 readiness blocker drift 检查，覆盖 REL-018/REL-019 dependency wording。
+- **FIX-106**: 新增公开 runtime/readiness matrix：`docs/requirements/runtime-readiness-matrix-0.43.0.md`；刷新 Claude/Codex/Gemini/opencode adapter facts；新增 `check-runtime-readiness-matrix` 与 Check 28d。
+- **FIX-107**: 新增 first-session measurement artifact：`docs/requirements/first-session-measurement-0.43.0.md`；README 增加 measured-state pointer；新增 `check-first-session-measurement`、Check 28e、release readiness detail 与 TOOL-025。
+- **REL-019**: 版本声明、CHANGELOG、release checklist、rollback plan、feature flag 状态、target fixture/projection version、hook versions 和 release gate expectation 同步到 0.43.0。
+
+### 验证
+
+- `check-runtime-readiness-matrix --fail-on-issues` PASS。
+- `check-first-session-measurement --fail-on-issues` PASS。
+- `first-run-demo --assert-snapshot` PASS。
+- 完整 unittest PASS：316/316。
+- `check-governance --fail-on-issues` PASS。
+- `check-release --version 0.43.0 --require-changelog --runtime-adapters` 作为 REL-019 发布门禁。
+
+### Runtime 与 Measurement 边界
+
+- Claude 与 opencode real target-cwd E2E 为 PASS，但 workflow closure 仍按宿主能力保持 DEGRADED 边界。
+- Codex real `codex exec` target-cwd E2E 在当前环境保持 BLOCKED，阻塞原因为 timeout。
+- Gemini 在当前环境因 auth 未配置保持 BLOCKED。
+- Cursor 与 GitHub Copilot 在本仓库保持 RESEARCH_ONLY / NOT_RUNTIME_VERIFIED。
+- First-session measured state 为 `local_demo=PASS`、`external_pilot=NOT_MEASURED`；local/demo-only proof 不是 external user success evidence。
+
+## [0.42.0] — 2026-06-04
+
+### 0.42.0 — 5-Minute Success Path
+
+面向新用户首次接触时的 5 分钟成功路径，0.42.0 将 0.41.0 的 marketplace-ready 定位落到可感知的本地 trust signal：用户可以通过 `/governance` 或 status 输出看到 Delivery Trust Snapshot，并用本地 demo harness 验证 happy path。该版本是 5-minute success path release package，不声明 official approval、marketplace approval、universal/full runtime support 或 1.0.0 production-ready；RISK-036 继续打开，等待后续 0.43.0~0.46.0 与外部验证闭环。
+
+### 新增
+- **AUDIT-106**: 完成 5-minute success path 审计，定义 happy path、验收信号、最小切片和 no-overclaim 边界。
+- **FIX-100**: 新增 Delivery Trust Snapshot 垂直切片，让 status/governance 输出展示 goal、stage、gate、risk、evidence、next action、preset guidance 和 no-overclaim boundary。
+- **FIX-101**: 新增 existing-project resume happy path，已有治理状态会显示 resume state、carry-over、open risks、hooks 和 next action，而不是要求用户重学完整流程。
+- **FIX-102**: 新增 lite/standard/strict first-run preset guidance，帮助用户按项目复杂度选择首次运行路径。
+- **FIX-103**: 新增 `first-run-demo --assert-snapshot` 本地 demo harness，输出 Delivery Trust Snapshot 并断言 happy path 字段完整。
+- **FIX-104**: README 中英文 5-Minute Start 收敛到 first-success path，直接指向 Delivery Trust Snapshot 和本地 demo harness。
+
+### 变更
+- `.codex-plugin/plugin.json`、`.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json`、canonical manifest、source skill、hooks 和 target fixture/projection 版本声明同步到 0.42.0。
+- Release gate expectations、target fixture plan-tracker 和 target workflow skill markers 更新为 0.42.0。
+- 0.42.0 release docs 新增 checklist、rollback plan 和 feature flag 状态，范围限定为 AUDIT-106、FIX-100、FIX-101、FIX-102、FIX-103、FIX-104 与 REL-018。
+
+### 验证
+- `check-version-consistency` PASS。
+- `check-release --version 0.42.0 --require-changelog --runtime-adapters` PASS。
+- `check-governance --fail-on-issues` PASS。
+- `git diff --check` PASS。
+
+## [0.41.0] — 2026-06-02
+
+### 0.41.0 — Official Marketplace Readiness
+
+面向 Codex/Claude 官方目录可评审准备，0.41.0 将项目对外定位收敛为 AI coding delivery trust layer，并补齐 marketplace reviewer 能快速检查的 metadata、README 首屏、privacy/security 文档、submission checklist 和可追踪视觉资产。该版本是 readiness package，不声明官方收录、marketplace approval、1.0.0 production-ready 或 universal/full runtime support；RISK-036 继续打开，等待后续 0.42.0~0.46.0 与外部验证闭环。
+
+### 新增
+- **AUDIT-105**: 完成 official marketplace readiness gap analysis，拆解 0.41.0 可执行事项与非目标。
+- **FIX-096**: Codex/Claude plugin metadata 升级为官方评审友好的保守包信息；Codex manifest 增加 `skills` 与 `interface` metadata、capabilities、default prompts、logo/icon/preview references。
+- **FIX-097**: README 首屏改为英文 marketplace-review-ready positioning，突出 AI coding delivery trust layer、install paths、trust/data boundary 和 5-minute start。
+- **FIX-098**: 新增 privacy/security posture 与 submission checklist，说明 local data boundary、permissions and side effects、runtime capability honesty、No telemetry service 与 No official acceptance claim。
+- **FIX-099**: 新增 Codex/Claude plugin package 的 tracked SVG logo、composer icon 和 governance preview assets，并让 manifests 引用这些可检查资产。
+
+### 变更
+- `.codex-plugin/plugin.json`、`.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json`、canonical manifest、source skill、hooks 和 target fixture/projection 版本声明同步到 0.41.0。
+- `docs/marketplace/submission-checklist-0.41.0.md` 从准备中清单更新为 0.41.0 pre-submission readiness checklist，保留 no-overclaim 和风险披露边界。
+
+### 验证
+- `check-version-consistency` PASS。
+- `verify` PASS。
+- `check-manifest-consistency` PASS。
+- `check-release --version 0.41.0 --require-changelog --runtime-adapters` PASS。
+- `check-governance --fail-on-issues` PASS。
+- `git diff --check` PASS。
+
+## [0.40.1] — 2026-06-01
+
+### 0.40.1 — GitHub CI clean checkout hotfix
+
+面向 0.40.0 发布后的 GitHub Actions 失败，0.40.1 只承载 `FIX-095` 的 CI clean checkout 修复链正式版本化，不引入新功能。该版本把默认 CI 校验边界收敛为可追踪产品/repo 资产，避免依赖本机 `.governance/` 运行态或根入口文件，并保证 GitHub workflow 固定的 Python 3.11 环境可运行。
+
+### 修复
+- **FIX-095**: 默认 `verify` 不再依赖未跟踪的本地治理运行态或根入口文件；clean checkout 可复现。
+- **FIX-095**: 修复 Python 3.11 不能解析 nested f-string 的远端失败。
+- **FIX-095**: CI unit test step 改为标准库 `unittest discover`，避免 workflow 未安装 `pytest` 时失败，同时保持 360 个测试收集覆盖不降低。
+
+### 验证
+- GitHub Governance CI run `26754020310` 在 `c5f66206f8b8df968ea6c4f2b419c51dc95af5fd` 上 `completed/success`。
+- 最新 GitHub Governance CI run `26757836225` 在 `e882006d3343be291bb3f7f75a0f15862af981ae` 上 `completed/success`。
+- `check-release --version 0.40.1 --require-changelog --runtime-adapters` 作为发布门禁。
+
+## [0.40.0] — 2026-05-30
+
+### 0.40.0 — AI 指令精度收敛
+
+面向 AI 执行者读取 workflow 文本时的歧义风险，把角色、契约、skill、入口、路由和调度模板中的昵称、人设故事、PUA/味道注入、口号式方法论和无操作定义描述收敛为可执行职责、边界、证据要求和路由规则。0.40.0 不声明 1.0.0 production-ready；1.0.0 仍需外部验证通过后再发布正式标签。
+
+### 变更
+- **AUDIT-104**: 完成 AI-facing 文本审计，识别入口 SKILL、agents、references、commands、target fixture 和当前实际入口中的歧义文本类别。
+- **FIX-094**: 去人格化、去口号化并同步 source 与 target fixture；`methodology-routing` 改为任务类型、执行方法和证据要求映射；dispatch template 去掉 `agent_nickname`；failure modes 改为事实依据、完成定义和升级链。
+- 主入口 Agent 分发路由列从“核心方法论”改为“执行要求与证据”，部署、模糊任务和测试相关行改为可检查动作与证据。
+
+### 验证
+- 完整 `test_verify_workflow.py` 回归 285/285 PASS。
+- `verify` PASS；`e2e-check` PASS；`check-projection-sync --fail-on-issues` PASS；`check-governance --fail-on-issues` PASS。
+- `git diff --check` PASS，仅 CRLF warning。
+- Code Reviewer Copernicus 复审 APPROVED。
+
+## [0.39.0] — 2026-05-30
+
+### 0.39.0 — LLM 依赖降低与产品成功门禁
+
+面向“流程跑完但产品仍是低质半成品”的真实使用风险，把成熟软件公司的产品成功、验收、质量预算、小批量交付和 paved path 经验固化为可检查契约。0.39.0 不声明 1.0.0 production-ready；1.0.0 仍需外部验证通过后再发布正式标签。
+
+### 新增
+- **FIX-088**: 新增 Product Success Contract、`check-product-success-contracts` 和 Check 18d，要求 P0/P1 任务写明用户、JTBD、非目标、成功指标、竞争基线和完成定义。
+- **FIX-089**: 新增 Executable Acceptance Contract、`check-acceptance-contracts` 和 Check 18e，阻断缺少可运行验收命令、预期输出、last-run 结果或 demo 证据的闭环。
+- **FIX-090**: 新增 Quality Budget Gate、`check-quality-budget` 和 Check 18f，覆盖 performance、reliability、security、accessibility、ux、maintainability 六维阈值和证据。
+- **FIX-091**: 新增 Vertical Slice Delivery Packets、`check-vertical-slices` 和 Check 18g，要求大任务具备用户可见小切片、demo path、scope guard 和 rollback plan。
+- **FIX-092**: 新增 Weak-LLM Deterministic Scaffolds、`generate-deterministic-scaffold`、`check-deterministic-scaffolds`/`check-scaffold-templates` 和 Check 18h，提供 web-app、cli-tool、workflow-plugin 三类确定性脚手架。
+- **FIX-093**: 新增 User Interruption Policy v2、`check-interruption-policy`/`check-user-interruption-policy` 和 Check 18i，只在产品意图、验收标准、不可逆、发布、风险、外部依赖和模式变更处打断用户。
+
+### 变更
+- P0/P1 execution packet 扩展为产品成功、可执行验收、质量预算、垂直切片、用户打断策略的统一短上下文载体。
+- release gate 现在会联动 0.39.0 产品成功门禁，降低弱 LLM 仅凭治理文本和主观判断闭环的空间。
+- RISK-034 由 0.39.0 发布链路承载关闭；1.0.0 依赖链继续要求外部验证通过。
+
+### 验证
+- 完整 `test_verify_workflow.py` 回归达到 285/285 PASS。
+- `check-governance --fail-on-issues` PASS，Check 18d、18e、18f、18g、18h、18i 均通过。
+- `check-release --version 0.39.0 --require-changelog --runtime-adapters` PASS。
+- `verify` PASS；`e2e-check` PASS；`check-agent-adapters --runtime` PASS。
+- Code Reviewer/Release Reviewer 均已 APPROVED。
+
+## [0.38.0] — 2026-05-28
+
+### 0.38.0 — AI 执行底座：能力契约、结构化证据、执行包与事实源一致性
+
+面向“AI 辅助人开发”场景的执行可靠性版本，把长规则遵从下沉为可检查的运行时能力契约、结构化证据、短执行包、Agent Team 降级模式、投影同步和热区事实源一致性。0.38.0 不声明 1.0.0 production-ready；1.0.0 仍需外部验证通过后再发布正式标签。
+
+### 新增
+- **FIX-082**: Claude/Codex/Gemini/opencode adapter manifest 新增 `runtime_capabilities`，声明 AskUserQuestion、sub-agent、tool、browser、MCP、git hook 和 workflow closure 的真实能力与降级模式。
+- **FIX-083**: `check-governance` 新增 Structured Evidence 检查，当前 release 产品代码证据必须包含 `结构化事实:` JSON，记录命令、退出码、摘要、文件 diff 和 review 结论。
+- **FIX-084**: 新增 `.governance/execution-packets.json`、`execution-packet` 子命令和 Check 18c，活跃 P0/P1 任务必须具备短上下文执行包。
+- **FIX-086**: 新增 `check-projection-sync`，发布前检查 source workflow、target fixture、native entry 和 plugin manifest 的版本与投影同步。
+- **FIX-087**: 新增 `check-hot-fact-source`，并接入 `check-governance` Check 28c 与 `check-release` hot fact source detail，阻断 0.37.0/0.38.0/1.0.0 热区叙事冲突。
+
+### 变更
+- **FIX-085**: Agent Team review coverage 排除 degraded evidence、Coordinator/Developer 自审和缺独立 Reviewer 标识的 review-like 记录；宿主无真实 sub-agent/Reviewer 分离时不得伪装完整闭环。
+- **FIX-086**: Projection sync release blocker 仅基于 git 可复现的 tracked target fixture；未跟踪 materialized projection copies 只作为 skipped diagnostics。
+- **FIX-087**: 1.0.0 依赖链必须保留 RISK-033、REL-013 和阻断语言；已完成 FIX range 不得继续写成待实施或待闭环。
+
+### 验证
+- 完整 `test_verify_workflow.py` 回归达到 229/229 PASS。
+- `check-governance --fail-on-issues` PASS，Check 18b、18c、28b、28c 均通过。
+- `check-release --version 0.38.0 --require-changelog --runtime-adapters` PASS。
+- `verify` PASS；`e2e-check` PASS；`check-agent-adapters --runtime` PASS。
+- Code Reviewer/Release Reviewer 均已 APPROVED。
+
+## [0.37.0] — 2026-05-22
+
+### 0.37.0 — 事实依据看护 + CLAUDE.md 升级 hook 例外
+
+用户反馈驱动的可信度修复版本，覆盖“修改和检视必须基于可复查事实”的全流程看护，以及 `CLAUDE.md` 通过插件版本升级自动同步时被 pre-commit Step 6 误拦截的问题。
+
+### 新增
+- **FIX-080**: bootstrap、behavior protocol、change-impact checklist 和 reviewer skills 新增事实依据红线；产品代码证据必须包含 `事实依据:`。
+- **FIX-080**: `check-governance` 新增 Fact Grounding 检查，覆盖当前进行中版本的产品代码证据，阻断缺少事实依据或含风险措辞的闭环记录。
+- **FIX-080**: `commit-msg` Step 12 新增事实依据阻断，产品代码提交在缺少 evidence-log、缺少 `事实依据:` 或证据含风险措辞时失败。
+- **FIX-081**: `pre-commit` Step 6 新增合法 bootstrap self-upgrade 例外，允许插件版本升级同步 `CLAUDE.md`。
+
+### 变更
+- **FIX-081**: `CLAUDE.md` 升级例外收紧为真实版本转换：staged plan-tracker 工作流版本必须升级到 source `SKILL.md` version，HEAD 必须存在旧版本，staged `CLAUDE.md` 必须保留 bootstrap marker，且 bootstrap 区域之外内容不得变化。
+- **FIX-080**: release/design/code review skill 均要求审查结论基于文件、命令、测试、日志、用户输入或外部文档证据；未验证内容必须标注为 blocked/unknown，而不是作为完成事实。
+
+### 验证
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k FactGrounding -v`: 7/7 PASS。
+- `python -m unittest skills/software-project-governance/infra/tests/test_verify_workflow.py -k PreCommitClaudeBootstrapUpgradeHookTests -v`: 5/5 PASS。
+- 完整 `test_verify_workflow.py` 回归达到 195/195 PASS。
+- `check-governance --fail-on-issues` PASS，Fact Grounding 当前版本证据通过。
+
+## [0.36.0] — 2026-05-22
+
+### 0.36.0 — 真实 agent runtime E2E 闭环补强
+
+面向“主流 agent 适配闭环必须通过真实环境 E2E 用例验证”的补强版本，覆盖 Claude/Codex/Gemini/opencode 四平台真实命令矩阵、target fixture/native entry 升级、Codex CLI full coverage 防夸大、Gemini auth preflight、opencode provider/model preflight 与 90s target-cwd real runtime E2E PASS。
+
+### 新增
+- **FIX-075**: `project/e2e-test-project` 升级到当前 workflow 版本并补齐 `CLAUDE.md`、Codex/opencode `AGENTS.md`、Gemini `GEMINI.md` thin projection；`e2e-check` target fixture checks 扩展到 7 项。
+- **FIX-076**: 新增 `agent-runtime-e2e` 子命令，统一 Claude/Codex/Gemini/opencode 真实 runtime command matrix、PASS/BLOCKED/FAIL schema、timeout 进程树清理和 opencode JSON text event 解析。
+- **FIX-078**: 新增 `gemini-auth-preflight`，secret-safe 检测 Gemini CLI、version、API key、Vertex、GCA、settings auth 来源；缺凭据时输出机器可读 BLOCKED guidance。
+- **FIX-079**: 新增 `opencode-provider-preflight`，secret-safe 检测 opencode provider/model 配置，识别 `deepseek-v4-pro` / `deepseek-v4-flash`，阻断 invalid suffix、ANSI residue 和 unsupported model 回退。
+
+### 变更
+- **FIX-077**: Codex adapter 当前状态从 Codex App session full coverage 纠正为 CLI headless target-cwd `blocked` / `full_e2e_verified=false`；`check-agent-adapters` 要求 Codex full coverage 必须有真实 `codex exec` target-cwd headless 证据。
+- **FIX-078**: Gemini adapter 显式区分 runtime/version probe、auth preflight 和 real agent E2E；当前本机因 auth missing/401 保持 blocked，不宣称 full coverage。
+- **FIX-079**: opencode adapter 从旧 DeepSeek invalid model blocked 口径更新为 provider/model preflight PASS + `agent-runtime-e2e --agent opencode --timeout 90` real target-cwd PASS，`full_e2e_verified=true`。
+
+### 验证
+- `agent-runtime-e2e --timeout 90`: Claude PASS；opencode PASS；Codex BLOCKED timeout；Gemini BLOCKED auth；fail=0。
+- `check-agent-adapters --runtime`: Claude/Codex/Gemini/opencode runtime version probes PASS。
+- 完整 `test_verify_workflow.py` 回归达到 183/183 PASS。
+- 0.36.0 不声明 1.0.0 production-ready；Codex/Gemini 仍按真实阻塞状态记录，不宣称 full coverage。
+
+## [0.35.0] — 2026-05-20
+
+### 0.35.0 — 八维度复核收口：事实源、适配层、Agent 边界与 E2E 真实性
+
+AUDIT-100 八维度复核后的收口版本，覆盖架构事实源一致性、Agent Team 角色边界、主流 code agent 适配状态真实化、Skill/工具库收口、防跑偏看护强化，以及 E2E 从 source proxy 扩展到 external target cwd 与 agent runtime 分层。0.35.0 不声明 1.0.0 production-ready；1.0.0 仍需外部验证通过后再发布正式标签。
+
+### 架构与事实源
+- **AUDIT-100**: 八维度复核完成，形成 FIX-069~074 修复链和 RISK-030 风险处置。
+- **FIX-069**: 架构事实源状态收敛，`verify` 纳入 1.0.0 依赖链、路线图、需求矩阵、RISK-030 和 architecture.md 状态一致性检查。
+- **FIX-070**: Agent Team 角色边界收口，Governance Developer、具名 Reviewer、通信 I/O 和 Coordinator 单点写回边界进入文档与回归门禁。
+
+### 适配层与 E2E 真实性
+- **FIX-071**: Claude/Codex/Gemini/opencode adapter manifest、launcher、README 与 runtime probe 状态真实化；未验证平台不得宣称 full coverage。
+- **FIX-074**: `e2e-check` 新增 external target cwd 命令矩阵；adapter contract 强制 `target_cwd_e2e` 与 `agent_runtime_e2e` 双块，`full_e2e_verified=true` 不得绕过真实执行证据。Claude real agent target cwd PASS；Codex App workflow session PASS；Gemini/opencode agent runtime 当前 blocked 且不宣称 full coverage。
+
+### 工具化与防跑偏看护
+- **FIX-072**: `infra/TOOLS.md` 完整索引发布/适配/归档/清理/hooks/cross-reference 工具，`check-release` 子命令默认执行 verify、governance health、e2e 和 unittest execution gates。
+- **FIX-073**: 目标对齐、用户影响和审查覆盖检查纳入当前产品代码交付证据，避免 impact/review checks 因归档、证据类型或表结构漂移而空跑。
+- **RISK-030**: 0.35.0 修复链闭环后关闭；Gemini/opencode blocked 状态和 1.0.0 外部验证门槛继续显式保留。
+
+## [0.34.0] — 2026-05-14
+
+### 0.34.0 — 审查驱动质量回收 + plan-tracker 标准化
+
+AUDIT-099 全项目审查后的质量回收版本，覆盖真实 E2E、防护网恢复、审查降级防护、归档数据源、持续归档、治理信噪比、架构事实源、Gate 证据质量和治理热文件标准化。
+
+### 审查与验证防护
+- **AUDIT-099**: 全项目质量审查闭环，识别并收敛 0.34.0 质量回收范围。
+- **FIX-059**: Stage 子工作流路径事实源修复，恢复 stage skill 路径验证可靠性。
+- **FIX-060**: E2E 从静态检查升级为真实命令代理矩阵，提升端到端验证可信度。
+- **FIX-061**: `/governance-review` 禁止 Coordinator 自审降级，补充 review fallback 防护与 Check 27。
+
+### 归档与治理数据质量
+- **FIX-062**: verify_workflow 归档数据源测试隔离与审查覆盖检查修复，避免归档数据污染当前验证。
+- **FIX-063**: 持续归档触发闭环，archive.py --auto 支持发布强制、task 增量和 90 天兜底触发。
+- **FMT-001**: plan-tracker 热文件标准化，移除历史路线图/样例表/已归档任务段，保持活跃治理数据轻量可读。
+
+### 治理信噪比与事实源收敛
+- **FIX-064**: `/governance` 升级路径同步持续归档 Step E，status/init 输出契约补齐 permission_mode。
+- **FIX-065**: 架构事实源收敛，统一 Agent/Coordinator 数量、Release/operations 边界、入口层边界和路由表口径。
+- **FIX-066**: 治理检查信噪比治理，收敛 M5、manifest、归档历史、cross-reference、lock 和 untracked 噪音。
+- **FIX-067**: G10/G11 Gate 自动判定可信度修复，弱代理条件替换为真实证据并补归档感知。
+
+## [0.33.0] — 2026-05-10
+
+### 0.33.0 — 治理数据升级迁移流程
+
+**SYSGAP-030 Phase 2**: 治理数据升级迁移流程
+
+- archive.py 新增 `migrate --auto` 模式——自动检测版本边界、pre-check dry-run、内建 verify + 回滚
+- governance-init.md 新增 Step 5.5（归档目录结构创建）
+- governance-init.md Step 7 三级 profile 模板同步——归档感知读取 + Step E 归档迁移检测
+- test_archive.py 新增 8 个 `--auto` 模式测试用例（24/24 PASSED）
+
+## [0.32.0] — 2026-05-08
+
+### 0.32.0 — Agent 调度可靠性——并发控制 + 清洁度治理
+
+FIX-056 和 FIX-057 两项 Agent 可靠性专项，建立"防多 spawn + 防脏仓库"双层系统级防护。
+
+### Agent 并发防护 (P0)
+- **FIX-056**: Agent 意外并发防护——两道防线（task_id 去重 + agent-locks.json 文件锁），防止 Coordinator 误判超时导致重复 spawn 同一任务。
+  - Phase 1（核心锁机制）: agent-locks.json 锁表模板 + behavior-protocol.md M7.6a 锁协议 + agent-communication-protocol.md 超时处理语言强化（MUST AskUserQuestion）+ SKILL.md Coordinator 铁律 + agent-dispatch-template.md 锁声明占位符
+  - Phase 2（锁清理 + 检测）: post-commit hook Step 5 锁清理 + scope creep 检测 + verify_workflow.py Check 25 agent_lock_consistency + check-locks 子命令
+  - ADR-005 架构决策记录归档（5 WARNING → 全部修复）
+
+### 仓库清洁度治理 (P1)
+- **FIX-057**: 项目清洁度治理——未跟踪文件分类归档 + .gitignore 更新 + 系统级未跟踪检测。
+  - Phase 1: 6 个文档归档到 docs/ + .gitignore 新增项目特定忽略规则 + evidence-log.md/risk-log.md 解除 Git 跟踪
+  - Phase 2: verify_workflow.py Check 24 未跟踪文件检测 + pre-commit hook Step 10 未跟踪文件阻断（cleanliness BLOCK）
+
+## [0.31.0] — 2026-05-05
+
+### 0.31.0 — 验证驱动修复 + 收尾打磨
+
+外部项目实战验证 (FIX-042) 发现 3 个问题（cleanup 范围边界/Check 10 M5 误报/commit-msg hook 缺失）全部修复。同时完成内部归档清理、Agent 体验打磨和版本 bump 自动化。
+
+### 验证驱动修复 (P0/P1)
+- **FIX-053 (P0)**: cleanup.py 范围边界修复——`PLUGIN_SCOPE_DIRS` 常量化，`scan_actual()` 重写为仅扫描插件目录。不再误删用户项目文件。
+- **FIX-054 (P1)**: Check 10 M5 反模式检测误报修复——排除 `skills/`/`agents/`/`commands/` 等插件自审计路径，262 hits → 0。
+- **FIX-055 (P2)**: commit-msg hook 安装链路补全——governance-init.md + bootstrap 模板 + Hook 存活检测等 9 文件补充 commit-msg hook 引用。
+
+### 版本 bump 自动化 (P1)
+- **FIX-052**: verify_workflow.py 新增 `check-version-consistency` 子命令——跨 11 文件同步版本号（JSON/MD/hook @version）+ SKILL.md 为事实源 + CHANGELOG + plan-tracker 对比 + snippet 自检。check-governance Check 23 集成。
+
+### 内部归档 (P2)
+- **FIX-031**: 六层架构文档归档——从 SKILL.md 移除空引用（`references/architecture.md` → `docs/architecture/`）
+- **FIX-032**: M2 预加载路径修复——`main-workflow.md` → `skills/main-workflow/SKILL.md`
+- **FIX-034**: 清理幽灵 Agent 文件确认——coordinator.md 已于 AUDIT-095 标注 DEPRECATED，governance-developer.md 仍被路由表引用（非幽灵文件）
+
+### 体验打磨 (P2)
+- **FIX-039**: Agent 工作可见性——Coordinator spawn agent 时输出进度通知 + 完成报告格式标准化
+- **FIX-040**: 角色昵称收敛——用户可见消息用功能性描述替代昵称（5 文件）
+- **FIX-041**: Scenario F 状态面板输出折叠优化——3 项非关键信息（Gate 表/最近活动/插件版本）用 `<details>` 折叠
+- **FIX-042**: 外部项目实战验证——6/12 场景通过，3 问题发现并全部修复
+
+## [0.30.0] — 2026-05-04
+
+### 用户入口统一
+- FIX-049: README 安装链接修复——`peterwangze/governance` → `peterwangze/software-project-governance`，用户指引重写为"唯一命令 `/governance`"
+- FIX-050: `/governance` 嵌入 Coordinator 激活——身份+铁律+路由表+产品代码边界+交互规则
+- FIX-051: 用户视角全路径修复——Scenario 自动衔接 + Scenario F 任务入口 + 新鲜度放宽
+- 7 个旧命令全部添加重定向头 → `/governance`
+
+### Hook 架构修复
+- FIX-044: GOV_COMMIT_MSG 桥接文件清理——post-commit 安全网
+- FIX-045: COMMIT_EDITMSG 过期修复——GOV_BRIDGE_VALID 标志跳过不可靠的 Source 3
+- FIX-046: Hook 自升级链路——pre-commit Step 0 自动同步 `.git/hooks/`
+- FIX-047: 新建 commit-msg hook——消息依赖检查从 pre-commit 迁移（$1 可靠读取）
+- FIX-048: integer expression 修复 + 冒号匹配修复（全角/半角）+ 3-hook 存活检测
+- 3-hook 架构（pre-commit + commit-msg + post-commit）端到端验证通过
+
+## [0.29.0] — 2026-05-04
+
+### 系统级强制
+- FIX-036: pre-commit hook Step 7 WARN→BLOCK — 产品代码无审查证据 → 拒绝 commit
+- FIX-037: verify_workflow.py Check 21 — 审查覆盖率量化检查
+- FIX-038: verify_workflow.py Check 22 — Profile 一致性自动校验
+- FIX-043: 路由表补全 (16→18行) + Agent namespace 限制文档化降级方案
+
+## [0.28.0] — 2026-05-04
+
+### 0.28.0 — 用户入口精简
+
+Bootstrap 模板按 Profile 三级差异化 + /governance 职责边界重定义 + 简单操作快速通道。
+
+- **FIX-030**: Profile 差异化 bootstrap 模板——lightweight ~47行/standard ~212行/strict ~232行，governance-init.md Step 7 三级注入
+- **FIX-033**: bootstrap 与 /governance 职责边界重定义——governance.md 新增分工章节
+- **FIX-035**: 简单操作快速通道——M1.2 规则，治理记录修改跳过 Agent Team 激活
+
+## [0.27.0] — 2026-05-03
+
+### 0.27.0 — Agent Team 并行安全 + 基础设施修复
+
+3 项 Hook/模板修复 + 并行调度双重防护（Coordinator 预检规则 + Worktree 物理隔离）。
+
+- **FIX-028**: COMMIT_EDITMSG 过期窗口 5→60 秒——消除 Windows 版本 bump 的 --no-verify 依赖
+- **FIX-026**: pre-commit is_product_code() 公共函数提取——统一 Step 7b/9 产品代码检测 + 7 单元测试
+- **FIX-027**: governance-init.md 模板补全调度模板+行为协议引用
+- **SYSGAP-043**: M7.6 并行调度预检规则——spawn 前 MUST 校验文件目标无重叠
+- **SYSGAP-044**: Worktree 物理隔离——并行 Agent 文件目标重叠时使用 isolation: "worktree"
+
+## [0.26.0] — 2026-05-03
+
+### 0.26.0 — 审查跟踪层
+
+Agent Team 协议强制执行 Phase 3。
+
+- **SYSGAP-040~042**: 审查跟踪层——产品代码任务的后置审查状态追踪（plan-tracker 审查状态列 + verify Check 18/19 + hook Step 7b review BLOCK）
+
+## [0.25.1] — 2026-05-03
+
+### 0.25.1 — Agent Team 协议强制执行 Phase 2
+
+- **SYSGAP-035~039**: Check 18/19——审查覆盖率检测 + Agent 激活检测
+
+## [0.25.0] — 2026-05-03
+
+### 0.25.0 — Agent Team 协议强制执行 Phase 1
+
+- **SYSGAP-030~034**: 路由 1:N + hook BLOCK——Developer→CodeReviewer 强制分离 + pre-commit Step 7b review BLOCK
+
+## [0.24.0] — 2026-05-03
+
+### 0.24.0 — 目标一致性 + 用户影响系统强制
+
+三层强制体系：每次 commit 产品代码时 MUST 论证变更如何服务于项目目标 + 回答用户影响三问。缺失 → pre-commit hook BLOCK。
+
+- **SYSGAP-021**: project_goal 字段存储（governance-init.md 模板）
+- **SYSGAP-022**: change-impact-checklist 增强——Step 3.5 目标一致性 + Step 3/5 强制格式
+- **SYSGAP-023**: verify_workflow.py Check 16——目标一致性检查
+- **SYSGAP-024**: verify_workflow.py Check 17——用户影响检查
+- **SYSGAP-025**: pre-commit hook Step 10-12——目标+用户影响 BLOCK
+- **SYSGAP-026**: governance-init.md 模板更新（project_goal 注入）
+- **SYSGAP-027**: behavior-protocol.md M7.5 系统强制说明
+- **SYSGAP-028**: audit-framework.md D1/D2 引用 Check 16/17
+- **SYSGAP-029**: 回归测试——8 新用例（31 tests PASSED）
+
+## [0.23.0] — 2026-05-02
+
+### 0.23.0 — 测试体系 + CI
+
+建立适配 skill/workflow 项目的测试体系：36 个单元测试 + e2e 测试 + GitHub Actions CI pipeline。
+
+- **SYSGAP-015**: 本项目测试类型对应定义（stage-testing/SKILL.md）
+- **SYSGAP-016**: verify_workflow.py 单元测试（23 个用例，6 个测试类）
+- **SYSGAP-017**: e2e 测试项目（13 个用例，5 个测试类）
+- **SYSGAP-018**: GitHub Actions CI pipeline（6 步自动检查）
+- **SYSGAP-019**: 缺陷驱动测试积累（stage-maintenance/SKILL.md）
+- **SYSGAP-020**: 版本一致性增强（CHANGELOG + plan-tracker 版本检查）
+
+## [0.22.1] — 2026-05-02
+
+### 0.22.1 — 检查器解析缺陷修复
+
+修复 verify_workflow.py 3 个解析缺陷：sequential ID 检查器（plan-tracker 任务表解析修复，orphan 降为 INFO）、结构有效性检查（代码块过滤 + exclude→exclude_from_cleanup）、交叉引用检查（代码块/内联代码过滤）。Issue count: 1304→633 (-51%)。
+
+- **FIX-021**: DEC-046 缺失占位补充
+- **FIX-022**: plan-tracker 任务表头补"状态"列
+- **FIX-023**: Sequential ID 检查修复
+- **FIX-024**: 交叉引用/结构有效性检查修复
+
+## [0.22.0] — 2026-05-02
+
+### 0.22.0 — 检查体系升级
+
+verify_workflow.py 从"文件存在性检查"升级为"语义一致性检查"——从 11 项扩展到 15 项自动检查。
+
+- **SYSGAP-008**: 交叉引用检查——扫描 51 文件 1012 引用，检测悬空引用+废弃路径+循环引用
+- **SYSGAP-009**: 顺序 ID 检查——DEC/EVD/RISK 编号连续 + 交叉引用完整性
+- **SYSGAP-010**: 结构有效性检查——表格列数一致 + frontmatter 必需字段 + JSON 段完整
+- **SYSGAP-011**: M5 语义检查增强——中英文内联提问模式检测 + 选项列表无 AskUserQuestion 检测
+- **SYSGAP-012**: Commit scope verify——重复 task ID + "顺带"关键词 + bulk commit 检测
+- **SYSGAP-013**: Governance Developer agent（阿治）创建
+- **SYSGAP-014**: 影响分析路由——Agent 分发表新增 Analyst+Architect 行
+
+## [0.21.0] — 2026-05-02
+
+### 0.21.0 — 纪律防线
+
+建立"不再继续犯错"的系统机制——产品代码边界定义 + Agent Team 强制激活 + 影响分析 checklist + commit 粒度规范。
+
+- **SYSGAP-001**: 产品代码 vs 治理记录边界定义（SKILL.md + interaction-boundary.md）
+- **SYSGAP-002**: M7.5 Agent Team 强制激活检查（behavior-protocol.md Step 2.5）
+- **SYSGAP-003**: 变更影响分析 checklist 创建（change-impact-checklist.md）
+- **SYSGAP-004**: M7.5 影响分析步骤嵌入（behavior-protocol.md Step 2.6）
+- **SYSGAP-005**: Commit message 规范强化（behavior-protocol.md M7.4 Step 5）
+- **SYSGAP-006**: Pre-commit scope WARN（infra/hooks/pre-commit Step 8）
+- **SYSGAP-007**: Pre-commit Agent Team bypass WARN（infra/hooks/pre-commit Step 9）
+
+## [0.20.0] — 2026-05-02
+
+### 0.20.0 — 声明式清理机制
+
+清理命令从硬编码冗余列表改为 canonical manifest + 结构 diff，每次目录结构调整后清理命令自动生效。
+
+- **CLEANUP-001**: 创建 `core/manifest.json`——v0.19.0 完整目录结构声明（product + repo_only + exclude）
+- **CLEANUP-002**: 新增 `infra/cleanup.py`——声明式 diff 清理脚本（支持 --dry-run/--json）
+- **CLEANUP-002**: 重写 `commands/governance-cleanup.md`——基于 manifest.json 的声明式清理流程
+- **CLEANUP-003**: `verify_workflow.py` 增强——新增 `check-manifest-consistency` 子命令 + REQUIRED_FILES 从 manifest.json 读取（124 entries）
+- **CLEANUP-004**: Bootstrap 清理逻辑更新——CLAUDE.md + governance-init.md 改用 manifest-based cleanup
+- **CLEANUP-005**: 文档纪律更新——manifest.md 简化 + VERSIONING.md 新增 manifest 更新规则
+
+## [0.19.0] — 2026-05-02
+
+### 0.19.0 — 代码仓对齐 Claude Code 官方插件约定
+
+目录结构从 nested 改为 flat：Agent 和 SKILL 文件迁至 plugin root 平铺。
+
+- **AUDIT-097**: 14 Agent 文件从 `skills/software-project-governance/agents/<组>/<角色>/prompt.md` 迁至 `agents/<name>.md`
+- **AUDIT-098**: 25 真实 SKILL 从 `skills/software-project-governance/skills/<name>/` 迁至 `skills/<name>/`，删除 25 stub，git rm 清理旧目录
+- 11+ 文件路径引用更新（verify_workflow.py 27 处、CLAUDE.md、governance-init/cleanup 等）
+- 版本 bump 0.18.0→0.19.0（7 文件）
+
+## [0.10.0] — 2026-05-01
+
+### 0.10.0 正式发布——全 8 角色 Agent Team
+
+0.10.0 补齐全部 8 个角色 Agent：
+- AUDIT-063(P1): QA Agent——测试者(阿测),边界case+集成/性能/安全测试,CEO打脸教训
+- AUDIT-064(P1): DevOps Agent——运维者(老管),Pipeline+环境一致性+监控告警,凌晨3点教训
+- AUDIT-065(P1): Analyst Agent——分析者(阿析),需求澄清+竞品分析+PR/FAQ+OKR,87%教训
+- AUDIT-066(P1): Release Agent——发布者(老发),发布检查+版本规划+回滚方案,周五下午教训
+- AUDIT-067(P2): Maintenance Agent——维护者(老维),5-Why根因+同类扫查+预防机制,47次教训
+- SKILL.md M2.2b 更新——全 8 角色 Agent Team 路由表
+
+### 新增
+- `agents/qa.md`, `agents/devops.md`, `agents/analyst.md`, `agents/release.md`, `agents/maintenance.md`
+- 每个 Agent 含 persona(人物+教训)+座右铭+擅长+痛恨+职责+输入输出
+
+## [0.9.0] — 2026-05-01
+
+### 0.9.0 正式发布——Agent Team 基础架构
+
+0.9.0 完成 Agent Team 最小可行架构——Coordinator + 3 核心角色 + 通信协议：
+- AUDIT-053(P0): Coordinator Agent, AUDIT-054(P0): Developer Agent, AUDIT-055(P0): Reviewer Agent, AUDIT-056(P0): Architect Agent
+- AUDIT-057(P0): Task-Gate 模型, AUDIT-058(P0): Agent 通信协议
+
+## [0.8.0] — 2026-05-01
+
+### 0.8.0 正式发布——统一治理命令（用户易用性基础设施）
+
+0.8.0 完成 5 个任务（5 P0）：
+- AUDIT-077(P0): 统一命令设计——6 场景决策树 + 场景 A/C/F 实现
+- AUDIT-078(P0): 场景 B——半途接入（项目探索信号矩阵+阶段推断+差异化 onboarding）
+- AUDIT-079(P0): 场景 D/E——会话恢复+异常恢复（诊断+修复）
+- AUDIT-080(P1): Snapshot 格式升级（新增 session_id/current_gate/permission_mode/incomplete/user_preferences 字段）
+- AUDIT-081(P1): 旧 5 命令统一路由（governance-update 标记 DEPRECATED）
+
+### 新增
+- `commands/software-project-governance.md`——统一入口，一个命令覆盖全部 6 场景
+- Snapshot 格式 7 个新字段支撑会话恢复
+
+### 变更
+- governance-init/status/verify 添加统一入口路由说明
+- governance-update 标记为 DEPRECATED
+- SKILL.md M3 引用统一命令替代 governance-init
+- SKILL.md M4.2 snapshot 格式升级
+
+## [0.7.3] — 2026-04-30
+
+### 修复
+
+- **FIX-018: M7.4 结构修复——review 移到 commit 之前 + summary 嵌入 AskUserQuestion**。M5 under-use 复发 7 次后的深度根因：独立 summary 与 AskUserQuestion 形成结构性竞争——summary 总是赢（更简单、不需暂停、LLM 训练数据默认模式）。5 层文本规则修复（FIX-013/015/016/017 + AUDIT-053 C1）全部失效。修复：(A) summary 嵌入 AskUserQuestion 内部——禁止审查前输出独立 summary；(B) 审查移到 commit 之前——commit 是审查通过的奖励，不是跳过审查的触发器。M7.4 新顺序: evidence→verify→audit→AskUserQuestion 审查→commit→continue。M8 自检 + 失败模式 11 根因同步更新。
+
+## [0.7.2] — 2026-04-30
+
+### 修复
+
+- **AUDIT-053: 全规则一致性审计修复——32 项矛盾/死规则/漂移闭环（20/32 已修复）**
+  - **P0 严重矛盾（8/8）**：C1 M7.2 停止规则加例外 / C2 review 区分 / C3 Gate 独立使用例外 / C4 commit 触发点替换 / C5 方向确认限定 / C6 maximum-autonomy 加 P0 审查 / C7 Gate 评估区分 / C8 session end 边界
+  - **P1 重要矛盾（5/7）**：S1 阶段重叠 profile 约束 / S2 关键决策列表同步 / S3 M7.4 步骤数修正 / S5 Step2 profile-aware / S6 interaction-boundary 同步
+  - **P2 引用/漂移/M5（7/17）**：V1 agent-team-architecture 版本 banner / AQ1 确认行模式自适应 / R1 TOOLS.md 路径修正 / R2 Replacement Boundary 路径 / R3 孤儿引用补全 / S6 M5.2 同步声明
+  - 剩余 12 项 P2（R4 Gate AUTO/ASK 标注、D1-D7 死规则标注、DR1-DR3 非关键列表漂移、AQ2 on-demand Gate 状态）归入 0.10.0
+- **pre-commit hook Step 6 升级**：平台原生入口文件 直接修改检测从 WARNING → BLOCKING——BOOTSTRAP DISCIPLINE 违反（第 5+ 次）后升级为阻断级强制力
+- 版本 bump 0.7.1→0.7.2
+
+## [0.7.1] — 2026-04-30
+
+### 修复
+
+- **FIX-015: M5 AskUserQuestion 绕过根因修复——6 缺口系统性闭环**。此前 FIX-013 修复了 M5 触发覆盖但未解决子工作流层面的源头污染——agent 读到 `询问用户："当前项目目标是什么？"` 这样的内联指令会直接照做。
+  - **GAP-1 (P0)**: `development/sub-workflow.md:27` — 清除 `询问用户` 内联指令，替换为 AskUserQuestion 工具调用指令
+  - **GAP-2 (P0)**: `SKILL.md` 新增 M2.3 M5 交互信号——所有子工作流的 `需用户确认/输入/判断` 标注 MUST 通过 AskUserQuestion 执行
+  - **GAP-3 (P1)**: 轻量 profile bootstrap 模板补 M5 提问规则——此前轻量用户完全没有 AskUserQuestion 指令
+  - **GAP-4 (P1)**: `stage-gates.md` 新增原则 #10——Gate 确认 MUST 绑定 AskUserQuestion
+  - **GAP-5 (P1)**: `verify_workflow.py` 新增 Check 10——M5 反模式静态检测（`询问用户` 污染模式 + bootstrap 覆盖 + interaction-boundary 绑定）
+  - **GAP-6 (P2)**: SKILL.md M8.1 表格从 9→10 checks，覆盖 M5 外部验证
+- `development/sub-workflow.md` + `release/sub-workflow.md` — 降级行为中的 `告知用户` 标注为单向通知（非提问），与 M5.1 禁令边界明确
+
+## [0.7.0] — 2026-04-29
+
+### 0.7.0 正式发布——外部验证 + 企业实践 + 交互覆盖闭环
+
+0.7.0 完成 12 个任务（3 P0 + 4 P1 + 5 P2）：
+- AUDIT-003(P0): E2E 外部验证——e2e-test-project 全链路走通
+- FIX-013(P1): M5 AskUserQuestion 交互覆盖审计——3 缺口修复
+- FIX-014(P0): 任务级防护——跨任务 evidence 链 + 用户插入先入账
+- AUDIT-034(P2): 蓝军单 agent 结构化协议
+- AUDIT-036(P2): 现代发布实践——金丝雀/feature flag/kill switch
+- AUDIT-038(P2): 子工作流目标锚定自包含化 + 降级行为
+- AUDIT-004/006/023(P1): governance-init/命令/可用性端到端验证
+- MAINT-013/014(P1): 数据边界说明 + Agent 入口差异文档
+- MAINT-023(P1): Gemini/国内 agent CLI 最小验证路径
+- AUDIT-003 闭环(P0): E2E 验证完成
+
+### 新增
+- data-boundary.md + agent-entry-differences.md 参考文档
+- prepare-commit-msg hook（Windows git bash 桥接）
+
+---
+
+## [0.6.15] — 2026-04-29
+
+### 新增
+
+- **AUDIT-034 蓝军单agent结构化协议**：tech-review-checklist 蓝军章节升级——视角切换三序列（框架切换/角色扮演/场景推演）+ 标准蓝军输出格式（攻击向量/影响评估/缓解/残余风险/建议增强）
+- **AUDIT-036 现代发布实践**：release 子工作流新增发布策略选择（5 种策略含选型规则）+ Feature Flag 管理 + Kill Switch 验证（触发条件/可执行验证/负责人）
+- **AUDIT-038 目标锚定自包含化**：development + release 子工作流锚定节升级——含具体文件路径和检查目标 + 降级行为定义（.governance/ 不存在时告知用户风险但不阻塞执行）
+
+## [0.6.14] — 2026-04-29
+
+### 新增
+
+- **任务级防护（pre-commit Step 4.5）**：跨任务证据链——切换到新 task 时自动检测前序 task 是否有 evidence。未补齐 → M7.4 DEBT 警告。消灭任务间盲区。
+- **干活前检查升级**（governance-init 模板）：从"三件事"升级为"五件事"——新增任务入账检查（用户临时插入也需先入账）+ 跨任务检查（先补齐上任务证据再开新任务）
+
+## [0.6.13] — 2026-04-29
+
+### 新增
+
+- **E2E 防护网**：verify-e2e.sh（23 项 shell 检查）+ verify_workflow.py e2e-check 子命令（19 项 Python 检查）。e2e-test-project/ 固化为仓库永久验收基准。
+
+## [0.6.12] — 2026-04-29
+
+### 修复
+
+- **M5 AskUserQuestion 交互覆盖审计**：修复 3 个缺口——SKILL.md M5.2 新增 risk escalation/audit finding 触发点；interaction-boundary.md 类型 C 新增风险评估/审计发现/阶段推进，强制 AskUserQuestion 格式；bootstrap Step 3 升级为 AskUserQuestion 选项。
+- **post-commit hook M7.4 违规标记强化**：evidence 缺失时输出带框 M7.4 VIOLATION 警告——"DO NOT start another task until evidence is logged"。
+
+---
+
+## [0.6.11] — 2026-04-29
+
+### 修复
+
+- **版本规划纪律强化**：plan-tracker + VERSIONING.md 新增 8 条版本规划纪律——版本号分配规则（已预留不可占用/计划外用 PATCH/bump 前检查路线图/PATCH 事后追加）+ 版本内容一致性规则（内容匹配路线图/范围变更记录 DEC/90%完成率/实时更新）。含 0.7.0 被占用的实际违规案例。
+- **agent-failure-modes 失败模式 9**：无版本管理环境下的治理盲区。非 git 用户降级到 session 级约束。
+
+---
+
+## [0.6.10] — 2026-04-29
+
+### 新增
+
+- **系统级约束架构**：设计假设从"agent 会遵守规则"翻转为"agent 一定不会自觉遵守，必须用系统级约束强制"。pre-commit hook（阻断型——commit 前验证 task ID + plan-tracker 存在，不通过则 BLOCK commit）+ post-commit hook（报告型——commit 后检查 evidence + check-governance）。双重屏障：pre-commit 阻断违规 commit，post-commit 报告 governance 状态。
+- **governance-init Step 8 重写**：安装双 hook（pre-commit + post-commit），定义双重屏障设计
+- **bootstrap Hook 存活检测升级**：从只检查 post-commit 升级为双 hook 检查
+
+### 变更
+
+- **设计哲学转变**：所有现有 MUST 规则按"系统可强制执行 vs agent 自执行"重新分类。pre-commit hook 是第一个 BLOCKING 级别的系统约束。CI check-governance --fail-on-issues 是第二个。未来所有新规则 MUST 优先设计系统级强制执行方案。
+
+---
+
+## [0.6.9] — 2026-04-29
+
+### 修复
+
+- **bootstrap 变更纪律**：governance-init.md 和 平台原生入口文件 新增 Step 1.5——MUST NOT 直接修改 平台原生入口文件 添加新行为，MUST 先改 governance-init.md 注入模板（canonical source），通过版本 bump + /plugin update + bootstrap 自升级到达用户
+- **Tier 审计补齐**：EVD-123——用户反馈驱动密集修复轮次审计（D1/D3/D4）。审计发现 2 项治理违规：所有 FIX 任务 Gate 标记错误（G8→G11 修正）+ 全部先执行后入账（违反 M7.5）
+
+---
+
+## [0.6.8] — 2026-04-29
+
+### 修复
+
+- **bootstrap 自升级**：版本变化检测不再只是提示用户运行命令——agent 检测到 bootstrap 落后时**自动替换 平台原生入口文件 的 bootstrap 段为最新模板**。用户 `/plugin update` → 下次会话 → 自动完成，零用户行动。governance-update 命令降级为手动回退选项。
+
+---
+
+## [0.6.7] — 2026-04-29
+
+### 新增
+
+- **governance-update 命令**：老用户升级路径的核心——`/plugin update` 获取新版本后运行此命令，将 平台原生入口文件 的 bootstrap 段更新到最新。**不触碰 .governance/ 数据**——只替换 bootstrap 模板段，保留用户的项目配置和治理记录。bootstrap 版本变化检测自动提示用户运行此命令。
+
+---
+
+## [0.6.6] — 2026-04-28
+
+### 新增
+
+- **Bootstrap 版本变化自动检测**：每次会话开始自动对比 plan-tracker `工作流版本` 与当前安装版本。用户更新插件后首次会话自动输出——版本跨度 + CHANGELOG 摘要 + 需手动采纳项清单（hook/模板/配置字段）+ 自动生效项清单。**用户不需要记住任何命令。**
+- **plan-tracker 新增 `工作流版本` 字段**：记录最后一次"治理更新"时的版本，作为版本变化检测的基线
+
+### 用户视角
+
+此前 `/governance-status` 需要用户主动调用——用户更新后不会主动跑。现在 bootstrap 在每次会话自动检测版本变化，用户更新插件 → 下次打开会话 → 自动看到"从 0.6.0 升级到 0.6.6，新增 X/Y/Z，需手动采纳 hook 安装"。
+
+---
+
+## [0.6.5] — 2026-04-28
+
+### 新增
+
+- **用户视角强制原则**（`references/user-perspective-principle.md`）：所有规划/设计/开发/测试 MUST 回答三个问题——用户怎么获得变更？用户怎么知道变更存在？用户体验真的变了吗？含 6 项检查清单 + 5 种反模式定义 + 用户旅程描述要求。集成到 SKILL.md M2.1 + 平台原生入口文件 干活前检查 + governance-init 注入模板。
+- **governance-status 版本新鲜度检查**（Step 3.5）：每次展示状态时自动检查插件是否最新，OUTDATED 时输出版本差距 + commits behind + 更新指引。已安装用户不再被遗忘。
+- **近期变更用户可达性审计**：4 个版本逐版审查——发现 3/4 对已安装用户有断点。0.6.1 治理开关是唯一对已安装用户立即可用的功能。
+
+---
+
+## [0.6.4] — 2026-04-28
+
+### 新增
+
+- **post-commit governance hook**：每次 `git commit` 后自动触发——提取 commit message 中的 task ID → 检查 plan-tracker 中是否存在 → 检查 evidence-log 中是否有证据 → 输出 check-governance 摘要。消除会话中间"commit 之间"的治理盲区。Hook 不阻塞 commit——只报告，不拒绝。
+- **RISK-024**：记录"端点强制模型 vs 流式执行行为的结构性不匹配"风险——5-Why 根因分析
+
+### 修复
+
+- **governance-init Step 8**：新项目初始化时自动安装 post-commit hook
+- **平台原生入口文件 bootstrap**：新增 Hook 存活检测——hook 缺失时 MUST 提醒用户重装
+
+---
+
+## [0.6.3] — 2026-04-28
+
+### 变更
+
+- **VERSIONING.md 重写**：砍掉 alpha/beta/rc 预发布标签——三层 Major.Minor.Patch 本身提供细粒度。Patch 就是最小增量单位。每轮有意义的变更 MUST bump PATCH，不攒着等 Minor。新增"用户如何更新"章节（3 种更新方式 + freshness 检查）。
+- **check-plugin-freshness 子命令**：`python skills/software-project-governance/infra/verify_workflow.py check-plugin-freshness` 对比 installed_plugins.json 的 gitCommitSha 与源仓库 HEAD，输出 installed/source/status/action。
+
+---
+
+## [0.6.2] — 2026-04-28
+
+### 新增
+
+- **版本规划机制**：plan-tracker 新增 `## 版本规划` 节——版本路线图（显式 task ID 映射）+ 版本里程碑（M1~M5）+ V-Gate（6 项检查）+ 版本规划纪律
+- **需求跟踪矩阵**：REQ-001~008 需求→任务→验证全链路可追溯
+- **变更控制流程**：临时任务的 4 步 triage（优先级判定→版本适配→冲突检查→范围更新）
+- **3 个缺失模板**：`pr-faq-template.md`（Amazon PR/FAQ）、`okr-template.md`（Google OKR + ByteDance 基线）、`six-pager-template.md`（Amazon 6-Pager/Narrative）
+
+### 修复
+
+- **AUDIT-051 审计闭环**：16 条企业实践 31% 敷衍率——5 条只有文档无模板无强制力。建立纪律：每条实践 MUST 有模板 + 检查项 + 自动化验证，缺一不可。
+
+---
+
+## [0.6.1] — 2026-04-28
+
+### 新增
+
+- **触发模式 × 操作权限双维度融合**：trigger_mode（何时激活治理）和 permission_mode（能做什么不打断）正交组合——maximum-autonomy（除关键决策外全自动，含 git push/本地命令/文件删除）/ default-confirm（4 类危险操作必须确认）
+- **治理开关**：用户会话中随时说"切换到最高权限模式"等 → 立即切换 + 更新 plan-tracker
+- **governance-init Q4**：交互式选择操作权限模式
+- **interaction-boundary.md 重写**：新增操作权限模式章节，定义 4 类危险操作边界
+
+---
+
+## [0.6.0] — 2026-04-28
+
+### 新增
+
+- **交互式初始化**：`governance-init` 在参数缺失时通过 AskUserQuestion 引导用户选择 profile/触发模式/项目类型，不再静默应用默认配置
+- **Bootstrap 模板全面升级**：注入模板从 4 行英文 stub 升级为完整中文 bootstrap（Step 0 触发模式 + Step 1 跨会话恢复 + Step 2 三项交叉验证 + Step 3 优先级 + 干活前检查 + 提问规则 + 关键决策分类 + 收工快照生成），按 profile 差异化注入（lightweight 精简版 / standard+strict 完整版）
+- **旧版 Bootstrap 升级检测**：检测到旧版英文 stub 时主动提示用户升级，不再静默跳过
+- **跨会话状态恢复**：M4.1/M4.2 升级——session-snapshot.md 格式定义 + 会话加载/生成协议。平台原生入口文件 收工前检查自动生成快照
+- **触发模式实现**：平台原生入口文件 Bootstrap Step 0 —— always-on/on-demand/silent-track 三种行为差异可检测
+- **Profile 差异化行为落地**：governance-init 按 profile 生成不同 plan-tracker 结构（lightweight 7 Gates+6列 / standard 11 Gates+20列 / strict 11 Gates+量化评分列+强制证据注释）
+- **CI 集成 check-governance**：`.github/workflows/governance-check.yml` —— push/PR 自动运行 check-governance + verify_workflow.py，`--fail-on-issues` 阻断不完整治理记录合并
+- **Bar Raiser 否决权**：技术评审结论新增"否决（Block）"选项——独立评审人可单方面阻止 Gate 通过。单 agent 最低标准：切换分析框架 + 挑战 3 个核心假设
+- **字节 A/B 测试纳入 release**：release 子工作流新增"影响评估"活动（A/B 测试分析 + 核心指标对比 + 5 种无数据替代标准）；release-checklist 新增"数据验证计划"步骤
+
+### 变更
+
+- **子工作流全 11 阶段统一深度标准**：research/selection/infrastructure/ci-cd/release/operations/maintenance 7 个子工作流从骨架升级为深度指南（AI 风险表 + 企业实践映射列 + Gate 自动判定列 + 企业实践溯源节）
+- **company-practices-summary 可执行化**：23 行纯导航 → ~200 行自包含可执行规则摘要（每条实践有"什么时候用"+ 可执行检查项 + 适用 profile 三级标注）
+- **Evidence 范围编号展开**：parse_evidence_task_ids() 支持 AUDIT-015~020 → 6 独立 ID 展开
+- **Layer 0-D 防漂移机制完成**：跨会话记忆 + 触发模式 + Profile 差异化全部落地
+
+### 修复
+
+- **governance-init bootstrap 不对称**：本仓库 平台原生入口文件 与注入模板严重不对称（~80 行 vs 4 行）→ 同步为完整中文模板，按 profile 差异化注入
+
+---
+
+## [0.5.1] — 2026-04-27
+
+### 新增
+
+- **Gate 自动判定覆盖率 45%→100%**：G6-G11 各新增 3-4 条启发式检查项，`auto_judge_gate()` 从覆盖 5/11 扩展到 11/11 Gate。新增 6 个 helper 函数（`_check_completed_ratio`/`_check_evidence_mentions`/`_check_risk_has_closed`/`_check_plan_has_priority`/`_check_version_consistency_heuristic`）。gate-check 全部 11 个 Gate 返回 ≥3 条检查项，0 误报 FAIL，NEEDS_HUMAN 仅保留给真正无法自动化的检查
+
+### 修复
+
+- **产品核心能力不完整闭环**：gate-check 对 G6-G11 返回空结果（0 checks）→ 用户运行 `gate-check G11` 得到空结论。现在 44 条启发式规则覆盖全部 11 个 Gate
+
+---
+
+## [0.5.0] — 2026-04-26
+
+### 新增
+
+- **M7.3 风险 escalation 强制执行**：打开状态的风险在截止日期过后 MUST 升级或关闭。`check_risk_escalation()` 检测过期未处理的风险——解决"风险 escalation deadline 过了但什么都没发生"的系统性漏洞（与 M7.4/M7.5 同类模式）
+- **M7.3 任务 deadline 强制执行**：未完成任务在"计划完成"日期过后 MUST 完成、重排或显式降级。`check_task_deadline()` 检测过期未处理的任务
+- **Check 8：Risk Escalation Deadline**：check-governance 第 8 项检查——检测 risk-log 中"打开"状态且 escalation 截止日期已过的风险
+- **Check 9：Task Deadline Enforcement**：check-governance 第 9 项检查——检测 plan-tracker 中非"已完成/已终止"状态且"计划完成"日期已过的任务
+- **M8 自检升级**：新增 M7.3 风险 escalation 和任务 deadline 检查项
+- **M8.1 表格升级**：从 7 checks 扩展到 9 checks
+
+### 修复
+
+- **Deadline 盲区闭环**：风险 escalation 和任务 deadline 两个字段被定义但从未被自动检测——check-governance 的 Check 2（风险 staleness）只检测 >7 天未更新，不检测 escalation deadline。Check 8/9 补上了这个检测盲区
+
+---
+
+## [0.4.0] — 2026-04-26
+
+### 新增
+
+- **M7.5 任务启动协议**：M7.4 的镜像——修改文件前 MUST 验证任务已在 plan-tracker 中存在。不在则先入账（创建 task ID + 填必填字段）再动手。解决"agent 可绕过 plan-tracker 直接修改文件"的系统性跟踪漏洞
+- **M7.4 步骤 4 commit 格式强化**：commit message MUST 包含 task ID 前缀（如 "AUDIT-044: description"）——task ID 是代码变更与 plan-tracker 条目之间的链接，没有它 traceability 就断了
+- **Check 7：Commit-Task Traceability**：check-governance 新增第 7 项检查——检测最近 20 个 commit message 是否包含 plan-tracker 中存在的 task ID，无引用→WARN。`check_commit_task_references()` 是 M7.5 步骤 4 的外部验证对应物
+- **M8 自检升级**：新增 M7.5 检查项（pre-task protocol executed?）
+- **M8.1 表格升级**：从 6 checks 扩展到 7 checks（新增 Check 7：Commit-task traceability）
+
+### 修复
+
+- **跟踪漏洞闭环**：AUDIT-043（M7.4 fix）在入账前就动手修改了 8 个文件——事后才补的 task 条目。M7.5 将这个教训固化为协议：先入账再动手。AUDIT-044 是第一个遵循 M7.5 的任务——task 条目先于任何代码修改被提交
+
+---
+
+## [0.3.0] — 2026-04-26
+
+### 新增
+
+- **M7.4 任务完成协议**：将 evidence → check-governance → audit → commit → continue 绑定为原子不可跳过序列。解决"规则存在但 agent 不执行"的系统性执行一致性问题——每项任务标记"已完成"后 MUST 按序执行 5 步
+- **M8 自检升级**：新增 M7.4 检查项（任务完成协议是否执行？）
+- **M8.1 表格升级**：从 5 checks 扩展到 6 checks（新增 Check 6：Tier 审计完整性）
+- **audit-framework.md D1 触发条件具体化**：新增 governance-critical 文件清单——任何修改了这些文件的任务完成时 MUST 触发审计（不论任务优先级）
+
+### 修复
+
+- **执行一致性漏洞闭环**：AUDIT-040 完成时发现的 4 项 MUST 规则被跳过（审计未触发/未 commit/执行中断/内联提问）通过 M7.4 原子协议系统性修复
+
+## [0.2.0] — 2026-04-26
+
+### 新增
+
+- **M3.1 DRI 规则**：直接责任人模型（Apple DRI + Amazon STO）——每任务 MUST 有唯一 DRI，多 owner=未分配，AI agent DRI 时 agent 有执行决策权/human 是 Escalation
+- **M8.1 外部验证机制**：双重机制（agent 自检 + 脚本独立验证）——`check_protocol_compliance()` 独立检测 DRI 违规/条件通过未纠偏/证据格式缺失
+- **M5.1~M5.4 AskUserQuestion 协议**：唯一合法提问通道 + 关键决策分类（6 类关键 + 6 类非关键）+ 禁止场景
+- **M7.1~M7.3 执行连续性**：用户决策模式声明（stop for critical only / stop for all）、5 条禁止中断模式、实时闭环规则
+- **Gate 自动判定**：`gate-check G<N>` 子命令——对 G1~G5 执行启发式自动判定（PASS/FAIL/NEEDS_HUMAN），支持 `--fail-on-blocked` 用于 CI 集成
+- **证据质量自动检查**：`check_evidence_quality()` — 检测会话上下文引用/循环引用/空输出声明
+- **协议合规自动检查**：`check_protocol_compliance()` — 独立检测 3 类协议违规（DRI/条件通过/证据格式）
+- **审计框架**（`audit-framework.md`）：6 维度 × 3 类别审计体系，融入 Gate 原则 #7 / SKILL.md M2.1 / lifecycle.md 治理规则 #5
+- **Agent 失败模式文档**（`agent-failure-modes.md`）：8 种失败模式 + 检测方法 + 用户应急动作
+- **Tier 审计检查点**（stage-gates.md 原则 #9）：分层推进模型的 Tier 完成后必须执行审计
+- **平台原生入口文件 自包含升级**：关键决策分类内嵌（不依赖 SKILL.md 加载状态）+ 故障排除章节
+
+### 变更
+
+- **DRI 模型落地**：plan-tracker Owner 列改为单值 DRI，新增 Escalation 列（20 列模板）
+- **交互边界规则升级**：新增 DRI 决策权限定义章节
+- **stage-gates.md**：新增原则 #6（Closure Follow-Through）、原则 #7（审计检查点）、原则 #8（DRI 检查）、原则 #9（Tier 审计检查点）
+- **Tier 1 双源合并**：skills/ 成为运行时唯一事实源，workflows/rules/ 和 workflows/stages/ 已删除
+- **审计触发条件扩展**：SKILL.md M2.1 + audit-framework.md D1/D3/D4 新增"Tier 完成"触发条件
+
+### 修复
+
+- parse_gate_detail regex 从 `###` 改为 `##`（pre-existing bug——gate 和 gate-check 子命令均无法找到 Gate 定义）
+- 证据质量升级：5 条"会话上下文"引用替换为持久化文件路径，EVD-070 循环引修复
+- 平台原生入口文件/SKILL.md 循环依赖解耦
+
+---
+
+## [0.1.0] — 2026-04-17
+
+### 初始版本
+
+- 三层承载模型（workflow 本体层 + agent 入口投影层 + 外部能力层）
+- 11 阶段生命周期定义 + 11 Gate 检查
+- 4 个治理记录模板（plan-tracker / evidence-log / decision-log / risk-log）
+- verify_workflow.py 基础校验脚本
+- Claude/Codex adapter 基础入口
+- 4 家企业实践调研（Google/Amazon/华为/字节）
+- 11 个子工作流骨架
+- 5 个 stage skill（需求澄清/技术评审/Code Review/发布 checklist/回顾会议）
+- 3 种项目 Profile（lightweight/standard/strict）
+- 中途接入协议（onboarding）
+- 交互边界规则
+
+<!-- loop-runtime-superseding:{"schema_version":"1.0","notice_id":"LRC-CHANGELOG-0661","effective_version":"0.66.1","supersedes_claim_ids":["LRC-HIST-CHANGELOG-001"],"authority_ids":["AUDIT-133","EVD-707","DEC-104"],"classification":{"runtime_activation":"NOT_MET","migration_validity":"NOT_MET","criteria_2_3_4_5_6":"PARTIAL","criterion_7":"NOT_PROVEN","criterion_8":"MET-NARROW","capability":"experimental_scaffolding"},"open_risks":["RISK-037","RISK-042"]} -->
+
+## 0.66.1 Loop capability correction
+
+AUDIT-133 supersedes the current interpretation of the 0.65.0 Loop claims. Loop Engineering is experimental scaffolding: runtime activation and migration validity are NOT_MET; criteria 2/3/4/5/6 are PARTIAL; criterion 7 is NOT_PROVEN; criterion 8 is MET-NARROW. RISK-037 and RISK-042 remain open. Historical release statements above remain records of what was asserted and tested at that time.

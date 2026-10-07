@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# clarity — ClarityKit CLI entry point. Resolves its own location so it works
+# from any cwd and via symlink (e.g. ~/.local/bin/clarity -> .../tools/clarity).
+SOURCE="$0"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+
+# Dependency self-bootstrap: plugin/marketplace/npm-cache installs never run
+# npm install, so the first run (or any run after an update wiped node_modules)
+# installs pinned tool dependencies itself — deterministically, no AI involved.
+if [ ! -d "$DIR/node_modules/mermaid" ]; then
+  echo "clarity: first run — installing tool dependencies (one time)..." >&2
+  if ! (cd "$DIR" && npm ci --no-audit --no-fund --loglevel=error >&2); then
+    echo "clarity: dependency install failed — run \`cd \"$DIR\" && npm install\` manually." >&2
+    exit 1
+  fi
+fi
+
+exec node "$DIR/cli.mjs" "$@"

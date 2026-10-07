@@ -1,0 +1,61 @@
+# Deployment Verification and Safety
+
+Use this standard for deployment documentation, release verification, and runtime safety in formally delivered projects. Engineering owns unit/integration/contract/E2E design; Delivery decides whether that evidence satisfies the current release gate.
+
+## 1. Deployment Documentation
+
+Document local startup; formal/test environments; dependent services; environment variables/configuration; secret/certificate/private-config storage; build/deploy commands; health checks; post-release verification; rollback; routine release versus first-time/disaster-recovery scripts; artifact build/upload/retention/cleanup; and hardware constraints such as disk, memory, CPU, image count, and log retention.
+
+End with a project-tailored checklist covering target health and version, core pages/APIs, actual image/package/static revision, Docker architecture when used, affected core flow, startup errors, Tag/VERSION/changelog consistency, hotfix patch version/rollback/production path/unreleased changes, other unreleased changes, and known risks.
+
+Never report only “deployment complete”; record actual results. Artifact-based releases verify the target object, not merely local build:
+
+- Docker: running image tag/digest, architecture, container start time, health.
+- Static site: deployed-file identity/time, key HTTP status, assets from this build.
+- Backend: version endpoint, health, startup logs, dependency connections.
+
+After a partially failed deployment that may have replaced services, reconcile production state before choosing rollback or retry. Never assume the old version remains.
+
+## 2. Resources and Artifacts
+
+[Version, Artifact, and Release](version-artifacts-and-release.md) uniquely owns artifact identity, default retention, project overrides, local builder/production runtime/remote registry/Git closure. This page applies those rules to real environments to prevent unbounded disk, image, cache, and log growth.
+
+Confirm that every real resource surface has managed scope, retention, disk cap, dry-run, cleanup entrypoint, and receipt; do not invent nonexistent registries. Verify current and rollback objects before cleanup, using image digest/ID rather than movable tags. Delete old tarballs, images, uploads, and dangling objects only when precisely owned by this unit; never global-prune across projects. Logs/uploads need retention. On small servers, prefer local builds and uploaded artifacts over resource-heavy in-place builds.
+
+Document artifact naming/location, retention policy/source (or BuildOS rollback default), cleanup, rollback retrieval, and whether server-side builds are allowed. For adoption or a release-driver change, verify the cleanup call in the actual driver after target verification and exercise its success/failure receipt with a disposable fixture. A generated config, an enabled flag or a dry-run is not evidence that production, local Docker or another surface ran cleanup. Ordinary releases reuse the configured driver; do not repeat project-wide governance.
+
+## 3. Testing and Acceptance
+
+Accept impact-matched Engineering evidence under its [Evidence Reuse and Handoff](../../senmu-build-engineering/references/software-testing-and-quality-verification.md#evidence-reuse-and-handoff) contract. At preflight, integration, artifact preparation and deployment, map still-valid results to current obligations; changing stages does not reset verification. Run missing or invalidated checks and record gaps in the existing receipt. Artifact contents/platform, target configuration, runtime identity, health and rollback are distinct obligations that development tests cannot discharge. A preflight build may supply artifact preparation only when its inputs and retained outputs satisfy that contract; packaging still verifies the resulting package/image. Do not add caching machinery merely to express this policy.
+
+Distinguish:
+
+- unit/component tests for functions, components, boundary states;
+- API/business tests for authorization, billing, isolation, failures;
+- real-flow tests for the user's full core task.
+
+Mocks may cover component state, third-party failure, and pure boundaries. They cannot replace core acceptance for upload, payment, export, authorization, file processing, playback, orders, or AI jobs.
+
+State affected paths, tested paths, untested paths and risks, and whether production verification is needed.
+
+After a Bug/Hotfix passes Engineering checks, also determine version/changelog update; Work Log cause/fix/evidence/risk/next step; and, if releasing, Tag/artifact/production evidence/rollback point. If not releasing, record reason, code location, and future release condition.
+
+### Public-service exposure
+
+For a new service, first establish whether and how it is reachable. Public exposure or changes to network/runtime trust use the [public-service baseline](security/public-service-security-baseline.md). Keep actual control configuration and evidence in the deployment owner; an initialized document is not live protection. Source-only projects keep their existing path.
+
+## 4. Security and Sensitive Information
+
+Do not commit `.env`/`.env.*`, API/access/secret/app keys, payment keys/certificates/private or SSH keys, user uploads, database files, real production data, local runtime data, or private server configuration.
+
+May commit `.env.example`, redacted templates, secret-free deployment scripts, and redacted technical/test docs.
+
+Identity, permissions, payments, upload, deletion, export, and administrator actions require backend enforcement. Hidden frontend controls are not authorization.
+
+## 5. High-Risk Functions
+
+Inspect server boundaries for login/registration/password reset; admin actions; payments/orders/refunds/balances; upload/download/export/delete; tenant/user isolation; third-party secrets; AI calls and cost accounting; and public static-file access.
+
+If any relies only on hidden UI, client validation, or mock data, stop the candidate and return it to Engineering. Delivery does not patch business code during deployment unless repair is also authorized.
+
+Resource retention, actual distribution contents and truthful disk-space reporting use [Artifacts and Release](version-artifacts-and-release.md); ordinary material recovery uses Workflow’s material owner. Do not duplicate or weaken those cleanup contracts here.

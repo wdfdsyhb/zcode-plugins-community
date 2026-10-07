@@ -1,0 +1,31 @@
+%% title: save-bookmark · machine view · detailed (generated)
+%% group: save-bookmark
+%% caption: mechanical full render of behavior.yaml — debugging/derivation view: edges carry actions, states carry entry/exit/invoke notes. Do not hand-edit; re-run clarity render after YAML changes.
+stateDiagram-v2
+  idle : 空闲
+  editing : 编辑中
+  state editing {
+    viewing : 查看
+    modifying : 修改
+  }
+  syncing : 同步中
+  sync_failed : 同步失败
+  pending_sync : 待同步
+  saved : 已保存
+  [*] --> idle
+  idle --> editing : 保存网页 / record_meta
+  editing --> viewing
+  viewing --> modifying : 编辑信息
+  viewing --> syncing : 确认
+  modifying --> viewing : 确认
+  modifying --> idle : 取消
+  syncing --> pending_sync : 取消 / queue_sync
+  syncing --> saved : onDone(sync_service)
+  syncing --> sync_failed : onError(sync_service) / increment_retry
+  sync_failed --> syncing : 重试 [允许重试]
+  sync_failed --> pending_sync : 取消 / queue_sync
+  pending_sync --> syncing : 网络恢复 [在线]
+  saved --> [*]
+note right of syncing
+  invoke: sync_service
+end note

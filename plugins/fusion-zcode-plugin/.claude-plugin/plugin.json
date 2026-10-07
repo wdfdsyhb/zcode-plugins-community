@@ -1,0 +1,15 @@
+{
+  "name": "fusion",
+  "version": "0.1.0",
+  "description": "Hybrid smart model fusion with auto-shifting between consensus, sequential, specialist, and fallback modes. Use whenever the user wants multiple models to collaborate on a task - automatically selects the optimal strategy based on task analysis.",
+  "author": {
+    "name": "roman-ryzenadvanced",
+    "url": "https://github.com/roman-ryzenadvanced"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "description_i18n": {
+    "en": "Hybrid smart model fusion with auto-shifting between consensus, sequential, specialist, and fallback modes. Use whenever the user wants multiple models to collaborate on a task - automatically selects the optimal strategy based on task analysis.",
+    "zh-CN": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换"
+  }
+}

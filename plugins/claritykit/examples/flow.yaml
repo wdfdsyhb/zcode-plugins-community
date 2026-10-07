@@ -1,0 +1,30 @@
+flow:
+  id: reading-list
+  order: behavior-first
+steps:
+  direction:
+    status: done
+    note: "framed in one interview round; three non-goals accepted"
+    artifacts: [direction/one-pager.md]
+  requirements:
+    status: done
+    artifacts: [requirements/brief.md]
+  behavior:
+    status: done
+    note: "save-bookmark YAML tier; search light tier"
+    artifacts: [behaviors/save-bookmark/behavior.yaml, behaviors/save-bookmark/views.md, behaviors/search/views.md]
+  architecture:
+    status: done
+    note: "local-first SQLite chosen over cloud-API; ADR-001 drafted"
+    artifacts: [architecture/context.mmd, architecture/comparison.md]
+  data:
+    status: done
+    artifacts: [data/contracts.yaml, data/concept-entities.mmd, data/er-storage.mmd]
+  ui:
+    status: done
+    note: "save-bookmark prototype approved after one revision round"
+    artifacts: [prototypes/save-bookmark/index.html]
+  commission:
+    status: done
+    note: "ledger signed; snapshot-fetch risk accepted with a probe"
+    artifacts: [commission.md]

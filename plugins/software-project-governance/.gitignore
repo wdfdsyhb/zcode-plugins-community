@@ -1,0 +1,42 @@
+# Local Claude Code state
+.claude/*
+CLAUDE.md
+
+# Local Codex state
+AGENTS.md
+!project/e2e-test-project/AGENTS.md
+
+# Local governance tracking (runtime data, not product asset)
+.governance/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# E2E test project (independent git repo + plugin copies for testing)
+project/e2e-test-project/.git/
+project/e2e-test-project/agents/
+project/e2e-test-project/skills/
+project/e2e-test-project/commands/*
+!project/e2e-test-project/commands/governance.md
+!project/e2e-test-project/commands/governance-status.md
+!project/e2e-test-project/commands/governance-init.md
+
+# Temporary fix/reconstruct scripts
+_fix_*.py
+
+# closure benchmark raw measurement runs (R-F5: protocol.md + cases/ 入库，
+# runs/ 本地保留原始 trace 不入 git 历史——FEAT-056 随票添加，锁外披露先例)
+benchmarks/closure/runs/

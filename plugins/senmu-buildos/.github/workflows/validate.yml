@@ -1,0 +1,73 @@
+name: Validate Senmu BuildOS
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Validate package and migration
+        run: python3 scripts/validate_package.py
+
+      - name: Validate public source boundary
+        run: python3 scripts/validate_public_surface.py
+
+      - name: Validate release metadata
+        run: python3 scripts/bump_version.py --check
+
+      - name: Validate GitHub product surface
+        run: python3 scripts/manage_github_product_surface.py
+
+      - name: Run Python tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Run Hook tests
+        run: node --test tests/hooks/*.test.js
+
+      - name: Verify quality-wiring examples with real tools
+        working-directory: .
+        run: |
+          set -euo pipefail
+          example="$PWD/skills/senmu-build-engineering/assets/code-quality/examples"
+          python3 -m venv "$RUNNER_TEMP/buildos-python-tools"
+          "$RUNNER_TEMP/buildos-python-tools/bin/python" -m pip install --disable-pip-version-check -r "$example/python/requirements-dev.txt"
+          mkdir -p "$RUNNER_TEMP/buildos-node-tools"
+          cp "$example/typescript/package.json" "$RUNNER_TEMP/buildos-node-tools/"
+          npm install --prefix "$RUNNER_TEMP/buildos-node-tools" --ignore-scripts --no-audit --no-fund
+          export PATH="$RUNNER_TEMP/buildos-python-tools/bin:$RUNNER_TEMP/buildos-node-tools/node_modules/.bin:$PATH"
+          python tests/recipes/check_quality_wiring.py
+
+      - name: Verify executable contract pipelines
+        working-directory: .
+        run: |
+          set -euo pipefail
+          example="$PWD/skills/senmu-build-engineering/assets/contract-examples"
+          python3 -m venv "$RUNNER_TEMP/buildos-contract-python"
+          "$RUNNER_TEMP/buildos-contract-python/bin/python" -m pip install --disable-pip-version-check -r "$example/requirements-dev.lock"
+          mkdir -p "$RUNNER_TEMP/buildos-contract-node"
+          cp "$example/package.json" "$example/package-lock.json" "$RUNNER_TEMP/buildos-contract-node/"
+          npm ci --prefix "$RUNNER_TEMP/buildos-contract-node" --ignore-scripts --no-audit --no-fund
+          export PATH="$RUNNER_TEMP/buildos-contract-node/node_modules/.bin:$PATH"
+          "$RUNNER_TEMP/buildos-contract-python/bin/python" tests/recipes/check_contract_pipelines.py

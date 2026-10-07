@@ -1,0 +1,71 @@
+# Interface Copy and Content Design
+
+This standard owns durable cross-page buttons, labels, states, errors, guidance, empty states, and AI-generated interface content. It does not replace a project's design system, glossary, or brand voice, or turn one translation or routine copy edit into product governance.
+
+## 1. Precedence
+
+Apply: approved product behavior and business facts > project terminology, brand voice, and design system > target-platform convention > these defaults. Platform capitalization, button order, and familiar labels may vary, but never weaken truthfulness, action outcome, risk, or recovery.
+
+When no content owner exists, store durable terminology, object names, and voice in the existing product specification or design system. Do not create a BuildOS copy ledger that must stay synchronized. Keep campaign copy, marketing titles, and project-specific business terms in the project.
+
+## 2. Shared Principles
+
+- **Name the user's task.** Use familiar objects, actions, and outcomes.
+- **Lead with the material result.** State what happened, what it affects, and the next action; defer cause, limits, and technical detail.
+- **Use one name per concept.** Keep entry actions, titles, object names, states, and feedback consistent.
+
+- If terminology ambiguity changes behavior or acceptance, resolve it under [Requirements and Product Iteration](product-requirements-and-iteration.md#3-from-requirement-to-version-prd); interface copy consumes that decision and does not create a competing glossary.
+- **Be concise but complete.** Remove pleasantries, repetition, and decoration, not scope, consequence, recovery, or relevant limits.
+- **Match tone to fact.** State ordinary results without unrelated celebration, emotion, or unsupported promises. Clarity and truth precede brand voice.
+- **Do not rely on visuals alone.** Essential actions/states need text or an accessible name, not color, position, or icon alone.
+
+For substantive rewriting or proofreading, use [Writing](../../senmu-build-engineering/references/technical-documentation-writing.md) only when needed for editing scope, fact preservation or protected literals. Product retains content and behavior authority; a local meaning-preserving correction does not activate product governance.
+
+## 3. Actions and Buttons
+
+Prefer a verb or verb plus object that identifies the result, such as “Save settings,” “Submit for review,” or “Delete project.” Avoid “Click here” and explanatory sentences used as actions.
+
+Use generic navigation labels only when flow and consequences are clear:
+
+| Role | Boundary |
+| --- | --- |
+| Next | enters a defined next step; does not complete the business action |
+| Continue | resumes or advances a flow whose destination is clear |
+| Done | the last step is complete; no later submit/confirm remains |
+| Back | returns without implying save, cancel, or submit |
+| Cancel | exits an unapplied action; draft retention follows product facts |
+| OK | confirms known information only; use the business action when one exists |
+| Got it | acknowledges reading only; never saves, deletes, submits, or releases |
+
+For dangerous or irreversible actions, name the actual action and object and state the primary consequence. Put required warnings before the risky action, not after it as a result-first explanation. Never use “OK” as the sole primary label. Buttons, labels, headings, menus, and short column headers normally omit terminal punctuation.
+
+## 4. Status, Errors, and Feedback
+
+- **Success:** avoid redundant notifications when the result is already visible; otherwise name the completed action and affected object.
+- **In progress:** describe the user's task and product-visible state. Approved product concepts such as a selected model or visible queue may be named when useful; do not expose unrelated implementation stages or invent progress percentages. State off-page continuation, cancellation and expected delay only when true.
+- **Error:** state the action that could not complete, give an actionable known cause, then recovery. “Operation failed,” “invalid parameter,” or an internal code alone is incomplete.
+- **Empty:** explain why content is absent and offer a primary action only when a reasonable one exists; do not fill space with feature marketing.
+- **Confirmation:** interrupt only for material consequences, likely mistakes, or difficult recovery. Name object, consequence, and continuation; avoid confirmation for ordinary reversible actions.
+
+Primary messages use the product's approved terminology, including technical objects the user actually operates. Exclude secrets, raw internal prompts, stack traces and irrelevant implementation details. Put necessary diagnostics in a redacted, expandable, copyable area; do not hide an approved model, queue, API field or public price solely because it is technical or commercial.
+
+Distinguish transport success, business acceptance, job state and the displayed message. `Accepted` is not necessarily completed; `Pending` is not necessarily processing. Choose language from the approved state model, not a fixed word mapping. Timeout alone does not prove failure or absence of side effects. Preserve codes/enums and use only the supported recovery path; “暂不支持” must not invent a roadmap promise.
+
+## 5. Generated Interface Content
+
+Generated copy remains subject to product facts and this standard. Reject observable output that:
+
+- narrates the model's work or adds conversational pleasantries;
+- exposes paraphrased requirements, acceptance notes, or internal discussion;
+- states planned, unknown, or unconfirmed outcomes as completed, guaranteed, or always available;
+- replaces a clearly nameable action or error with a long explanation.
+
+Before delivery, check object names, action outcomes, state truth, error recovery, and separation of internal information across the interface.
+
+## 6. Language and Platform Profiles
+
+For Chinese, read [Chinese Interface Copy](chinese-interface-copy.md); for English, read [English Interface Copy](english-interface-copy.md). Read each target profile separately for multilingual products. Localize intent and result rather than word order, capitalization, length, or fragments.
+
+Follow established mobile, web, and enterprise conventions unless they obscure action, consequence, or recovery. Component defaults are usable defaults, not automatic product standards.
+
+For an established product, inventory inconsistencies in objects, actions, states, errors, and guidance from the real interface and project owners, then update the single terminology/product owner. Do not add a permanent approval workflow or second checklist for the exercise.
