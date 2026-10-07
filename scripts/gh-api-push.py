@@ -17,15 +17,15 @@ def gh(*args, stdin=None, timeout=60, retries=3):
         if r.returncode == 0:
             return json.loads(r.stdout.decode("utf-8", "replace")) if r.stdout.strip() else {}
         last = r.stderr.decode("utf-8", "replace")[:300]
-        if "404" in last or "abuse" in last.lower() or "502" in last or "503" in last:
+        if any(x in last for x in ("404", "abuse", "502", "503", "500")):
             import time; time.sleep(2 + attempt * 3)
             continue
         break
     sys.stderr.write(f"FAIL on {' '.join(args[:2])} (input {len(stdin) if stdin else 0}B)\n")
     raise RuntimeError(last)
 
-# 1. 变更文件清单(name-status 相对远端基线)
-diff = subprocess.run(["git", "diff", "--name-status", f"{BASE}..HEAD"],
+# 1. 变更文件清单(name-status 相对远端基线;quotepath=false 保证中文路径原样输出)
+diff = subprocess.run(["git", "-c", "core.quotepath=false", "diff", "--name-status", f"{BASE}..HEAD"],
                       capture_output=True, check=True).stdout.decode("utf-8", "replace")
 changes = []
 for line in diff.splitlines():
@@ -41,7 +41,7 @@ def upload(item):
     path, status = item
     if status is None:
         return {"path": path, "mode": "100644", "type": "blob", "sha": None}
-    raw = subprocess.run(["git", "show", f"HEAD:{path}"], capture_output=True, check=True).stdout
+    raw = subprocess.run(["git", "-c", "core.quotepath=false", "show", f"HEAD:{path}"], capture_output=True, check=True).stdout
     b = gh(f"repos/{REPO}/git/blobs", stdin=json.dumps(
         {"content": base64.b64encode(raw).decode(), "encoding": "base64"}))
     return {"path": path, "mode": "100644", "type": "blob", "sha": b["sha"]}
