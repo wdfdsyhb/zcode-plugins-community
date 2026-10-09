@@ -1258,6 +1258,87 @@
       },
       "category": "productivity",
       "keywords": []
+    },
+    {
+      "name": "blender-design",
+      "source": "./plugins/blender-design-plugin",
+      "displayName": "Blender 场景设计/评审/导出:受控操作与审批流",
+      "displayName_i18n": {
+        "en": "blender-design",
+        "zh-CN": "Blender 场景设计/评审/导出:受控操作与审批流"
+      },
+      "description": "Design, review, and export Blender scenes through controlled operations, visual milestones, and recovery checkpoints.",
+      "description_i18n": {
+        "en": "Design, review, and export Blender scenes through controlled operations, visual milestones, and recovery checkpoints.",
+        "zh-CN": "Blender 场景设计/评审/导出:受控操作与审批流"
+      },
+      "version": "0.15.0",
+      "author": {
+        "name": "full-aigc-plugins",
+        "url": "https://github.com/full-aigc-plugins"
+      },
+      "category": "creative",
+      "keywords": [
+        "blender",
+        "3d-design",
+        "modeling",
+        "animation",
+        "export"
+      ]
+    },
+    {
+      "name": "dreamina-design",
+      "source": "./plugins/dreamina-design-plugin",
+      "displayName": "即梦(Dreamina)图片与视频创作:带审批的创建和编辑",
+      "displayName_i18n": {
+        "en": "dreamina-design",
+        "zh-CN": "即梦(Dreamina)图片与视频创作:带审批的创建和编辑"
+      },
+      "description": "Create and edit Dreamina images and videos with approval-aware, resumable operations and verified downloads.",
+      "description_i18n": {
+        "en": "Create and edit Dreamina images and videos with approval-aware, resumable operations and verified downloads.",
+        "zh-CN": "即梦(Dreamina)图片与视频创作:带审批的创建和编辑"
+      },
+      "version": "0.7.0",
+      "author": {
+        "name": "full-aigc-plugins",
+        "url": "https://github.com/full-aigc-plugins"
+      },
+      "category": "creative",
+      "keywords": [
+        "dreamina",
+        "jimeng",
+        "seedance",
+        "text2image",
+        "text2video"
+      ]
+    },
+    {
+      "name": "zcode-fox-widget",
+      "source": "./plugins/zcode-fox-widget",
+      "displayName": "ZCode 狐娘桌面挂件:DeepSeek 峰谷计价 · GLM Plan · 余额显示",
+      "displayName_i18n": {
+        "en": "zcode-fox-widget",
+        "zh-CN": "ZCode 狐娘桌面挂件:DeepSeek 峰谷计价 · GLM Plan · 余额显示"
+      },
+      "description": "ZCode狐娘小挂件（zcode-fox-widget）：多厂商计价（DeepSeek 峰谷 + GLM 平价分档；34 个厂商模板，含 Kimi/MiniMax/OpenCode Go 订阅窗口与 26 家无余额接口厂商）、GLM Plan 套餐配额（零密钥日志尾随）、CommandCode 三重额度（月度池 + 5 小时/周窗口）、每轮消耗（金额或配额百分比）、记账二级页（用量记录 / 额度预警 / 余额预警 / 余额校正）、按压泡泡（点击队列 + 模板导入导出）、五套内置角色（专属台词池与浅色配色跟随）、角色导入与改名/删除、三套主题（浅色 / 深色 / 跟随 ZCode）、桌宠模式（全屏工作区漫游 + 失焦不隐身）、计费源智能切换。移植自 MeteorNOX 的 DSH 版。",
+      "description_i18n": {
+        "en": "ZCode狐娘小挂件（zcode-fox-widget）：多厂商计价（DeepSeek 峰谷 + GLM 平价分档；34 个厂商模板，含 Kimi/MiniMax/OpenCode Go 订阅窗口与 26 家无余额接口厂商）、GLM Plan 套餐配额（零密钥日志尾随）、CommandCode 三重额度（月度池 + 5 小时/周窗口）、每轮消耗（金额或配额百分比）、记账二级页（用量记录 / 额度预警 / 余额预警 / 余额校正）、按压泡泡（点击队列 + 模板导入导出）、五套内置角色（专属台词池与浅色配色跟随）、角色导入与改名/删除、三套主题（浅色 / 深色 / 跟随 ZCode）、桌宠模式（全屏工作区漫游 + 失焦不隐身）、计费源智能切换。移植自 MeteorNOX 的 DSH 版。",
+        "zh-CN": "ZCode 狐娘桌面挂件:DeepSeek 峰谷计价 · GLM Plan · 余额显示"
+      },
+      "version": "1.9.0",
+      "author": {
+        "name": "pigeon189",
+        "url": "https://github.com/pigeon189"
+      },
+      "category": "productivity",
+      "keywords": [
+        "deepseek",
+        "balance",
+        "widget",
+        "whale",
+        "usage"
+      ]
     }
   ]
 }
