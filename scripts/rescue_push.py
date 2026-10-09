@@ -42,11 +42,10 @@ for path, status in changes:
                  "sha": h.stdout.decode().strip()})
 
 def ensure_blob(entry):
-    r = subprocess.run(["gh", "api", f"repos/{REPO}/git/blobs/{entry['sha']}", "-X", "HEAD"],
-                       capture_output=True)
-    if r.returncode == 0:
-        return 0
-    raw = open(entry["path"], "rb").read()
+    """无条件上传(幂等)。内容必须取 git cat-file blob(即 sha 对应的规范化字节),
+    不能用工作区原始字节——Windows 上 CRLF/autocrlf 会让两者 sha 不一致,导致 tree 422。"""
+    raw = subprocess.run(["git", "cat-file", "blob", entry["sha"]],
+                         capture_output=True, check=True).stdout
     payload = json.dumps({"content": base64.b64encode(raw).decode(), "encoding": "base64"})
     for a in range(4):
         r2 = subprocess.run(["gh", "api", f"repos/{REPO}/git/blobs", "--input", "-"],
@@ -61,7 +60,7 @@ uploaded = 0
 with cf.ThreadPoolExecutor(4) as ex:
     for n in ex.map(ensure_blob, adds):
         uploaded += n
-print(f"blobs verified: {len(adds)}, uploaded: {uploaded}")
+print(f"blobs uploaded: {uploaded}")
 
 # 3. 分批建树(每批基于上一批的 tree,避免大 payload 502)
 base_commit = gh("", f"repos/{REPO}/git/commits/{BASE}", method="GET")

@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""SessionStart hook: plugin self-integrity check (advisory).
+
+Contract, identical to the sibling check_*_intent / check_closeout hooks:
+only verifies files shipped with this package (and the interpreter version
+the hook itself needs); external apps, third-party CLIs and credentials are
+first-use setup owned by the skills. Everything intact -> print nothing,
+exit 0. Something missing -> one warning line, still exit 0. Any stdin
+(including malformed) is tolerated and never blocks a session.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+ROOT = next((c for c in Path(__file__).resolve().parents if (c / "plugin.json").is_file()), Path(__file__).resolve().parents[1])
+
+
+def main() -> int:
+    problems: list[str] = []
+    if not (ROOT / "scripts" / "dreamina_mcp_server.py").is_file():
+        problems.append("MCP server 脚本缺失（包不完整）")
+    if not (ROOT / "scripts" / "vendor").is_dir():
+        problems.append("scripts/vendor 缺失（包不完整）")
+    if problems:
+        print("即梦设计环境告警：" + "；".join(problems))
+    # Drain the hook payload so the host never sees a broken pipe.
+    try:
+        sys.stdin.read()
+    except (OSError, ValueError, UnicodeDecodeError):
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        json.load(sys.stdin)
+    except (ValueError, OSError):
+        pass
+    sys.exit(main())

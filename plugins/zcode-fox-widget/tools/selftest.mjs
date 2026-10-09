@@ -1,0 +1,2950 @@
+// 自检：在不触碰用户真实数据的前提下，端到端验证「每轮对话消耗」链路。
+//
+// 做法是把 ZCODE_HOME 指向一个临时目录，在里面伪造一个最小化的 ZCode 会话库
+// （turn_usage / model_usage 两张表），再拉起一个挂件服务实例，然后插入一条新的
+// 已完成轮次，观察 /whale/last-turn.json 的 seq 是否从 0 递增到 1 且金额与定价
+// 换算一致。顺带验证 health 接口与令牌关闭。
+//
+//   node tools/selftest.mjs
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
+import http from 'node:http'
+import os from 'node:os'
+import path from 'node:path'
+import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import { DatabaseSync } from 'node:sqlite'
+import { costOfUsage, priceFor, isPeakTime, resolveVendor, resolvePricing, normalizeModelId } from '../lib/pricing.mjs'
+import { shapePlanPayload, turnPlanUsage, extraAmountsOfTurn, quotaBucketForModel, readPlanBalance } from '../lib/plan-balance.mjs'
+import { getPath, TEMPLATES, fetchFromTemplate, pickVendorBalance } from '../lib/vendors.mjs'
+import { isBlockedHost } from '../lib/blocked-host.mjs'
+import { matchTemplateId, buildProviderEntries, invalidateDiscoverCache } from '../lib/discover.mjs'
+import { computeTodayUsage, resolveTodayUsage, pickBalanceInfo, platformUsageUrl } from '../lib/balance.mjs'
+import { mapZcodeTheme, themeOfConfig, resolveZcodeTheme } from '../lib/zcode-theme.mjs'
+import { safeMirrorUrl } from '../lib/overlay.mjs'
+import { findApiKey, readPluginConfig } from '../lib/credentials.mjs'
+import { resolveBillingSource, isNightOffpeak } from '../lib/source.mjs'
+
+const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+// 浮层的 desktop/*.cjs 是 CommonJS（Electron 主进程），从 ESM 自检里 require 进来测
+const requireCjs = createRequire(import.meta.url)
+const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-selftest-'))
+const dbDir = path.join(tmpHome, 'cli', 'db')
+const dataDir = path.join(tmpHome, 'whale')
+fs.mkdirSync(dbDir, { recursive: true })
+fs.mkdirSync(dataDir, { recursive: true })
+
+// Plan 配额日志的 fixture：写进 tmpHome/.zcode/v2/logs/<今天>.log，
+// 服务进程以 ZCODE_DATA_BASE_DIR=tmpHome 启动，plan-balance 会优先读这里。
+// 形状对齐真实日志：顶层 balances 是摘要（无 capabilities），模型映射在
+// plans[].entitlements[].capabilities 里；另放一条带内联 capabilities 的桶测兜底路径。
+const PLAN_FIXTURE = {
+  balanceCount: 3,
+  balances: [
+    {
+      entitlement_id: 'ent-flash',
+      show_name: 'GLM-5.3-Flash',
+      total_units: 100_000_000,
+      used_units: 10_000_000,
+      remaining_units: 90_000_000,
+      available_units: 90_000_000,
+      reserved_units: null,
+    },
+    {
+      entitlement_id: 'ent-5p3',
+      show_name: 'GLM-5.3',
+      total_units: 3_000_000,
+      used_units: 0,
+      remaining_units: 3_000_000,
+      available_units: 3_000_000,
+      reserved_units: null,
+    },
+    {
+      // 测试「balances 内联 capabilities」的兜底路径（部分版本可能带）
+      entitlement_id: 'ent-extra',
+      show_name: 'GLM-4.7-Flash',
+      total_units: 1_000_000,
+      used_units: 1_000_000,
+      remaining_units: 0,
+      available_units: 0,
+      reserved_units: null,
+      capabilities: ['model:glm-4.7-flash'],
+    },
+  ],
+  code: 0,
+  msg: '',
+  payload: {
+    code: 0,
+    msg: '',
+    data: {
+      server_time: Math.floor(Date.now() / 1000),
+      plans: [
+        {
+          plan_id: 'plan-fixture',
+          name: 'ZCode Start',
+          status: 'active',
+          starts_at: Math.floor(Date.now() / 1000) - 86400,
+          ends_at: Math.floor(Date.now() / 1000) + 86400,
+          entitlements: [
+            {
+              entitlement_id: 'ent-flash',
+              show_name: 'GLM-5.3-Flash',
+              meter: 'model_usage',
+              unit_type: 'token',
+              capabilities: ['model:glm-5.3-flash'],
+              grant_units: 100_000_000,
+              period: 'one_time',
+            },
+            {
+              entitlement_id: 'ent-5p3',
+              show_name: 'GLM-5.3',
+              meter: 'model_usage',
+              unit_type: 'token',
+              capabilities: ['model:glm-5.3'],
+              grant_units: 3_000_000,
+              period: 'one_time',
+            },
+          ],
+        },
+      ],
+      balances: [],
+    },
+  },
+}
+const planLogDir = path.join(tmpHome, '.zcode', 'v2', 'logs')
+fs.mkdirSync(planLogDir, { recursive: true })
+const planLogLine =
+  '[2026-09-29 08:42:27.092] [info] [pid:1] [main] [host-log] (local-1) [host] [2026-09-29 08:42:27.091] [pid:2] [usage-stats] billing/balance 请求完成 ' +
+  JSON.stringify(PLAN_FIXTURE) +
+  '\n'
+// v1.4.2 尾窗逐级扩读：标记行前垫 1.2MB 刷屏行、后垫 200KB，把标记整个
+// 挤出旧版 512KB 尾窗——读不到今天的观测就会回退到昨天的死套餐残值
+// （实测：2.4% 错值挂了一分钟）。服务必须逐级扩窗才能找到这条标记。
+const planJunkHead = Buffer.alloc(1200 * 1024, 0x78)
+const planJunkTail = Buffer.alloc(200 * 1024, 0x78)
+// v1.7.8 套餐切换间隙的空桶快照：真实日志里新套餐窗口开始前会有 balances=[]
+// 的过渡观测（实测 2026-10-02 末尾连续 4 条）。把它垫在好观测**之后**，
+// plan.json 端到端断言即验证「按行从新到旧跳过空桶、取最近的有效观测」
+const planEmptyLine =
+  '[2026-09-29 08:42:28.001] [info] [pid:1] [main] [host-log] (local-1) [host] [2026-09-29 08:42:28.001] [pid:2] [usage-stats] billing/balance 请求完成 ' +
+  JSON.stringify({
+    balances: [],
+    payload: { code: 0, data: { server_time: Math.floor(Date.now() / 1000), plans: PLAN_FIXTURE.payload.data.plans, balances: [] } },
+  }) +
+  '\n'
+fs.writeFileSync(
+  path.join(planLogDir, todayKeyForLog() + '.log'),
+  Buffer.concat([planJunkHead, Buffer.from('\n' + planLogLine), planJunkTail, Buffer.from('\n' + planEmptyLine)])
+)
+
+// 厂商自动发现 fixture：一个 bigmodel 规则（应命中 bigmodel-glm），一个本地网关
+// 规则（baseURL 是环回地址，key 是网关鉴权用，必须被跳过，即使模型名含 deepseek），
+// 一个 enc:v1: 加密凭据规则（无法解密必须跳过，不能当明文 key 用）。
+// 注意：fixture 不放**明文** deepseek key——vendors.json 的 deepseek 模板拿到 key
+// 会真的出网查余额；findApiKey 的发现路径改在纯函数段用注入路径覆盖。
+fs.writeFileSync(
+  path.join(tmpHome, '.zcode', 'v2', 'provider_config.json'),
+  JSON.stringify({
+    config: {
+      providerConfigRules: {
+        providerRules: [
+          {
+            providerId: 'bigmodel-standard-api',
+            templateId: 'bigmodel-standard-api',
+            providerName: 'BigModel API',
+            config: {
+              access: { type: 'api-key', apiKey: 'selftest-fake-bigmodel-key' },
+              api: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+              modelOrder: ['GLM-5.3', 'GLM-5.3-Flash'],
+            },
+          },
+          {
+            providerId: 'cmdgo-bridge',
+            providerName: 'CommandCode Go (cmdgo-bridge)',
+            config: {
+              access: { type: 'api-key', apiKey: 'selftest-fake-bridge-key' },
+              api: { baseUrl: 'http://127.0.0.1:11435/v1' },
+              modelOrder: ['deepseek/deepseek-v4-flash'],
+            },
+          },
+          {
+            providerId: 'deepseek-encrypted',
+            templateId: 'deepseek',
+            providerName: 'DeepSeek Encrypted',
+            config: {
+              access: { type: 'api-key', apiKey: 'enc:v1:selftest-ciphertext-not-a-key' },
+              api: { baseUrl: 'https://api.deepseek.com/anthropic' },
+              modelOrder: ['deepseek-flash'],
+            },
+          },
+        ],
+      },
+    },
+  }),
+  'utf8'
+)
+
+// 内置模板 fixture：规则没写 api.baseUrl 时有效 baseURL 要从这里继承
+fs.mkdirSync(path.join(tmpHome, '.zcode', 'v2', 'runtime', 'provider', 'test', '1.0.0', 'ep1'), { recursive: true })
+fs.writeFileSync(
+  path.join(tmpHome, '.zcode', 'v2', 'runtime', 'provider', 'test', '1.0.0', 'ep1', 'zcode-builtin.json'),
+  JSON.stringify({
+    schemaVersion: 1,
+    revision: 1,
+    config: {
+      providerConfigRules: {
+        templateRules: [
+          {
+            templateId: 'deepseek',
+            config: {
+              access: { type: 'api-key' },
+              api: { type: 'anthropic-messages', baseUrl: 'https://api.deepseek.com/anthropic' },
+            },
+          },
+        ],
+      },
+    },
+  }),
+  'utf8'
+)
+
+function todayKeyForLog(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0')
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+}
+
+const PORT = 39100 + Math.floor(Math.random() * 500)
+fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({ port: PORT }), 'utf8')
+
+// ZCode 自己的用户配置（<ZCODE_HOME>/cli/config.json）：挂件「跟随 ZCode 主题」
+// 读它的 ui.theme。这里放 zai-dark，验证 zai-* 皮肤 → 挂件浅/深的映射。
+fs.mkdirSync(path.join(tmpHome, 'cli'), { recursive: true })
+fs.writeFileSync(
+  path.join(tmpHome, 'cli', 'config.json'),
+  JSON.stringify({ ui: { locale: 'zh-CN', theme: 'zai-dark' } }, null, 2),
+  'utf8'
+)
+
+const dbFile = path.join(dbDir, 'db.sqlite')
+const db = new DatabaseSync(dbFile)
+db.exec(`
+  CREATE TABLE turn_usage (
+    session_id text not null,
+    turn_id text not null,
+    status text not null check(status in ('running','completed','error','cancelled')),
+    started_at integer not null,
+    completed_at integer,
+    input_tokens integer not null default 0,
+    output_tokens integer not null default 0,
+    reasoning_tokens integer not null default 0,
+    cache_creation_input_tokens integer not null default 0,
+    cache_read_input_tokens integer not null default 0,
+    computed_total_tokens integer not null default 0,
+    primary key(session_id, turn_id)
+  );
+  CREATE TABLE model_usage (
+    id text primary key,
+    session_id text not null,
+    turn_id text,
+    model_id text not null,
+    provider_id text not null default '',
+    status text not null default 'completed',
+    attempt_index integer not null default 0,
+    started_at integer not null,
+    input_tokens integer not null default 0,
+    output_tokens integer not null default 0,
+    reasoning_tokens integer not null default 0,
+    cache_creation_input_tokens integer not null default 0,
+    cache_read_input_tokens integer not null default 0,
+    computed_total_tokens integer not null default 0
+  );
+  CREATE TABLE session_entry (
+    type text not null,
+    data text not null,
+    time_updated integer not null
+  );
+`)
+
+const MODEL = 'deepseek-flash'
+const USAGE_B = {
+  input_tokens: 1_000_000,
+  output_tokens: 100_000,
+  reasoning_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
+}
+
+let muSeq = 0
+// modelRows: [{ model, providerId, usage }]；缺省为单行 DeepSeek，与旧版单模型轮次一致
+function insertTurn(sessionId, turnId, usage, atMs, modelRows) {
+  db.prepare(
+    `INSERT INTO turn_usage (session_id, turn_id, status, started_at, completed_at,
+      input_tokens, output_tokens, reasoning_tokens, cache_creation_input_tokens, cache_read_input_tokens, computed_total_tokens)
+     VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    sessionId,
+    turnId,
+    atMs - 1000,
+    atMs,
+    usage.input_tokens || 0,
+    usage.output_tokens || 0,
+    usage.reasoning_tokens || 0,
+    usage.cache_creation_input_tokens || 0,
+    usage.cache_read_input_tokens || 0,
+    usage.computed_total_tokens ||
+      (usage.input_tokens || 0) + (usage.output_tokens || 0) + (usage.reasoning_tokens || 0)
+  )
+  const rows = modelRows || [{ model: MODEL, providerId: 'deepseek-test', usage }]
+  for (const r of rows) {
+    muSeq += 1
+    db.prepare(
+      `INSERT INTO model_usage (id, session_id, turn_id, model_id, provider_id, status, attempt_index, started_at,
+        input_tokens, output_tokens, reasoning_tokens, cache_creation_input_tokens, cache_read_input_tokens, computed_total_tokens)
+       VALUES (?, ?, ?, ?, ?, 'completed', 0, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      'mu-' + turnId + '-' + muSeq,
+      sessionId,
+      turnId,
+      r.model,
+      r.providerId || '',
+      atMs - 1000,
+      r.usage.input_tokens || 0,
+      r.usage.output_tokens || 0,
+      r.usage.reasoning_tokens || 0,
+      r.usage.cache_creation_input_tokens || 0,
+      r.usage.cache_read_input_tokens || 0,
+      r.usage.computed_total_tokens ||
+        (r.usage.input_tokens || 0) + (r.usage.output_tokens || 0) + (r.usage.reasoning_tokens || 0)
+    )
+  }
+}
+
+// 轮次 A：服务启动时应当只做对齐，不当作"新的一轮"
+const atA = Date.now() - 60_000
+insertTurn('sess_selftest', 'turn_A', { ...USAGE_B, input_tokens: 1, output_tokens: 1 }, atA)
+
+const results = []
+function check(name, ok, detail) {
+  results.push({ name, ok, detail })
+  console.log((ok ? '  ✅ ' : '  ❌ ') + name + (detail ? '  — ' + detail : ''))
+}
+
+// 纯函数校验：计价口径。ZCode 记录的 input 是「总输入」（已含缓存命中），
+// 若整份按未命中价计费，缓存那 99% 会被重复计价——历史上就是这样虚高了 25 倍。
+{
+  const p = priceFor('deepseek-flash')
+  const at = Date.now()
+  const peak = isPeakTime(Math.floor(at / 1000))
+  const idx = peak ? 1 : 0
+  const usage = {
+    input_tokens: 1_000_000,
+    cache_read_input_tokens: 999_000,
+    cache_creation_input_tokens: 0,
+    output_tokens: 10_000,
+    reasoning_tokens: 0,
+    computed_total_tokens: 1_010_000, // input + output，即 input 含缓存
+  }
+  const got = costOfUsage('deepseek-flash', usage, at)
+  const expect =
+    (999_000 / 1e6) * p.hit[idx] + (1_000 / 1e6) * p.miss[idx] + (10_000 / 1e6) * p.out[idx]
+  const wrongIfDoubleCounted =
+    (999_000 / 1e6) * p.hit[idx] + (1_000_000 / 1e6) * p.miss[idx] + (10_000 / 1e6) * p.out[idx]
+  check(
+    '缓存命中不被按未命中价重复计费',
+    Math.abs(got.amount - expect) < 1e-9,
+    '期望 ¥' + expect.toFixed(6) + '，实际 ¥' + got.amount.toFixed(6) +
+      '（重复计费会得到 ¥' + wrongIfDoubleCounted.toFixed(6) + '）'
+  )
+  check('拆分明细正确', got.breakdown.hit === 999_000 && got.breakdown.miss === 1_000, JSON.stringify(got.breakdown))
+  // Anthropic 口径（input 不含缓存）也要能识别
+  const anthropicStyle = {
+    input_tokens: 1_000,
+    cache_read_input_tokens: 999_000,
+    cache_creation_input_tokens: 0,
+    output_tokens: 10_000,
+    total_tokens: 1_010_000, // = input + cacheRead + output
+  }
+  const a = costOfUsage('deepseek-flash', anthropicStyle, at)
+  check(
+    'Anthropic 口径（input 不含缓存）也能正确拆分',
+    Math.abs(a.amount - expect) < 1e-9,
+    '¥' + a.amount.toFixed(6)
+  )
+}
+
+// 多厂商计价：GLM 平价/分档、供应商识别、不可计价兜底
+{
+  const at = Date.now()
+  // GLM-5.3-Flash：0.8（未命中）/0.23（命中）/2.8（输出），input 含缓存口径
+  const glmUsage = {
+    input_tokens: 1_000_000,
+    cache_read_input_tokens: 900_000,
+    cache_creation_input_tokens: 0,
+    output_tokens: 100_000,
+    reasoning_tokens: 0,
+    computed_total_tokens: 1_100_000,
+  }
+  const g = costOfUsage('GLM-5.3-Flash', glmUsage, at, 'account:zai-start-plan')
+  const glmExpect = 0.9 * 0.23 + 0.1 * 0.8 + 0.1 * 2.8
+  check(
+    'GLM-5.3-Flash 按平价计价（input 含缓存拆分）',
+    g.vendor === 'glm' && g.billable && Math.abs(g.amount - glmExpect) < 1e-9,
+    '期望 ¥' + glmExpect.toFixed(6) + '，实际 ¥' + g.amount.toFixed(6)
+  )
+  check('GLM 平价不受峰谷时段影响', g.peak === false, 'peak=' + g.peak)
+
+  // 分档：GLM-5.1 按 32K 输入分档
+  const lo = resolvePricing({ model: 'glm-5.1', inTokens: 31 * 1024 })
+  const hi = resolvePricing({ model: 'glm-5.1', inTokens: 33 * 1024 })
+  check('GLM-5.1 输入 <32K/≥32K 分档正确', lo.miss[0] === 6 && hi.miss[0] === 8, 'miss ' + lo.miss[0] + ' vs ' + hi.miss[0])
+  // 分档：GLM-4.7 按输出 0.2K 再分两档
+  const outLo = resolvePricing({ model: 'glm-4.7', inTokens: 10 * 1024, outTokens: 100 })
+  const outHi = resolvePricing({ model: 'glm-4.7', inTokens: 10 * 1024, outTokens: 1000 })
+  check('GLM-4.7 输出 <0.2K/≥0.2K 分档正确', outLo.out[0] === 8 && outHi.out[0] === 14, 'out ' + outLo.out[0] + ' vs ' + outHi.out[0])
+  // 免费模型
+  const free = costOfUsage('GLM-4.7-Flash', glmUsage, at, 'account:zai-start-plan')
+  check('GLM-4.7-Flash 免费但计 tokens', free.amount === 0 && free.tokens > 0 && free.billable === false, 'amount=' + free.amount + ' tokens=' + free.tokens)
+
+  // 供应商识别：网关 provider_id 不干扰，模型名优先；未知供应商不虚报金额
+  check('网关里的 DeepSeek 模型按 DeepSeek 计价', resolveVendor('cmdgo-bridge', 'deepseek/deepseek-v4-flash') === 'deepseek')
+  check('start-plan 账户的 GLM 模型识别为 GLM', resolveVendor('account:zai-start-plan', 'GLM-5.3') === 'glm')
+  // MiMo 已入价目表：mimo-v2.6-pro 平价 3/6（缓存命中 0.025）——glmUsage 口径
+  // = 90 万命中 + 10 万未命中 + 10 万输出 → 0.9×0.025 + 0.1×3 + 0.1×6
+  const mimo = costOfUsage('mimo-v2.6-pro', glmUsage, at, 'xiaomi-mimo')
+  const mimoExpect = 0.9 * 0.025 + 0.1 * 3 + 0.1 * 6
+  check(
+    'MiMo 按官网平价计价并带币种',
+    resolveVendor('xiaomi-mimo', 'mimo-v2.6-pro') === 'mimo' && mimo.billable && mimo.currency === 'CNY' && Math.abs(mimo.amount - mimoExpect) < 1e-9,
+    '期望 ¥' + mimoExpect.toFixed(6) + '，实际 ' + mimo.amount.toFixed(6)
+  )
+  // 网关私有 GLM 变体没有价目 → 不虚报
+  const unknownGlm = costOfUsage('zai-org/GLM-5.2-Fast', glmUsage, at, 'cmdgo-bridge')
+  check('未维护价目的 GLM 变体不虚报金额', unknownGlm.vendor === 'glm' && unknownGlm.billable === false && unknownGlm.amount === 0 && unknownGlm.tokens > 0)
+}
+
+// 六家厂商价目与特殊计价规则（GPT 长上下文档 / Qwen 输入档 / MiniMax 512K 档 /
+// Kimi 缓存写 TTL 档 / Claude 缓存写 1.25x / 未知模型不套 DeepSeek 价）
+{
+  const at = Date.now()
+  // OpenAI：272K 输入整单取档（>272K 输入×2 / 输出×1.5）
+  const gptLo = resolvePricing({ model: 'gpt-5.6-terra', inTokens: 200000 })
+  const gptHi = resolvePricing({ model: 'gpt-5.6-terra', inTokens: 300000 })
+  check(
+    'GPT-5.6 按 272K 输入整单分档（输入×2 / 输出×1.5）',
+    gptLo.miss[0] === 2 && gptHi.miss[0] === 4 && gptLo.out[0] === 12 && gptHi.out[0] === 18 && gptLo.currency === 'USD',
+    JSON.stringify({ lo: gptLo.miss, hi: gptHi.miss })
+  )
+  // GPT-6 系列（2026-10-03 官网价）：astra 旗舰之上 / 6.1-sol 旗舰 / luna 迷你，
+  // 同 272K 分档；带日期后缀的模型名靠前缀匹配
+  const g6aLo = resolvePricing({ model: 'gpt-6-astra', inTokens: 200000 })
+  const g6aHi = resolvePricing({ model: 'gpt-6-astra', inTokens: 300000 })
+  check(
+    'GPT-6 系列 272K 分档（astra $10/$50→$20/$75；6.1-sol $2/$10；luna $0.1/$0.5）',
+    g6aLo.miss[0] === 10 &&
+      g6aHi.miss[0] === 20 &&
+      g6aLo.out[0] === 50 &&
+      g6aHi.out[0] === 75 &&
+      resolvePricing({ model: 'gpt-6.1-sol', inTokens: 100000 }).miss[0] === 2 &&
+      resolvePricing({ model: 'gpt-6.1-sol', inTokens: 100000 }).out[0] === 10 &&
+      resolvePricing({ model: 'gpt-6-luna', inTokens: 100000 }).miss[0] === 0.1 &&
+      resolvePricing({ model: 'gpt-6.1-sol-20261001', inTokens: 100000 }).miss[0] === 2,
+    JSON.stringify({ astraLo: g6aLo.miss, astraHi: g6aHi.miss })
+  )
+  // Claude：平价 + 缓存写 1.25×输入；日期后缀模型名靠前缀匹配
+  const cl = costOfUsage(
+    'claude-sonnet-5-5-20260201',
+    { input_tokens: 1_000_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 1_000_000, output_tokens: 0 },
+    at
+  )
+  check(
+    'Claude 前缀匹配 + 缓存写 1.25×输入（USD）',
+    cl.vendor === 'anthropic' && cl.currency === 'USD' && Math.abs(cl.amount - (2 + 2.5)) < 1e-9,
+    'amount=' + cl.amount.toFixed(4)
+  )
+  // Qwen：按输入 token 分档整单取档（官方 K=1,000）
+  const qLo = resolvePricing({ model: 'qwen3-max', inTokens: 30000 })
+  const qHi = resolvePricing({ model: 'qwen3-max', inTokens: 200000 })
+  check(
+    'qwen3-max 输入分档（<=32K / 32K-128K / 128K-256K）',
+    qLo.tier === '<=32K' && qLo.miss[0] === 2.5 && qHi.tier === '128K-256K' && qHi.miss[0] === 7
+  )
+  // MiniMax：M3 以 512K 输入为界
+  const mmLo = resolvePricing({ model: 'MiniMax-M3', inTokens: 500000 })
+  const mmHi = resolvePricing({ model: 'MiniMax-M3', inTokens: 600000 })
+  check(
+    'MiniMax-M3 512K 分档',
+    mmLo.tier === '<=512K' && mmLo.miss[0] === 2.1 && mmHi.tier === '>512K' && mmHi.miss[0] === 4.2
+  )
+  // Kimi：缓存写按 TTL 计价，无 TTL 信息按默认 5min 档（k3 写价 20）
+  const kimi = costOfUsage(
+    'kimi-k3',
+    { input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1_000_000, output_tokens: 0 },
+    at
+  )
+  check('Kimi 缓存写按默认 5min TTL 档计价', kimi.billable && Math.abs(kimi.amount - 20) < 1e-9, 'amount=' + kimi.amount)
+  // GPT-5.6-cyber（2026-10-03 官网+LiteLLM 双源）：272K 整单分档
+  const cyberLo = resolvePricing({ model: 'gpt-5.6-cyber', inTokens: 100000 })
+  const cyberHi = resolvePricing({ model: 'gpt-5.6-cyber', inTokens: 300000 })
+  check(
+    'GPT-5.6-cyber 272K 分档（$12.5/$75 → $25/$112.5，读 1.25 / 写 15.625）',
+    cyberLo.miss[0] === 12.5 &&
+      cyberHi.miss[0] === 25 &&
+      cyberLo.out[0] === 75 &&
+      cyberHi.out[0] === 112.5 &&
+      cyberLo.hit[0] === 1.25 &&
+      cyberLo.cw[0] === 15.625,
+    JSON.stringify({ lo: cyberLo.miss, hi: cyberHi.miss })
+  )
+  // Kimi 官网补齐（2026-10-03）：k2.5 / kimi-latest 与快照版 / moonshot-v1 按长度定档
+  const km25 = costOfUsage('kimi-k2.5', { input_tokens: 1_000_000, output_tokens: 0 }, at)
+  check(
+    'Kimi 补齐条目：k2.5 ¥4.17/M；kimi-latest 与快照版同 k3；v1 系按长度定档',
+    Math.abs(km25.amount - 4.17) < 1e-9 &&
+      resolvePricing({ model: 'kimi-latest' }).miss[0] === 20 &&
+      resolvePricing({ model: 'kimi-2150622' }).miss[0] === 20 &&
+      resolvePricing({ model: 'moonshot-v1-8k' }).miss[0] === 12 &&
+      resolvePricing({ model: 'moonshot-v1-128k-vision-preview' }).miss[0] === 60,
+    'k25=' + km25.amount
+  )
+  // 未知模型不套任何价目（含「仅 provider 名沾 DeepSeek」的误配场景）
+  const unknown = costOfUsage('mystery-9000', { input_tokens: 1000, output_tokens: 10 }, at, 'weird-corp')
+  const providerOnly = costOfUsage('totally-unknown', { input_tokens: 1000, output_tokens: 10 }, at, 'deepseek')
+  check(
+    '未知模型只计 tokens 不折算金额（不再套 DeepSeek 价）',
+    unknown.billable === false && unknown.amount === 0 && providerOnly.billable === false && providerOnly.amount === 0
+  )
+}
+
+// ZCode Plan 日志解析：纯函数校验 shapePlanPayload
+{
+  const today = todayKeyForLog()
+  const shaped = shapePlanPayload(PLAN_FIXTURE, today, Date.now())
+  check(
+    'Plan 日志解析：总量/剩余/百分比',
+    shaped && shaped.ok && shaped.remaining === 93_000_000 && shaped.total === 104_000_000 && Math.abs(shaped.percentRemaining - 93 / 104) < 1e-9,
+    shaped ? 'remaining=' + shaped.remaining + ' total=' + shaped.total : '解析失败'
+  )
+  check(
+    'Plan 日志解析：按模型桶映射（entitlements capabilities + show_name 兜底）',
+    shaped && shaped.byModel.length === 3 && normalizeModelId('GLM-5.3-Flash') === 'glm-5.3-flash' && shaped.byModel[0].model === 'glm-5.3-flash' && shaped.byModel[0].totalUnits === 100_000_000,
+    shaped ? JSON.stringify(shaped.byModel.map((b) => b.model)) : ''
+  )
+  check(
+    'Plan 日志解析：到期时间取 active 套餐 ends_at',
+    shaped && shaped.nextResetAt === PLAN_FIXTURE.payload.data.plans[0].ends_at * 1000,
+    shaped ? String(shaped.nextResetAt) : ''
+  )
+  check('Plan 日志解析：当天数据不标 stale', shaped && shaped.stale === false)
+  const staleShaped = shapePlanPayload(PLAN_FIXTURE, '2026-01-01', Date.now())
+  check('Plan 日志解析：非当天的观测标记 stale', staleShaped && staleShaped.stale === true)
+
+  // ZCode 启动就绪判定（浮层门控用）：日志里有 boot 标记但没有 ready 标记 =
+  // 加载动画期间，浮层先不显示；缺 boot 标记（老版本/日志缺失）一律放行。
+  // v1.5.4：标记要认「本次启动」的 pid——同一天日志里躺着上一次运行完整的
+  // 「启动→就绪」序列，只按位置判断会把上一次的序列当成本次已就绪，于是重开
+  // ZCode 时鲸鱼在加载动画里就出现了（2026-10-01 实测 + 截图）。
+  {
+    const { evaluateBootState } = requireCjs(path.join(PLUGIN_ROOT, 'desktop', 'ui-ready.cjs'))
+    const boot = '[2026-10-01 10:00:26.874] [info] [pid:1] [main] [primary-window] creating main window (app-ready)\n'
+    const domReady = '[2026-10-01 10:00:27.328] [info] [pid:1] [main] [createWindow] dom-ready fired (local-1)\n'
+    const dbReady = '[2026-10-01 10:00:32.708] [info] [pid:1] [main] [database-startup] terminal {"attemptId":"x","status":"ready","durationMs":4967}\n'
+    const taskList = '[2026-10-01 10:00:33.305] [info] [x] window-controller.listTaskList OK (20.8ms)\n'
+    const s1 = evaluateBootState(boot + domReady)
+    check('启动就绪判定：主窗口刚建好 = 加载中', s1.state === 'loading' && s1.bootAt === 1790820026874, JSON.stringify(s1))
+    const s2 = evaluateBootState(boot + domReady + dbReady)
+    check('启动就绪判定：数据库 ready 后放行', s2.state === 'ready', JSON.stringify(s2))
+    const s3 = evaluateBootState(boot + domReady + taskList)
+    check('启动就绪判定：任务列表拉取成功也放行', s3.state === 'ready', JSON.stringify(s3))
+    const s4 = evaluateBootState('随便一段没有启动标记的日志\n')
+    check('启动就绪判定：无启动标记不拦（老版本/日志缺失）', s4.state === 'ready', JSON.stringify(s4))
+    const s5 = evaluateBootState(boot + dbReady + boot)
+    check('启动就绪判定：二次启动后重新进入加载态', s5.state === 'loading', JSON.stringify(s5))
+
+    // 场景取自 2026-10-01 实测：12:48 那次运行完整收尾（boot 12:48:14 →
+    // database-startup ready 12:48:16），13:20:49 重新打开 ZCode（pid 7876，
+    // 主界面 13:20:56 才就绪）。加载动画期间读到的日志尾窗里只有上一次的标记。
+    const stampOf = (s) => new Date(s.replace(' ', 'T')).getTime()
+    const oldRun =
+      '[2026-10-01 12:48:14.874] [info] [pid:3812] [main] [startup] 创建主窗口\n' +
+      '[2026-10-01 12:48:14.874] [info] [pid:3812] [main] [primary-window] creating main window (app-ready)\n' +
+      '[2026-10-01 12:48:16.000] [info] [pid:3812] [main] [database-startup] terminal {"attemptId":"a","status":"ready","durationMs":5007}\n' +
+      '[2026-10-01 12:48:16.500] [info] [pid:3812] [main] [host-log] (local-1) [host] [2026-10-01 12:48:16.500] [pid:99999] [zcode-host] [rpc:call] window-controller.listTaskList OK (0.1ms)\n'
+    const newBoot =
+      '[2026-10-01 13:20:49.981] [info] [pid:7876] [main] [startup] 创建主窗口\n' +
+      '[2026-10-01 13:20:49.982] [info] [pid:7876] [main] [primary-window] creating main window (app-ready)\n'
+    const newReady = '[2026-10-01 13:20:56.385] [info] [pid:7876] [main] [database-startup] terminal {"attemptId":"b","status":"ready","durationMs":4983}\n'
+    const NEW_PID_START = stampOf('2026-10-01 13:20:48.500') // 进程启动时间
+    const NEW = { pid: 7876, processStartAt: NEW_PID_START }
+
+    const r1 = evaluateBootState(oldRun, NEW)
+    check(
+      '启动就绪判定：上一次运行的就绪序列不冒充本次（重开 ZCode 时拦住加载动画）',
+      r1.state === 'loading' && r1.anchorAt === NEW_PID_START,
+      JSON.stringify(r1)
+    )
+    const r2 = evaluateBootState(oldRun + newBoot, NEW)
+    check('启动就绪判定：本次 boot 之后还没就绪 = 加载中', r2.state === 'loading' && r2.reason === 'loading-after-boot', JSON.stringify(r2))
+    const r3 = evaluateBootState(oldRun + newBoot + newReady, NEW)
+    check('启动就绪判定：本次 boot 之后的就绪标记放行', r3.state === 'ready' && r3.reason === 'ready-after-boot', JSON.stringify(r3))
+    const r4 = evaluateBootState(newReady, NEW)
+    check('启动就绪判定：boot 被刷出尾窗但本次就绪标记在场 = 放行', r4.state === 'ready', JSON.stringify(r4))
+    const r5 = evaluateBootState(oldRun, { processStartAt: NEW_PID_START })
+    check('启动就绪判定：只有进程启动时间也能拦住（pid 拿不到时）', r5.state === 'loading', JSON.stringify(r5))
+    const r6 = evaluateBootState(oldRun, { pid: 3812, processStartAt: NEW_PID_START })
+    check('启动就绪判定：pid 相同但标记早于本次进程 = 仍算加载中', r6.state === 'loading', JSON.stringify(r6))
+    const r7 = evaluateBootState(oldRun)
+    check('启动就绪判定：既无 pid 也无进程时间时退回旧口径（不拦）', r7.state === 'ready', JSON.stringify(r7))
+    const r8 = evaluateBootState(oldRun + newBoot + newReady, { pid: 7876 })
+    check('启动就绪判定：只给 pid 也能放行', r8.state === 'ready', JSON.stringify(r8))
+    // 进程启动时间取了未来值（采样异常）：当无效身份处理，不能让超时兜底失效
+    const r9 = evaluateBootState(oldRun + newBoot, { pid: 7876, processStartAt: Date.now() + 3600_000 })
+    check('启动就绪判定：未来时间戳的身份锚点被忽略', r9.state === 'loading' && r9.anchorAt && r9.anchorAt < Date.now(), JSON.stringify(r9))
+  }
+
+  // v1.4.2：过期套餐的遗留桶不冒充当前配额——balances 里会残留死套餐的桶
+  // （remaining=0 但 total 仍在），跨套餐求和会把百分比稀释失真
+  const deadFixture = JSON.parse(JSON.stringify(PLAN_FIXTURE))
+  deadFixture.balances.push({
+    entitlement_id: 'ent-legacy-0817',
+    show_name: 'GLM-5.3',
+    total_units: 3_000_000,
+    used_units: 3_000_000,
+    remaining_units: 0,
+    available_units: 0,
+    reserved_units: null,
+  })
+  const deadShaped = shapePlanPayload(deadFixture, today, Date.now())
+  check(
+    'Plan 日志解析：死套餐遗留桶被剔除（不稀释总量）',
+    deadShaped && deadShaped.total === 104_000_000 && deadShaped.byModel.length === 3,
+    'total=' + (deadShaped && deadShaped.total) + ' models=' + (deadShaped ? deadShaped.byModel.length : '无')
+  )
+  // 老格式日志（plans 列表为空，无法归属套餐）：保留全量桶，不误杀
+  const legacyFixture = JSON.parse(JSON.stringify(PLAN_FIXTURE))
+  legacyFixture.payload.data.plans = []
+  const legacyShaped = shapePlanPayload(legacyFixture, today, Date.now())
+  check(
+    'Plan 日志解析：无 plans 的老格式回退全量桶',
+    legacyShaped && legacyShaped.total === 104_000_000,
+    'total=' + (legacyShaped && legacyShaped.total)
+  )
+  // 空桶快照（套餐切换间隙）塑形后 percentRemaining=null——读取层据此跳行；
+  // 端到端覆盖见 fixture（好观测之后垫了一条空桶行）+ plan.json 断言
+  const emptyShaped = shapePlanPayload(
+    { balances: [], payload: { code: 0, data: { server_time: 1790000000, plans: PLAN_FIXTURE.payload.data.plans, balances: [] } } },
+    today,
+    Date.now()
+  )
+  check(
+    'Plan 日志解析：空桶快照塑形为 percentRemaining=null（供读取层跳过）',
+    emptyShaped && emptyShaped.percentRemaining === null && emptyShaped.total === 0
+  )
+}
+
+// 厂商模板框架：字段路径求值与模板匹配
+{
+  const obj = { a: { b: [{ c: 42 }], d: 'x' } }
+  check('字段路径求值 a.b[0].c', getPath(obj, 'a.b[0].c') === 42)
+  check('字段路径求值：取不到返回 undefined', getPath(obj, 'a.b[9].c') === undefined && getPath(obj, 'a.b[0].c.d') === undefined)
+  check(
+    '模板匹配：bigmodel/glm/智谱关键词 → bigmodel-glm',
+    matchTemplateId(['bigmodel-standard-api', 'BigModel API']) === 'bigmodel-glm' &&
+      matchTemplateId(['some', 'GLM-5.3']) === 'bigmodel-glm' &&
+      matchTemplateId(['zhipu-coding']) === 'bigmodel-glm'
+  )
+  check(
+    '模板匹配：deepseek / openrouter / kimi 国内国际',
+    matchTemplateId(['deepseek-test']) === 'deepseek' &&
+      matchTemplateId(['openrouter']) === 'openrouter' &&
+      matchTemplateId(['moonshot-cn', 'Kimi 国内']) === 'moonshot-cn' &&
+      matchTemplateId(['moonshot-intl']) === 'moonshot-intl'
+  )
+  check('模板匹配：本地网关关键词不做 vendor 判定', matchTemplateId(['cmdgo-bridge']) === null)
+}
+
+// CommandCode 三重额度：套餐目录恢复 + 窗口塑形 + 活跃账号选择（纯函数，
+// 不出网——HTTP 层只验 vendors.json 的 no-credentials 降级）
+{
+  const { shapeCmdgoUsage, resolveCmdgoPlan, pickActiveAccount, accountCandidates, readCmdgoAccounts, fetchCmdgoKey } =
+    await import('../lib/cmdgo.mjs')
+  const credits = {
+    credits: { monthlyCredits: 6.9, purchasedCredits: 0.5, freeCredits: 0 },
+    windowLimits: {
+      fiveHour: { used: 2.79, cap: 3, exceeded: false, resetAt: 1790000000000 },
+      weekly: { used: 3.48, cap: 6, exceeded: false, resetAt: 1790500000000 },
+      limited: false,
+    },
+  }
+  const subscription = { data: { planId: 'individual-go', status: 'active', currentPeriodEnd: '2026-10-31T00:00:00Z' } }
+  const whoami = { user: { userName: 'pigeon189', name: 'P' } }
+  const shaped = shapeCmdgoUsage(credits, subscription, whoami)
+  check(
+    'CommandCode 塑形：月度池按套餐目录恢复（Go $10）、5小时/周窗口百分比',
+    shaped &&
+      shaped.plan === 'Go' &&
+      shaped.monthly &&
+      shaped.monthly.total === 10 &&
+      Math.abs(shaped.monthly.percent - 0.31) < 1e-9 &&
+      Math.abs(shaped.fiveHour.percent - 2.79 / 3) < 1e-9 &&
+      Math.abs(shaped.weekly.percent - 3.48 / 6) < 1e-9 &&
+      shaped.userName === 'pigeon189' &&
+      shaped.limited === false,
+    JSON.stringify(shaped)
+  )
+  check(
+    'CommandCode 套餐目录：帽对反查未知 planId（20%/50% → GOAT）',
+    resolveCmdgoPlan('individual-go').monthly === 10 &&
+      resolveCmdgoPlan('individual-max-20x-fallback')?.monthly === 300 &&
+      resolveCmdgoPlan('mystery-plan', 14, 35)?.id === 'individual-goat'
+  )
+  const accounts = [
+    { ref: 'A', enabled: true, cooldownUntil: 0, lastUsedAt: 1000 },
+    { ref: 'B', enabled: true, cooldownUntil: Date.now() + 600_000, lastUsedAt: 9999 },
+    { ref: 'C', enabled: false, lastUsedAt: 8888 },
+  ]
+  const picked = pickActiveAccount(accounts)
+  check(
+    'CommandCode 账号池：冷却/停用剔除，活跃账号取最近调用',
+    picked.active.ref === 'A' && picked.available === 1 && picked.total === 3
+  )
+  check('CommandCode 空池降级', pickActiveAccount([]).active === null && pickActiveAccount([]).total === 0)
+  const shapedEmpty = shapeCmdgoUsage({ credits: {}, windowLimits: {} }, undefined, undefined)
+  check('CommandCode 塑形：主路由缺失返回 null（读取层报错）', shapedEmpty === null)
+
+  // 候选组装（代码审查 M2 的落点）：停用账号既不进候选（不会被选成「当前账号」
+  // 显示额度）也不计池可用数；纯字符串 / {value,source} 两种凭据形状都收
+  const candDir = path.join(tmpHome, 'cmdgo-candidates')
+  fs.mkdirSync(candDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(candDir, 'credentials.json'),
+    JSON.stringify({ REF_A: { value: 'k-a', source: 'file' }, REF_B: { value: 'k-b' }, REF_C: 'k-c' }),
+    'utf8'
+  )
+  fs.writeFileSync(
+    path.join(candDir, 'accounts.json'),
+    JSON.stringify({
+      version: 1,
+      accounts: [
+        { id: 'a', ref: 'REF_A', userName: 'acct-a', enabled: true, lastUsedAt: 200 },
+        { id: 'b', ref: 'REF_B', userName: 'acct-b', enabled: false, lastUsedAt: 300 },
+      ],
+    }),
+    'utf8'
+  )
+  const cands = accountCandidates(candDir)
+  const candRefs = cands.ordered.map((c) => c.ref)
+  check(
+    '账号候选：停用账号被排除（展示与池计数都不含），裸 key 仍是候选',
+    candRefs.indexOf('REF_A') !== -1 &&
+      candRefs.indexOf('REF_C') !== -1 &&
+      candRefs.indexOf('REF_B') === -1 &&
+      candRefs[0] === 'REF_A' &&
+      cands.pool.total === 2 &&
+      cands.pool.available === 1,
+    JSON.stringify({ refs: candRefs, pool: cands.pool })
+  )
+  const shapes = readCmdgoAccounts(candDir)
+  check(
+    '凭据两种形状都收（{value,source} 对象 + 纯字符串，v1.7.9 实修点回归）',
+    shapes.keys.REF_A === 'k-a' && shapes.keys.REF_B === 'k-b' && shapes.keys.REF_C === 'k-c',
+    JSON.stringify(Object.keys(shapes.keys))
+  )
+
+  // 池可用判定与展示账号选择（2026-10-04 真机实锤）：网关 limited=true 的账号
+  // 即使三个窗口都没满也不算「可用」——月池见底时网关已开始拒绝请求，窗口
+  // 算术看不见这道墙。全部撞墙时展示账号选「最早解锁」的（把最短的那面墙和
+  // 它的重置倒计时摆出来），限流但看不见墙的账号按最晚重置时间排最后。
+  {
+    const { chooseSnapshot, snapshotUsable } = await import('../lib/cmdgo.mjs')
+    const snap = (ref, data) => ({ cand: { ref }, entry: { at: 0, data } })
+    const H = 3600_000
+    const now = Date.now()
+    // 真机三账号形状：A=月池见底被网关限流（窗口全没满，月池重置最晚）、
+    // B=本周超额（今天稍晚重置）、C=本周超额（两天后重置）
+    const acctA = {
+      limited: true,
+      userName: 'pigeon189',
+      monthly: { remaining: 0.0457, total: 10, percent: 0.9954, resetAt: now + 22 * 24 * H },
+      fiveHour: { used: 0.912, cap: 3, exceeded: false, resetAt: now + 5 * H, remaining: 2.088, percent: 0.3041 },
+      weekly: { used: 3.947, cap: 6, exceeded: false, resetAt: now + 6 * 24 * H, remaining: 2.053, percent: 0.6578 },
+    }
+    const acctB = {
+      limited: true,
+      fiveHour: null,
+      weekly: { used: 6.009, cap: 6, exceeded: true, resetAt: now + 4 * H, remaining: 0, percent: 1.0015 },
+      monthly: { remaining: 3.99, total: 10, percent: 0.6009, resetAt: now + 23 * 24 * H },
+    }
+    const acctC = {
+      limited: true,
+      fiveHour: null,
+      weekly: { used: 6.044, cap: 6, exceeded: true, resetAt: now + 2 * 24 * H, remaining: 0, percent: 1.0073 },
+      monthly: { remaining: 3.96, total: 10, percent: 0.6044, resetAt: now + 25 * 24 * H },
+    }
+    check(
+      'snapshotUsable：limited 需佐证才采信——窗口撞墙或月池≥99% 即不可用；配额全满的粘滞残留（GOAT 升级）不算不可用',
+      snapshotUsable(acctA) === false &&
+        snapshotUsable(acctB) === false &&
+        // pigeon189 去掉月池佐证（percent < 0.99）后即使 limited=true 也恢复可用
+        snapshotUsable({ ...acctA, limited: false }) === true &&
+        snapshotUsable({ ...acctA, monthly: { ...acctA.monthly, percent: 0.5 } }) === true,
+      JSON.stringify({
+        a: snapshotUsable(acctA),
+        aNoFlag: snapshotUsable({ ...acctA, limited: false }),
+        aHalfPool: snapshotUsable({ ...acctA, monthly: { ...acctA.monthly, percent: 0.5 } }),
+      })
+    )
+    // GOAT 升级回归（2026-10-04 二次真机）：limited 粘滞残留 + 配额全满 → 可用，
+    // 且在有可用账号时优先展示它（不被「其他账号解锁更早」换人）
+    const goat = {
+      limited: true,
+      userName: 'pigeon189',
+      plan: 'GOAT',
+      monthly: { remaining: 69.23, total: 70, percent: 0.0111, resetAt: now + 31 * 24 * H },
+      fiveHour: { used: 0.774, cap: 14, exceeded: false, resetAt: now + 5 * H, remaining: 13.226, percent: 0.0553 },
+      weekly: { used: 0.774, cap: 35, exceeded: false, resetAt: now + 7 * 24 * H, remaining: 34.226, percent: 0.0221 },
+    }
+    check(
+      'GOAT 升级粘滞 limited：配额全满仍判可用，展示账号选它而非旧超额账号',
+      snapshotUsable(goat) === true,
+      JSON.stringify({ usable: snapshotUsable(goat) })
+    )
+    const withGoat = chooseSnapshot([snap('GOAT', goat), snap('C', acctC), snap('B', acctB)])
+    check(
+      '池里唯一健康的 GOAT 账号被选为展示账号（pool 可用数 1）',
+      withGoat.usable.length === 1 && withGoat.chosen.cand.ref === 'GOAT',
+      JSON.stringify({ usable: withGoat.usable.length, chosen: withGoat.chosen && withGoat.chosen.cand.ref })
+    )
+    // 生产顺序 = 最近使用优先：C 最新、A 次之、B 最旧；全部撞墙 → 选 B（今天重置）
+    const allDead = chooseSnapshot([snap('C', acctC), snap('A', acctA), snap('B', acctB)])
+    check(
+      '全撞墙时展示账号选最早解锁的（B 今天重置 < C 两天后 < A 限流无墙按最晚重置排最后）',
+      allDead.usable.length === 0 &&
+        allDead.withData.length === 3 &&
+        allDead.chosen &&
+        allDead.chosen.cand.ref === 'B',
+      JSON.stringify({ usable: allDead.usable.length, chosen: allDead.chosen && allDead.chosen.cand.ref })
+    )
+    // 有可用账号时仍按「最近使用」优先，不被「别人解锁更早」干扰
+    const hasUsable = chooseSnapshot([
+      snap('B', acctB),
+      snap('D', { limited: false, fiveHour: { used: 1, cap: 3, exceeded: false, percent: 0.333 }, weekly: { used: 2, cap: 6, exceeded: false, percent: 0.333 }, monthly: { percent: 0.5 } }),
+    ])
+    check(
+      '存在可用账号时优先展示可用账号（不因其他账号解锁更早而换人）',
+      hasUsable.usable.length === 1 && hasUsable.chosen.cand.ref === 'D',
+      JSON.stringify({ chosen: hasUsable.chosen && hasUsable.chosen.cand.ref })
+    )
+    // 空数组 / 全失败：chosen 为 null，readCmdgoQuota 据此走「读取失败」分支
+    const empty = chooseSnapshot([])
+    check('chooseSnapshot 空入参降级（无 chosen、无异常）', empty.withData.length === 0 && empty.chosen === null && empty.usable.length === 0)
+  }
+
+  // whoami 失败降级：丢掉 orgId 直接重试主路由，credits 仍要拿到（此前只靠人工实测）
+  {
+    const realFetch = globalThis.fetch
+    const urls = []
+    globalThis.fetch = async (url) => {
+      const u = String(url)
+      urls.push(u)
+      if (u.indexOf('/alpha/whoami') !== -1) throw new Error('whoami down')
+      if (u.indexOf('/alpha/billing/credits') !== -1) {
+        return new Response(
+          JSON.stringify({ data: { credits: { monthlyCredits: 4 }, windowLimits: { fiveHour: { used: 1, cap: 3 } } } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      if (u.indexOf('/alpha/billing/subscriptions') !== -1) {
+        return new Response(JSON.stringify({ data: { planId: 'individual-go', currentPeriodEnd: '2026-11-01T00:00:00Z' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      throw new Error('unexpected ' + u)
+    }
+    try {
+      const got = await fetchCmdgoKey('https://api.commandcode.ai', 'k')
+      const creditUrl = urls.filter((u) => u.indexOf('/credits') !== -1)[0] || ''
+      check(
+        'whoami 失败降级重试主路由（无 orgId 仍取到 credits）',
+        !!got.credits && urls.filter((u) => u.indexOf('/whoami') !== -1).length === 1 && creditUrl.indexOf('orgId') === -1,
+        JSON.stringify(urls.map((u) => u.replace('https://api.commandcode.ai', '')))
+      )
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  }
+}
+
+// 凭据发现：有效 baseURL 继承内置模板、enc:v1: 密文跳过、本地网关标记
+{
+  const fx = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-cred-fx-'))
+  // fixture 布局对齐 v2DataDirCandidates()：<base>/.zcode/v2/，ZCODE_DATA_BASE_DIR=<base>
+  const fxV2 = path.join(fx, '.zcode', 'v2')
+  fs.mkdirSync(path.join(fxV2, 'runtime', 'provider', 'x', '1', 'e'), { recursive: true })
+  fs.writeFileSync(
+    path.join(fxV2, 'runtime', 'provider', 'x', '1', 'e', 'zcode-builtin.json'),
+    JSON.stringify({
+      revision: 1,
+      config: {
+        providerConfigRules: {
+          templateRules: [
+            { templateId: 'deepseek', config: { api: { baseUrl: 'https://api.deepseek.com/anthropic' } } },
+            { templateId: 'xiaomi-mimo', config: { api: { baseUrl: 'https://api.xiaomimimo.com/anthropic' } } },
+          ],
+        },
+      },
+    }),
+    'utf8'
+  )
+  fs.writeFileSync(
+    path.join(fxV2, 'provider_config.json'),
+    JSON.stringify({
+      config: {
+        providerConfigRules: {
+          providerRules: [
+            { providerId: 'deepseek', templateId: 'deepseek', config: { access: { type: 'api-key', apiKey: 'selftest-fake-key-aaaa' } } },
+            {
+              providerId: 'deepseek-enc',
+              templateId: 'deepseek',
+              config: { access: { type: 'api-key', apiKey: 'enc:v1:selftest-ciphertext' }, api: { baseUrl: 'https://api.deepseek.com/anthropic' } },
+            },
+            {
+              providerId: 'mimo-plan',
+              templateId: 'xiaomi-mimo',
+              config: { access: { type: 'api-key', apiKey: 'selftest-fake-key-bbbb' }, api: { baseUrl: 'https://token-plan-cn.xiaomimimo.com' } },
+            },
+          ],
+        },
+      },
+    }),
+    'utf8'
+  )
+  fs.writeFileSync(
+    path.join(fx, 'cli-config.json'),
+    JSON.stringify({ provider: { 'local-gw': { options: { baseURL: 'http://127.0.0.1:11435/v1', apiKey: 'selftest-fake-key-cccc' } } } }),
+    'utf8'
+  )
+  const entries = buildProviderEntries({ v2Dirs: [fxV2], cliConfigFile: path.join(fx, 'cli-config.json') })
+  const byId = {}
+  for (const e of entries) byId[e.providerId] = e
+  check(
+    '凭据发现：无 baseUrl 规则从内置模板继承有效 baseURL',
+    byId.deepseek && byId.deepseek.host === 'api.deepseek.com' && byId.deepseek.apiKey === 'selftest-fake-key-aaaa',
+    byId.deepseek ? 'host=' + byId.deepseek.host : '缺失'
+  )
+  check(
+    '凭据发现：enc:v1: 密文跳过（不当明文 key）',
+    byId['deepseek-enc'] && byId['deepseek-enc'].keyEncrypted === true && byId['deepseek-enc'].apiKey === ''
+  )
+  check(
+    '凭据发现：规则自带 baseUrl 覆盖模板（mimo plan 端点可辨识）',
+    byId['mimo-plan'] && byId['mimo-plan'].host === 'token-plan-cn.xiaomimimo.com'
+  )
+  check('凭据发现：本地网关标记 isLocal', byId['local-gw'] && byId['local-gw'].isLocal === true && byId['local-gw'].host === '127.0.0.1')
+
+  // findApiKey 端到端：ZCODE_DATA_BASE_DIR 注入后应命中 fixture 的 deepseek 规则
+  const savedBase = process.env.ZCODE_DATA_BASE_DIR
+  const savedEnvKey = process.env.DEEPSEEK_API_KEY
+  process.env.ZCODE_DATA_BASE_DIR = fx
+  delete process.env.DEEPSEEK_API_KEY
+  try {
+    const r = findApiKey()
+    if (readPluginConfig().apiKey) {
+      check('findApiKey 命中 ZCode provider（跳过：插件配置已设 apiKey）', true, 'source=' + r.source)
+    } else {
+      check(
+        'findApiKey 命中 ZCode provider（模板继承 baseURL 的 deepseek 规则）',
+        r.source === 'zcode-provider' && r.key === 'selftest-fake-key-aaaa',
+        'source=' + r.source
+      )
+    }
+  } finally {
+    if (savedBase === undefined) delete process.env.ZCODE_DATA_BASE_DIR
+    else process.env.ZCODE_DATA_BASE_DIR = savedBase
+    if (savedEnvKey !== undefined) process.env.DEEPSEEK_API_KEY = savedEnvKey
+  }
+  fs.rmSync(fx, { recursive: true, force: true })
+}
+
+// 计费源解析：智能跟随的统一判据（providerId / modelId / 有效 baseURL）
+{
+  const r = (pid, model, url) => resolveBillingSource(pid, model, url).source
+  check(
+    '计费源：订阅套餐 provider → Plan 配额',
+    r('account:zai-start-plan', 'GLM-5.3') === 'plan' && r('x:coding-plan', 'any') === 'plan'
+  )
+  check(
+    '计费源：MiMo 双端点按 URL 区分（token-plan vs api）',
+    r('xiaomi-mimo', 'mimo-v2.6-pro', 'https://token-plan-cn.xiaomimimo.com') === 'mimo-plan' &&
+      r('xiaomi-mimo', 'mimo-v2.6-pro', 'https://api.xiaomimimo.com/anthropic') === 'mimo-api'
+  )
+  check(
+    '计费源：DeepSeek / GLM / 其它厂商按 URL 与模型名识别',
+    r('deepseek', 'deepseek-v4-pro', 'https://api.deepseek.com/anthropic') === 'ds' &&
+      r('bigmodel-standard-api', 'GLM-5.3', 'https://open.bigmodel.cn/api/paas/v4') === 'glm' &&
+      r('openai-p', 'gpt-5.6-terra', 'https://api.openai.com/v1') === 'openai' &&
+      r('moonshot-kimi', 'kimi-k3', 'https://api.moonshot.cn/anthropic') === 'kimi'
+  )
+  check(
+    '计费源：cmdgo 反代 → CommandCode 额度口径（限额走其套餐池，不看模型名）',
+    r('cmdgo-bridge', 'deepseek/deepseek-v4-flash', 'http://127.0.0.1:11435/v1') === 'cmdgo' &&
+      r('cmdgo-bridge', 'xiaomi/mimo-v2.6-pro', 'http://127.0.0.1:11435/v1') === 'cmdgo'
+  )
+  check(
+    '计费源：全未知 → tokens（不冒充任何厂商）',
+    r('mystery-corp', 'totally-unknown-9000') === 'tokens' && resolveBillingSource('', '', '').source === 'tokens'
+  )
+  check(
+    '计费源：timeMode 标记（DeepSeek 峰谷 / MiMo Plan 夜间系数 / 平价 none）',
+    resolveBillingSource('deepseek', 'deepseek-flash').timeMode === 'peak-valley' &&
+      resolveBillingSource('xiaomi-mimo', 'mimo-v2.6-pro', 'https://token-plan-cn.xiaomimimo.com').timeMode === 'offpeak-x0.8' &&
+      resolveBillingSource('bigmodel-standard-api', 'GLM-5.3').timeMode === 'none'
+  )
+  // isNightOffpeak：北京时间 0–8 点（构造两个确定时刻验证）
+  const atNight = Date.UTC(2026, 8, 29, 20, 0, 0) // 北京 09-30 04:00
+  const atDay = Date.UTC(2026, 8, 29, 6, 0, 0) // 北京 09-29 14:00
+  check('MiMo 夜间时段判定（北京时间 0-8 点）', isNightOffpeak(atNight) === true && isNightOffpeak(atDay) === false)
+}
+
+// 实时·令牌模式的平台用量解析（computeTodayUsage）：接口只给 token 分桶，
+// 金额要按峰谷价自行换算，是「今日已用」在 token 模式下的唯一算法，必须有 fixture。
+{
+  const bucket = (time, hit, miss, out) => ({
+    time,
+    usage: { PROMPT_CACHE_HIT_TOKEN: hit, PROMPT_CACHE_MISS_TOKEN: miss, RESPONSE_TOKEN: out },
+  })
+  const wrap = (series) => ({ data: { biz_data: { series } } })
+  const p = priceFor('deepseek-flash')
+  // 峰谷价按 isPeakTime(b.time) 选档（b.time 是**秒**，idx=1 为高峰）。
+  // 高峰 = 工作日北京时间 9:00–12:00 / 14:00–18:00；2026-09-29 是周二。
+  const offSec = Date.UTC(2026, 8, 29, 4, 30, 0) / 1000 // 北京 12:30（空闲）
+  const peakSec = Date.UTC(2026, 8, 29, 2, 0, 0) / 1000 // 北京 10:00（高峰）
+  const offIdx = isPeakTime(offSec) ? 1 : 0
+  const peakIdx = isPeakTime(peakSec) ? 1 : 0
+  const rate = (idx) => ({ hit: p.hit[idx], miss: p.miss[idx], out: p.out[idx] })
+
+  const flat = computeTodayUsage(
+    wrap([
+      { model: 'deepseek-flash', buckets: [bucket(offSec, 400_000, 100_000, 50_000), bucket(offSec, 100_000, 0, 0)] },
+    ])
+  )
+  const r0 = rate(offIdx)
+  const expectFlat = (500_000 / 1e6) * r0.hit + (100_000 / 1e6) * r0.miss + (50_000 / 1e6) * r0.out
+  check(
+    'computeTodayUsage：多桶按命中/未命中/输出三档换算并求和',
+    flat && Math.abs(flat.amount - expectFlat) < 1e-9 && flat.tokens === 650_000,
+    flat ? '期望 ¥' + expectFlat.toFixed(6) + '，实际 ¥' + flat.amount.toFixed(6) + ' tokens=' + flat.tokens : '返回 null'
+  )
+
+  const peak = computeTodayUsage(wrap([{ model: 'deepseek-flash', buckets: [bucket(peakSec, 500_000, 100_000, 50_000)] }]))
+  const r1 = rate(peakIdx)
+  const expectPeak = (500_000 / 1e6) * r1.hit + (100_000 / 1e6) * r1.miss + (50_000 / 1e6) * r1.out
+  check(
+    'computeTodayUsage：高峰桶按高峰档计价',
+    peak && Math.abs(peak.amount - expectPeak) < 1e-9,
+    peak ? '期望 ¥' + expectPeak.toFixed(6) + '，实际 ¥' + peak.amount.toFixed(6) : '返回 null'
+  )
+  check(
+    'computeTodayUsage：峰谷档位确实不同（同一用量两种价）',
+    Math.abs(expectPeak - expectFlat) > 1e-6 && peakIdx !== offIdx,
+    '峰值索引 ' + peakIdx + ' vs 空闲索引 ' + offIdx
+  )
+
+  check(
+    'computeTodayUsage：全零用量/空结构 → null（不虚报 0 元）',
+    computeTodayUsage(wrap([{ model: 'deepseek-flash', buckets: [bucket(offSec, 0, 0, 0)] }])) === null &&
+      computeTodayUsage(wrap([])) === null &&
+      computeTodayUsage(null) === null
+  )
+  check(
+    'computeTodayUsage：data.series 直挂结构也被接受（接口版本差异兜底）',
+    !!computeTodayUsage({ data: { series: [{ model: 'deepseek-flash', buckets: [bucket(offSec, 1000, 0, 0)] }] } })
+  )
+}
+
+// 厂商模板出站白名单：host 必须是模板里的独立常量，不能从 url 现算（v1.3.0 复审 S2）
+{
+  const urlSections = Object.entries(TEMPLATES)
+    .map(([id, tpl]) => [id, tpl.kind === 'quota' ? tpl.quota : tpl.balance])
+    .filter(([, s]) => s && typeof s.url === 'string')
+  check(
+    '模板白名单：每个带 url 的模板都显式声明 host 且与 url 一致',
+    urlSections.length >= 4 &&
+      urlSections.every(([, s]) => typeof s.host === 'string' && s.host.trim().toLowerCase() === new URL(s.url).hostname.toLowerCase()),
+    urlSections.map(([id, s]) => id + '=' + s.host).join(', ')
+  )
+  const bad = await fetchFromTemplate({ kind: 'balance', balance: { url: 'https://api.moonshot.cn/v1/x', host: 'evil.example', pick: () => null } }, 'k')
+  check(
+    '模板白名单：host 与 url 不一致 → 拒绝（url 自证清白的漏洞已堵）',
+    bad && bad.ok === false && /白名单/.test(String(bad.reason)),
+    JSON.stringify(bad)
+  )
+  const noHost = await fetchFromTemplate({ kind: 'balance', balance: { url: 'https://api.moonshot.cn/v1/x', pick: () => null } }, 'k')
+  check('模板白名单：未声明 host → 拒绝（fail closed）', noHost && noHost.ok === false && /未声明 host/.test(String(noHost.reason)), JSON.stringify(noHost))
+  const loopback = await fetchFromTemplate(
+    { kind: 'balance', balance: { url: 'http://127.0.0.1:11435/v1/credits', host: '127.0.0.1', pick: () => null } },
+    'k'
+  )
+  check(
+    '模板白名单：环回地址即使 host 声明一致也被拒',
+    loopback && loopback.ok === false && /环回|私有|保留/.test(String(loopback.reason)),
+    JSON.stringify(loopback)
+  )
+}
+
+// v1.8.0 与上游 DSH 版对齐补齐的模板：字段口径照上游（纯函数，不出网）
+{
+  const nov = TEMPLATES.novita.balance.pick({ availableBalance: 123456 })
+  const step = TEMPLATES.stepfun.balance.pick({ balance: 12.5 })
+  check(
+    '新模板：novita 原始单位 1e-4 换算 + stepfun 余额字段',
+    nov && Math.abs(nov.amount - 12.3456) < 1e-9 && nov.currency === 'USD' && step && step.amount === 12.5 && step.currency === 'CNY',
+    JSON.stringify({ nov, step })
+  )
+  const mm = TEMPLATES['minimax-coding'].quota.pick({
+    model_remains: [{ current_interval_remaining_percent: 62, current_weekly_remaining_percent: 81 }],
+  })
+  check(
+    '新模板：MiniMax 剩余% → 已用%（5 小时 + 本周两条）',
+    Array.isArray(mm) &&
+      mm.length === 2 &&
+      mm[0].label === '5 小时' &&
+      mm[0].percentUsed === 38 &&
+      mm[1].label === '本周' &&
+      mm[1].percentUsed === 19,
+    JSON.stringify(mm)
+  )
+  const oc = TEMPLATES['opencode-go'].quota.pick({
+    usage: { rolling: { percent: 42, resetsAt: 1790000000000 }, weekly: { percent: 7 }, monthly: { percent: 3 } },
+  })
+  check(
+    '新模板：OpenCode Go 三窗口（接口直接给已用%，带重置时间）',
+    Array.isArray(oc) &&
+      oc.length === 3 &&
+      oc[0].label === '5 小时' &&
+      oc[0].percentUsed === 42 &&
+      oc[0].resetAt === 1790000000000 &&
+      oc[2].label === '本月',
+    JSON.stringify(oc)
+  )
+  const kc = TEMPLATES['kimi-coding'].quota.pick({ usage: { remaining: 25, limit: 100 } })
+  check('新模板：Kimi Coding 剩余/总额 → 已用 75%', Array.isArray(kc) && kc.length === 1 && kc[0].percentUsed === 75, JSON.stringify(kc))
+  // v1.8.9：真实响应是 used/limit（无 remaining）+ usage=周窗口 + limits[]=滚动窗口；
+  // 5 小时窗口 = window.duration(timeUnit) 折算 250–360 分钟
+  const kw = TEMPLATES['kimi-coding'].quota.pick({ usage: { used: 30, limit: 100, resetTime: '2026-10-12T00:00:00Z' } })
+  check(
+    'kimi-coding：used/limit 口径 → 周额度 70%，resetTime 透传',
+    Array.isArray(kw) && kw.length === 1 && kw[0].label === '周额度' && kw[0].percentUsed === 30 && kw[0].resetAt === '2026-10-12T00:00:00Z',
+    JSON.stringify(kw)
+  )
+  const kd = TEMPLATES['kimi-coding'].quota.pick({
+    usage: { used: 30, limit: 100, resetTime: '2026-10-12T00:00:00Z' },
+    limits: [{ window: { duration: 5, timeUnit: 'TIME_UNIT_HOUR' }, detail: { used: 2, limit: 20, resetTime: '2026-10-05T18:00:00Z' } }],
+  })
+  check(
+    'kimi-coding：双窗口——周额度在前，5 小时窗口（HOUR×5=300 分钟）取 row.detail',
+    Array.isArray(kd) && kd.length === 2 && kd[0].label === '周额度' && kd[0].percentUsed === 30 &&
+      kd[1].label === '5 小时' && kd[1].percentUsed === 10 && kd[1].resetAt === '2026-10-05T18:00:00Z',
+    JSON.stringify(kd)
+  )
+  // v1.8.10：pickVendorBalance 兼容数组与 {vendors:[...]} 包装两种形态，
+  // 按优先级取第一个 ok 且 balance 为数字的模板；不可用条目跳过
+  const pvb = pickVendorBalance(
+    { ok: true, vendors: [{ id: 'moonshot-intl', ok: true, balance: 2.5, currency: 'USD' }, { id: 'moonshot-cn', ok: true, balance: 8.5, currency: 'CNY' }] },
+    ['moonshot-cn', 'moonshot-intl']
+  )
+  check(
+    '厂商余额挑选：包装对象形态 + 优先级取 moonshot-cn（CNY）',
+    pvb && pvb.id === 'moonshot-cn' && pvb.amount === 8.5 && pvb.currency === 'CNY',
+    JSON.stringify(pvb)
+  )
+  const pva = pickVendorBalance([{ id: 'moonshot-cn', available: false, reason: '未配置凭据' }], ['moonshot-cn', 'moonshot-intl'])
+  check('厂商余额挑选：数组形态 + 不可用条目跳过（返回 null）', pva === null, JSON.stringify(pva))
+  const kb = TEMPLATES['kimi-coding'].quota.pick({
+    usage: { used: 30, limit: 100 },
+    limits: [{ window: { duration: 18000, timeUnit: 'TIME_UNIT_SECOND' }, detail: { used: 9, limit: 10 } }],
+  })
+  check(
+    'kimi-coding：SECOND 单位折算（18000s=300 分钟）也识别为 5 小时窗口；缺 resetAt 为 null',
+    Array.isArray(kb) && kb.length === 2 && kb[1].label === '5 小时' && kb[1].percentUsed === 90 && kb[1].resetAt === null,
+    JSON.stringify(kb)
+  )
+  const zi = TEMPLATES['zhipu-coding-intl'].quota.pick({ data: { limits: [{ TOKENS_LIMIT: { percentage: 88 } }] } })
+  check('新模板：国际站 z.ai 与国内站同形（host 换域）', Array.isArray(zi) && zi[0].percentUsed === 88, JSON.stringify(zi))
+  check(
+    '新模板：缺字段一律返回 null（不编造额度）',
+    TEMPLATES['minimax-coding'].quota.pick({}) === null &&
+      TEMPLATES['kimi-coding'].quota.pick({ usage: { limit: 100 } }) === null &&
+      TEMPLATES.novita.balance.pick({}) === null &&
+      TEMPLATES['opencode-go'].quota.pick({ usage: {} }) === null
+  )
+  const want = [
+    'stepfun',
+    'novita',
+    'kimi-coding',
+    'minimax-coding',
+    'minimax-coding-intl',
+    'opencode-go',
+    'zhipu-coding-intl',
+    'openai',
+    'anthropic',
+    'gemini',
+    'xai',
+    'groq',
+    'mistral',
+    'together',
+    'fireworks',
+    'deepinfra',
+    'cerebras',
+    'siliconflow-cn',
+    'siliconflow-en',
+    'volcengine-ark',
+    'dashscope',
+    'qianfan',
+    'hunyuan',
+    'spark',
+    'modelscope',
+    'ollama',
+  ]
+  const missing = want.filter((id) => !TEMPLATES[id])
+  check('新补厂商模板齐全（26 条）', missing.length === 0, '缺：' + missing.join(','))
+  const matches = {
+    stepfun: matchTemplateId(['stepfun', 'Step-3.7-Flash']),
+    novita: matchTemplateId(['novita']),
+    kimiCoding: matchTemplateId(['kimi-coding', 'Kimi Coding']),
+    minimax: matchTemplateId(['minimaxi']),
+    opencode: matchTemplateId(['opencode-go']),
+    dashscope: matchTemplateId(['dashscope', 'qwen-max']),
+    anthropic: matchTemplateId(['anthropic', 'claude-sonnet']),
+    ollama: matchTemplateId(['local', 'ollama']),
+    zaiIntl: matchTemplateId(['z.ai', 'intl']),
+  }
+  check(
+    '模板匹配：新厂商关键词命中且不误伤（cmdgo-bridge / GLM 大陆站仍走原判定）',
+    matches.stepfun === 'stepfun' &&
+      matches.novita === 'novita' &&
+      matches.kimiCoding === 'kimi-coding' &&
+      matches.minimax === 'minimax-coding' &&
+      matches.opencode === 'opencode-go' &&
+      matches.dashscope === 'dashscope' &&
+      matches.anthropic === 'anthropic' &&
+      matches.ollama === 'ollama' &&
+      matches.zaiIntl === 'zhipu-coding-intl' &&
+      matchTemplateId(['zhipu-coding']) === 'bigmodel-glm' &&
+      matchTemplateId(['cmdgo-bridge']) === null,
+    JSON.stringify(matches)
+  )
+}
+// 凭据发现的短 TTL 缓存（v1.3.0 复审 N3）：默认路径 5 秒内复用，显式失效后重扫
+{
+  const v2dir = path.join(tmpHome, '.zcode', 'v2')
+  const savedBase = process.env.ZCODE_DATA_BASE_DIR
+  process.env.ZCODE_DATA_BASE_DIR = tmpHome
+  try {
+    const probeId = 'n3-cache-probe'
+    const legacyFile = path.join(v2dir, 'config.json')
+    const saved = fs.existsSync(legacyFile) ? fs.readFileSync(legacyFile, 'utf8') : null
+    invalidateDiscoverCache()
+    const before = buildProviderEntries()
+    check('发现缓存：首次调用即全量扫描', Array.isArray(before) && !before.some((e) => e.providerId === probeId))
+    fs.writeFileSync(
+      legacyFile,
+      JSON.stringify({ provider: { [probeId]: { options: { baseURL: 'https://probe.example/v1' } } } }),
+      'utf8'
+    )
+    const cached = buildProviderEntries()
+    check(
+      '发现缓存：TTL 内新增配置不重扫（前端 3 秒轮询不再全量扫描）',
+      !cached.some((e) => e.providerId === probeId),
+      'entries=' + cached.length
+    )
+    check('发现缓存：命中时返回副本（调用方改不动缓存）', cached !== buildProviderEntries() && cached.length === buildProviderEntries().length)
+    invalidateDiscoverCache()
+    const fresh = buildProviderEntries()
+    check(
+      '发现缓存：显式失效后重扫并看到新配置',
+      fresh.some((e) => e.providerId === probeId && e.baseUrl === 'https://probe.example/v1'),
+      'entries=' + fresh.length
+    )
+    if (saved === null) fs.rmSync(legacyFile, { force: true })
+    else fs.writeFileSync(legacyFile, saved, 'utf8')
+    invalidateDiscoverCache()
+  } finally {
+    if (savedBase === undefined) delete process.env.ZCODE_DATA_BASE_DIR
+    else process.env.ZCODE_DATA_BASE_DIR = savedBase
+    invalidateDiscoverCache()
+  }
+}
+
+async function getJson(port, pathname) {
+  const res = await fetch('http://127.0.0.1:' + port + pathname, { signal: AbortSignal.timeout(3000) })
+  return res.json()
+}
+
+// CLI 文本出口（node lib/cli.mjs <args>）：v1.3.0 复审 N1 的回归面在这条路径上，
+// 之前的测试只覆盖 HTTP JSON 接口，币种就是从这里漏出去的。
+function runCli(args, env) {
+  return new Promise((resolve) => {
+    const c = spawn(process.execPath, [path.join(PLUGIN_ROOT, 'lib', 'cli.mjs'), ...args], {
+      cwd: PLUGIN_ROOT,
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    c.stdout.on('data', (d) => (stdout += d))
+    c.stderr.on('data', (d) => (stderr += d))
+    c.on('close', (code) => resolve({ code, stdout, stderr }))
+    setTimeout(() => {
+      try {
+        c.kill()
+      } catch (err) {}
+    }, 8000)
+  })
+}
+
+// MCP（stdio NDJSON）：写请求后等一会儿收响应，再结束进程。
+function runMcp(requests, env, waitMs = 2500) {
+  return new Promise((resolve) => {
+    const c = spawn(process.execPath, [path.join(PLUGIN_ROOT, 'lib', 'mcp-server.mjs')], {
+      cwd: PLUGIN_ROOT,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    let out = ''
+    c.stdout.on('data', (d) => (out += d))
+    c.stderr.on('data', () => {})
+    for (const r of requests) c.stdin.write(JSON.stringify(r) + '\n')
+    setTimeout(() => {
+      try {
+        c.kill()
+      } catch (err) {}
+      resolve(
+        out
+          .split('\n')
+          .filter((l) => l.trim())
+          .map((l) => {
+            try {
+              return JSON.parse(l)
+            } catch (err) {
+              return null
+            }
+          })
+          .filter(Boolean)
+      )
+    }, waitMs)
+  })
+}
+
+async function waitReady(port, deadlineMs) {
+  const deadline = Date.now() + deadlineMs
+  while (Date.now() < deadline) {
+    try {
+      const health = await getJson(port, '/whale/health')
+      if (health && health.app === 'zcode-fox-widget') return health
+    } catch (err) {}
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  return null
+}
+
+const serverEnv = {
+  ...process.env,
+  ZCODE_HOME: tmpHome,
+  ZCODE_DATA_BASE_DIR: tmpHome,
+  // CommandCode 额度读取隔离：指向空目录，绝不读真实反代凭据、绝不真出网
+  CMDGO_DIR: path.join(tmpHome, 'cmdgo-empty'),
+}
+let childLog = ''
+function spawnServer() {
+  const c = spawn(process.execPath, [path.join(PLUGIN_ROOT, 'lib', 'server.mjs')], {
+    cwd: PLUGIN_ROOT,
+    env: serverEnv,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  c.stdout.on('data', (chunk) => (childLog += chunk))
+  c.stderr.on('data', (chunk) => (childLog += chunk))
+  return c
+}
+let child = spawnServer()
+
+try {
+  console.log('🐳 挂件自检（临时 ZCODE_HOME=' + tmpHome + '）\n')
+
+  const health = await waitReady(PORT, 8000)
+  check('服务在临时端口就绪', !!health, health ? 'port=' + health.port + ' pid=' + health.pid : childLog.slice(0, 200))
+  if (!health) throw new Error('服务未就绪')
+  check(
+    'health 带 key 探测诊断（列出 provider 条目，enc 密文被标记）',
+    health.keyProbe && Array.isArray(health.keyProbe.entries) &&
+      health.keyProbe.entries.some((e) => e.providerId === 'deepseek-encrypted' && e.keyEncrypted === true),
+    'keySource=' + health.keySource + ' entries=' + ((health.keyProbe && health.keyProbe.entries) || []).length
+  )
+  const port = health.port
+
+  // 审查 P2-2：版本号单一来源——health（server 动态读 plugin.json）、清单、
+  // marketplace.json 副本三者一致，漂移即发版漏改
+  const pluginManifest = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, '.zcode-plugin', 'plugin.json'), 'utf8'))
+  const marketplaceManifest = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, 'marketplace.json'), 'utf8'))
+  check(
+    '版本号单一来源：health = plugin.json = marketplace.json',
+    health.version === pluginManifest.version && marketplaceManifest.plugins[0].version === pluginManifest.version,
+    JSON.stringify({ health: health.version, plugin: pluginManifest.version, market: marketplaceManifest.plugins[0].version })
+  )
+  // 审查 P3-2：本地/私有判定统一口径——link-local / CGNAT / 0.0.0.0/8 都拦、
+  // 公网域名放行；discover 与 credentials 共用 lib/blocked-host.mjs
+  check(
+    '本地判定统一口径：169.254/100.64/0.0.0.0 拦截、公网放行',
+    isBlockedHost('169.254.169.254') && isBlockedHost('100.64.0.1') && isBlockedHost('0.1.2.3') &&
+      isBlockedHost('localhost') && isBlockedHost('192.168.1.1') && !isBlockedHost('api.deepseek.com'),
+    JSON.stringify({ linkLocal: isBlockedHost('169.254.169.254'), cgnat: isBlockedHost('100.64.0.1'), thisNet: isBlockedHost('0.1.2.3') })
+  )
+
+  const first = await getJson(port, '/whale/last-turn.json')
+  check('启动时对齐历史轮次（seq=0，不弹旧轮次）', first.seq === 0 && first.turn === null, JSON.stringify(first))
+
+  const atB = Date.now()
+  insertTurn('sess_selftest', 'turn_B', USAGE_B, atB)
+
+  // 服务每秒轮询一次，给足两拍
+  let second = null
+  const deadline = Date.now() + 6000
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 400))
+    second = await getJson(port, '/whale/last-turn.json')
+    if (second.seq > 0) break
+  }
+  check('新轮次被识别（seq 递增到 1）', second && second.seq === 1, JSON.stringify(second))
+
+  const expected = costOfUsage(MODEL, USAGE_B, atB, 'deepseek-test').amount
+  const got = second && typeof second.amount === 'number' ? second.amount : NaN
+  check(
+    '金额与峰谷定价换算一致',
+    Math.abs(got - expected) < 1e-9,
+    '期望 ¥' + expected.toFixed(6) + '，实际 ¥' + Number(got).toFixed(6) + '（' + (second && second.peak ? '高峰' : '空闲') + '时段）'
+  )
+  check('金额明显大于 0', got > 0, '¥' + Number(got).toFixed(4))
+  check('轮次标识与模型被带上', !!(second && second.turn === 'turn_B' && second.model === MODEL), JSON.stringify({ turn: second && second.turn, model: second && second.model }))
+
+  // 多模型轮次：GLM（套餐账户）+ DeepSeek 混合，金额应按行加总且带逐模型明细
+  const atC = Date.now()
+  insertTurn('sess_selftest', 'turn_C', USAGE_B, atC, [
+    {
+      model: 'GLM-5.3-Flash',
+      providerId: 'account:zai-start-plan',
+      usage: { input_tokens: 500_000, cache_read_input_tokens: 450_000, output_tokens: 50_000, computed_total_tokens: 550_000 },
+    },
+    {
+      model: 'deepseek-flash',
+      providerId: 'deepseek-test',
+      usage: { input_tokens: 300_000, cache_read_input_tokens: 0, output_tokens: 30_000, computed_total_tokens: 330_000 },
+    },
+  ])
+  let third = null
+  const deadlineC = Date.now() + 6000
+  while (Date.now() < deadlineC) {
+    await new Promise((r) => setTimeout(r, 400))
+    third = await getJson(port, '/whale/last-turn.json')
+    if (third.seq > 1) break
+  }
+  const glmPart = costOfUsage('GLM-5.3-Flash', { input_tokens: 500_000, cache_read_input_tokens: 450_000, output_tokens: 50_000, computed_total_tokens: 550_000 }, atC, 'account:zai-start-plan').amount
+  const dsPart = costOfUsage('deepseek-flash', { input_tokens: 300_000, cache_read_input_tokens: 0, output_tokens: 30_000, computed_total_tokens: 330_000 }, atC, 'deepseek-test').amount
+  check(
+    '多模型轮次按行加总并带逐模型明细',
+    third && third.seq === 2 && Array.isArray(third.models) && third.models.length === 2 && Math.abs(third.amount - (glmPart + dsPart)) < 1e-9,
+    '期望 ¥' + (glmPart + dsPart).toFixed(6) + '，实际 ¥' + Number(third && third.amount).toFixed(6) + '，models=' + (third && third.models ? third.models.length : '无')
+  )
+  check('混合轮次的金额构成两种厂商', glmPart > 0 && dsPart > 0, 'GLM ¥' + glmPart.toFixed(4) + ' + DeepSeek ¥' + dsPart.toFixed(4))
+
+  // Plan 配额端到端：/whale/plan.json 读 fixture 日志；GLM 轮次的 quotaPct 用主模型桶算
+  const plan = await getJson(port, '/whale/plan.json')
+  check(
+    'Plan 配额接口返回 fixture 观测',
+    plan && plan.ok && plan.remaining === 93_000_000 && plan.total === 104_000_000,
+    JSON.stringify(plan).slice(0, 160)
+  )
+  const expectPct = Math.round((550_000 / 100_000_000) * 10000) / 100
+  check(
+    '套餐轮次带「占配额百分比」',
+    third && third.quotaPct === expectPct,
+    '期望 ' + expectPct + '%，实际 ' + (third && third.quotaPct)
+  )
+  // v1.4.0：套餐轮的余额口径——planPct 占配额总量（与主显示「Plan 剩余 x%」同
+  // 基数），混合轮次把非套餐行的真实金额放进 extraAmounts；纯 DeepSeek 轮不带
+  const expectPlanPct = Math.round((550_000 / 104_000_000) * 10000) / 100
+  check(
+    '套餐轮次带「消耗余额百分比」（占配额总量，同主显示基数）',
+    third && third.planTurn === true && third.planPct === expectPlanPct && third.planTokens === 550_000,
+    '期望 ' + expectPlanPct + '%/550000，实际 ' + (third && third.planPct) + '%/' + (third && third.planTokens)
+  )
+  check(
+    '混合轮次的非套餐行金额进 extraAmounts（套餐行被剔除）',
+    third && third.extraAmounts && Math.abs(third.extraAmounts.CNY - dsPart) < 1e-9 && Object.keys(third.extraAmounts).length === 1,
+    '期望 CNY ' + dsPart.toFixed(6) + '，实际 ' + JSON.stringify(third && third.extraAmounts)
+  )
+  check(
+    '纯 DeepSeek 轮不带套餐口径（planTurn=false，planPct=null）',
+    second && second.planTurn === false && second.planPct === null && second.extraAmounts === null,
+    'planTurn=' + (second && second.planTurn) + ' planPct=' + (second && second.planPct)
+  )
+
+  // 厂商模板端到端：自动发现命中 bigmodel 规则、跳过本地网关；无 key 的模板不可用
+  const vendors = await getJson(port, '/whale/vendors.json')
+  const byId = {}
+  for (const v of (vendors && vendors.vendors) || []) byId[v.id] = v
+  check(
+    '厂商模板清单完整（原 8 家 + v1.8.0 补齐的 26 条都在 vendors.json 里）',
+    vendors &&
+      vendors.ok &&
+      [
+        'deepseek',
+        'zcode-plan',
+        'commandcode',
+        'bigmodel-glm',
+        'openrouter',
+        'moonshot-cn',
+        'moonshot-intl',
+        'zhipu-quota',
+        'stepfun',
+        'novita',
+        'kimi-coding',
+        'minimax-coding',
+        'minimax-coding-intl',
+        'opencode-go',
+        'zhipu-coding-intl',
+        'openai',
+        'anthropic',
+        'gemini',
+        'xai',
+        'groq',
+        'mistral',
+        'together',
+        'fireworks',
+        'deepinfra',
+        'cerebras',
+        'siliconflow-cn',
+        'siliconflow-en',
+        'volcengine-ark',
+        'dashscope',
+        'qianfan',
+        'hunyuan',
+        'spark',
+        'modelscope',
+        'ollama',
+      ].every((id) => byId[id]),
+    vendors && vendors.vendors ? vendors.vendors.map((v) => v.id).join(',') : '无'
+  )
+  check(
+    '新补的无余额接口模板按 kind:tokens 呈现（只判凭据，不编造余额）',
+    byId.openai &&
+      byId.openai.kind === 'tokens' &&
+      byId.openai.balance === undefined &&
+      byId.ollama &&
+      byId.ollama.kind === 'tokens',
+    JSON.stringify({ openaiKind: byId.openai && byId.openai.kind, ollamaKind: byId.ollama && byId.ollama.kind })
+  )
+  check(
+    '自动发现命中 bigmodel 规则（key 来自 v2 provider_config）',
+    byId['bigmodel-glm'] && byId['bigmodel-glm'].available === true && String(byId['bigmodel-glm'].keySource || '').indexOf('v2-provider-config') === 0,
+    byId['bigmodel-glm'] ? JSON.stringify({ available: byId['bigmodel-glm'].available, keySource: byId['bigmodel-glm'].keySource }) : '缺失'
+  )
+  check(
+    '本地网关/加密凭据被跳过：deepseek 走 NO_KEY 快速路径不出网',
+    byId['deepseek'] && byId['deepseek'].available === false && String(byId['deepseek'].reason || '').indexOf('未找到 DeepSeek API Key') === 0,
+    byId['deepseek'] ? JSON.stringify({ available: byId['deepseek'].available, reason: byId['deepseek'].reason }).slice(0, 160) : '缺失'
+  )
+  check(
+    '无凭据模板不可用且不虚报余额',
+    byId['openrouter'] && byId['openrouter'].available === false && byId['openrouter'].balance === undefined,
+    byId['openrouter'] ? 'available=' + byId['openrouter'].available : '缺失'
+  )
+  check(
+    'Plan 模板走日志源',
+    byId['zcode-plan'] && byId['zcode-plan'].available === true && byId['zcode-plan'].kind === 'local-log',
+    byId['zcode-plan'] ? 'available=' + byId['zcode-plan'].available : '缺失'
+  )
+
+  // 用量记录：今日按模型聚合与逐条事件
+  const usage = await getJson(port, '/whale/usage-records.json')
+  const usageModels = usage && usage.ok ? usage.today.models.map((m) => m.model) : []
+  check(
+    '用量记录：今日含两个模型的聚合',
+    usage && usage.ok && usageModels.indexOf('GLM-5.3-Flash') !== -1 && usageModels.indexOf('deepseek-flash') !== -1,
+    'models=' + usageModels.join(',')
+  )
+  check(
+    '用量记录：今日金额与全部轮次一致（A+B+C）',
+    usage && usage.ok,
+    'total=' + (usage && usage.today ? usage.today.total : '无')
+  )
+  if (usage && usage.ok) {
+    const costA = costOfUsage('deepseek-flash', { input_tokens: 1, output_tokens: 1, computed_total_tokens: 2 }, atA, 'deepseek-test').amount
+    const costB = costOfUsage('deepseek-flash', USAGE_B, atB, 'deepseek-test').amount
+    // v1.7.1（QA I-1）：套餐行（source='plan'）按配额扣、不花钱，日聚合的金额
+    // 只含真金白银——glmPart 是 pricing 层的等价市值，不进「今日已用（金额）」
+    const expectedToday = costA + costB + dsPart
+    check(
+      '用量记录：今日金额 = 付费行之和（套餐行不计金额）',
+      Math.abs(usage.today.total - expectedToday) < 1e-9,
+      '期望 ¥' + expectedToday.toFixed(6) + '，实际 ¥' + usage.today.total.toFixed(6) + '（套餐等价市值 ¥' + glmPart.toFixed(6) + ' 已剔除）'
+    )
+    // 套餐行金额归零但 tokens 照算：面板与主显示按配额/tokens 表达。
+    // v1.7.5：行级补等价市值（market）——只喂「模型排名」的排序与占比条
+    const planRow = (usage.today.models || []).find((m) => m.providerId === 'account:zai-start-plan')
+    check(
+      '用量记录：套餐行金额记 0 但 tokens 照算 + 市值在（与轮级 turnPlanUsage 同口径）',
+      planRow && planRow.amount === 0 && planRow.tokens > 0 && planRow.plan === true && Number(planRow.market) > 0,
+      JSON.stringify(planRow || null)
+    )
+    check(
+      '用量记录：rankTotal（排名值合计）≥ total（真金白银），两条口径分离',
+      Number(usage.today.rankTotal) >= usage.today.total,
+      'rankTotal=' + usage.today.rankTotal + ' total=' + usage.today.total
+    )
+    check(
+      '用量记录：厂商金额不含套餐（byVendor.GLM 金额为 0、tokens 在）',
+      usage.today.byVendor && usage.today.byVendor.GLM && usage.today.byVendor.GLM.amount === 0 && usage.today.byVendor.GLM.tokens > 0,
+      JSON.stringify((usage.today.byVendor || {}).GLM || null)
+    )
+  }
+  // 明细按轮聚合：一轮 = session/turn 相同的全部模型行之和
+  check(
+    '用量记录：带最近轮次列表（按轮聚合）',
+    usage && usage.ok && Array.isArray(usage.turns) && usage.turns.length >= 2,
+    'turns=' + (usage && usage.turns ? usage.turns.length : '无')
+  )
+  if (usage && usage.ok && Array.isArray(usage.turns)) {
+    const turnC = usage.turns.find((t) => (t.models || []).some((m) => m.model === 'GLM-5.3-Flash'))
+    check(
+      '用量记录：多模型轮次归并为一条且金额只含付费模型（套餐行金额 0）',
+      turnC && turnC.calls === 2 && turnC.models.length === 2 && Math.abs(turnC.amount - dsPart) < 1e-9,
+      turnC
+        ? 'calls=' + turnC.calls + ' models=' + turnC.models.length + ' ¥' + turnC.amount.toFixed(6)
+        : '未找到含 GLM 的轮次'
+    )
+  }
+
+  // N1 回归（v1.3.0 复审）：多币种轮次的**文本出口**不能把美元写成人民币。
+  // cli.mjs / mcp-server.mjs 曾把 'CNY' 写死在金额格式化里，OpenAI/Claude 轮次会
+  // 显示成 ¥0.30（与真实价值差约 7 倍）。这里插一条 OpenAI 轮次，走真实 CLI 与
+  // MCP 文本路径核对，顺带核对 MCP 握手版本号与 plugin.json 一致（复审 N2）。
+  const atD = Date.now()
+  const USD_USAGE = { input_tokens: 120_000, cache_read_input_tokens: 20_000, output_tokens: 8_000, computed_total_tokens: 128_000 }
+  insertTurn('sess_selftest', 'turn_USD', USD_USAGE, atD, [{ model: 'gpt-5.6-terra', providerId: 'openai', usage: USD_USAGE }])
+  const usdExpected = costOfUsage('gpt-5.6-terra', USD_USAGE, atD, 'openai')
+  let usdTurn = null
+  const deadlineUsd = Date.now() + 6000
+  while (Date.now() < deadlineUsd) {
+    await new Promise((r) => setTimeout(r, 400))
+    usdTurn = await getJson(port, '/whale/last-turn.json')
+    if (usdTurn.seq > 2) break
+  }
+  check(
+    '多币种轮次被识别（seq 递增到 3，币种为 USD）',
+    usdTurn && usdTurn.seq === 3 && usdTurn.currency === 'USD' && Math.abs(usdTurn.amount - usdExpected.amount) < 1e-9,
+    usdTurn ? 'seq=' + usdTurn.seq + ' currency=' + usdTurn.currency + ' amount=' + usdTurn.amount : '无'
+  )
+  const cliEnv = { ...serverEnv }
+  const cliTurn = await runCli(['turn'], cliEnv)
+  check(
+    'CLI 每轮消耗按币种显示（USD 轮次出现 $，不再写成 ¥）',
+    cliTurn.code === 0 && /\$\s*\d/.test(cliTurn.stdout) && cliTurn.stdout.indexOf('¥') === -1,
+    cliTurn.stdout.split('\n').slice(0, 2).join(' | ') + (cliTurn.stderr ? ' [stderr] ' + cliTurn.stderr.slice(0, 120) : '')
+  )
+  check(
+    'CLI 逐档明细的单价也随币种（$ x/M 而非 ¥ x/M）',
+    cliTurn.stdout.indexOf('× $') !== -1,
+    cliTurn.stdout.split('\n').filter((l) => l.indexOf('×') !== -1).join(' | ').slice(0, 200)
+  )
+  const mcpOut = await runMcp([{ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'selftest', version: '1' } } }, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'whale_last_turn', arguments: {} } }], cliEnv)
+  const mcpInit = mcpOut.find((m) => m.id === 1)
+  const mcpTurn = mcpOut.find((m) => m.id === 2)
+  const mcpText = mcpTurn && mcpTurn.result && mcpTurn.result.content && mcpTurn.result.content[0] ? mcpTurn.result.content[0].text : ''
+  check(
+    'MCP whale_last_turn 按币种显示（USD 轮次出现 $，不再写成 ¥）',
+    mcpText && mcpText.indexOf('$') !== -1 && mcpText.indexOf('¥') === -1,
+    mcpText.split('\n').slice(0, 2).join(' | ')
+  )
+  const pluginJson = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, '.zcode-plugin', 'plugin.json'), 'utf8'))
+  const mcpVersion = mcpInit && mcpInit.result && mcpInit.result.serverInfo ? mcpInit.result.serverInfo.version : null
+  check(
+    'MCP 握手版本号与 plugin.json 一致（单一来源）',
+    mcpVersion === pluginJson.version,
+    'mcp=' + mcpVersion + ' plugin.json=' + pluginJson.version
+  )
+
+  // 预警设置归一：额度阈值泛化为单一 quotaPct（旧键 planPct/cmdgoPct 折入），
+  // moneyAlert 仍由 DS/BM 两个旧键合并，负数/非法值归 0
+  const putRes = await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scale: 1.5, alerts: { quotaPct: 20, moneyAlert: 5.5, deepseekBelow: -3, bigmodelDaily: 9 } }),
+  })
+  const putBody = await putRes.json()
+  check(
+    '预警阈值写入并归一（quotaPct + moneyAlert 两条，旧键不再各自保留）',
+    putRes.ok &&
+      putBody.alerts &&
+      putBody.alerts.quotaPct === 20 &&
+      putBody.alerts.moneyAlert === 5.5 &&
+      putBody.alerts.planPct === undefined &&
+      putBody.alerts.cmdgoPct === undefined &&
+      putBody.alerts.deepseekBelow === undefined,
+    JSON.stringify(putBody.alerts)
+  )
+  const sizeBack = await getJson(port, '/whale/size.json')
+  check(
+    '预警设置持久化回读',
+    sizeBack && sizeBack.alerts && sizeBack.alerts.quotaPct === 20 && sizeBack.alerts.moneyAlert === 5.5,
+    JSON.stringify(sizeBack.alerts)
+  )
+  // 旧配置迁移：模拟升级用户的文件（只有 DS¥/BM¥ 旧键、没有 moneyAlert），
+  // 读出来应是 moneyAlert=deepseekBelow（先设过的那个），旧键不再保留
+  const legacyState = JSON.parse(fs.readFileSync(path.join(dataDir, 'widget-state.json'), 'utf8'))
+  legacyState.alerts = { planPct: 20, deepseekBelow: 7.5, bigmodelDaily: 3 }
+  fs.writeFileSync(path.join(dataDir, 'widget-state.json'), JSON.stringify(legacyState), 'utf8')
+  const legacyBack = await getJson(port, '/whale/size.json')
+  check(
+    '预警旧键迁移（planPct → quotaPct，deepseekBelow/bigmodelDaily → moneyAlert）',
+    legacyBack &&
+      legacyBack.alerts &&
+      legacyBack.alerts.quotaPct === 20 &&
+      legacyBack.alerts.moneyAlert === 7.5 &&
+      legacyBack.alerts.deepseekBelow === undefined,
+    JSON.stringify(legacyBack.alerts)
+  )
+  // 只设过 cmdgoPct 的用户（v1.7.8 那一格是只写不读的）设置要折进 quotaPct 而不是丢
+  legacyState.alerts = { cmdgoPct: 15 }
+  fs.writeFileSync(path.join(dataDir, 'widget-state.json'), JSON.stringify(legacyState), 'utf8')
+  const cmdgoLegacyBack = await getJson(port, '/whale/size.json')
+  check(
+    'cmdgoPct 旧值折入 quotaPct（只设过它的用户不丢设置）',
+    cmdgoLegacyBack && cmdgoLegacyBack.alerts && cmdgoLegacyBack.alerts.quotaPct === 15,
+    JSON.stringify(cmdgoLegacyBack.alerts)
+  )
+
+  // 角色库：内置小狐娘（默认）/小鲸鱼固定在前，上传件自动启用；未指定时默认小狐娘
+  const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const upRes = await fetch('http://127.0.0.1:' + port + '/whale/role-upload.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '自检鲸鱼', dataUrl: tinyPng }),
+  })
+  const upBody = await upRes.json()
+  check('角色上传成功并自动启用', upRes.ok && upBody.ok && typeof upBody.id === 'string', JSON.stringify(upBody))
+  const roles1 = await getJson(port, '/whale/roles.json')
+  check(
+    '角色列表：五个内置形象在前（小狐娘/小鲸鱼/GPT娘/kimi娘/小克）+ 上传件，selected 指向上传件',
+    roles1 &&
+      roles1.ok &&
+      roles1.roles.length === 6 &&
+      roles1.roles[0].id === 'fox' &&
+      roles1.roles[0].name === '小狐娘' &&
+      roles1.roles[1].id === 'whale' &&
+      roles1.roles[1].name === '小鲸鱼' &&
+      roles1.roles[2].id === 'gpt' &&
+      roles1.roles[2].name === 'GPT娘' &&
+      roles1.roles[3].id === 'kimi' &&
+      roles1.roles[3].name === 'kimi娘' &&
+      roles1.roles[4].id === 'xiaoke' &&
+      roles1.roles[4].name === '小克' &&
+      roles1.selected === upBody.id,
+    JSON.stringify(roles1).slice(0, 200)
+  )
+  // 超过旧版全局 8KB body 上限的上传也应成功（真实头像截图普遍几十 KB 起）
+  const bigDataUrl = 'data:image/png;base64,' + Buffer.alloc(15000, 97).toString('base64')
+  const upBigRes = await fetch('http://127.0.0.1:' + port + '/whale/role-upload.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'big-selftest', dataUrl: bigDataUrl }),
+  })
+  const upBigBody = await upBigRes.json()
+  check('超过 8KB 的角色上传成功', upBigRes.ok && upBigBody.ok === true, JSON.stringify(upBigBody))
+  const imgRes = await fetch('http://127.0.0.1:' + port + '/whale/image.png')
+  check('启用角色后 image.png 仍可用', imgRes.ok && (imgRes.headers.get('content-type') || '').indexOf('image/png') === 0, 'HTTP ' + imgRes.status)
+  await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scale: 1.5, roleId: null }),
+  })
+  const roles2 = await getJson(port, '/whale/roles.json')
+  check('未指定角色 = 默认小狐娘（selected=fox）', roles2 && roles2.ok && roles2.selected === 'fox', JSON.stringify(roles2.selected))
+  const imgDef = Buffer.from(await (await fetch('http://127.0.0.1:' + port + '/whale/image.png')).arrayBuffer())
+  const glmPng = fs.readFileSync(path.join(PLUGIN_ROOT, 'assets', 'GLM.png'))
+  check(
+    '默认形象图 = 小狐娘 GLM.png（608x608）',
+    imgDef.equals(glmPng) && imgDef.readUInt32BE(16) === 608 && imgDef.readUInt32BE(20) === 608,
+    'len=' + imgDef.length
+  )
+  await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scale: 1.5, roleId: 'whale' }),
+  })
+  const imgWhale = Buffer.from(await (await fetch('http://127.0.0.1:' + port + '/whale/image.png')).arrayBuffer())
+  const whalePng = fs.readFileSync(path.join(PLUGIN_ROOT, 'assets', 'DSniang1.png'))
+  check('切换小鲸鱼后 image.png 换成 DSniang1.png', imgWhale.equals(whalePng), 'len=' + imgWhale.length)
+
+  // 角色改名：导入件可改名，内置形象拒绝
+  const rnRes = await fetch('http://127.0.0.1:' + port + '/whale/role-rename.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: upBody.id, name: '改过名的鲸鱼' }),
+  })
+  const rnBody = await rnRes.json()
+  const rnHit = rnBody.roles ? rnBody.roles.find((r) => r && r.id === upBody.id) : null
+  check('导入角色改名成功', rnRes.ok && rnBody.ok === true && !!rnHit && rnHit.name === '改过名的鲸鱼', JSON.stringify(rnHit))
+  const rnBuiltin = await fetch('http://127.0.0.1:' + port + '/whale/role-rename.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'fox', name: '不许改' }),
+  })
+  const rnBuiltinBody = await rnBuiltin.json()
+  check('内置形象不可改名', rnBuiltin.status === 400 && rnBuiltinBody.ok === false, JSON.stringify(rnBuiltinBody))
+
+  // 角色删除：索引 + 图片文件一起清；删掉的正好是当前形象时回落默认角色
+  const delUp = await fetch('http://127.0.0.1:' + port + '/whale/role-upload.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '待删除', dataUrl: tinyPng }),
+  })
+  const delUpBody = await delUp.json()
+  const beforeDel = await getJson(port, '/whale/roles.json')
+  const delRes = await fetch('http://127.0.0.1:' + port + '/whale/role-delete.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: delUpBody.id }),
+  })
+  const delBody = await delRes.json()
+  const afterIds = (delBody.roles || []).map((r) => r.id)
+  check(
+    '导入角色删除（索引 + 文件 + 选中回落默认小狐娘）',
+    delRes.ok &&
+      delBody.ok === true &&
+      afterIds.indexOf(delUpBody.id) === -1 &&
+      delBody.selected === 'fox' &&
+      afterIds.length === beforeDel.roles.length - 1,
+    JSON.stringify({ selected: delBody.selected, n: afterIds.length })
+  )
+  const delImgRes = await fetch('http://127.0.0.1:' + port + '/whale/image.png')
+  check('删除当前形象后 image.png 仍可用（回落默认图）', delImgRes.ok, 'HTTP ' + delImgRes.status)
+  // v1.6.0：内置形象也可以删（包内素材删不掉文件，改为记进 roles.json 的
+  // hiddenBuiltins 隐藏；删掉的正好是当前形象时选中项要换一个，否则图片 404）
+  const delBuiltin = await fetch('http://127.0.0.1:' + port + '/whale/role-delete.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'whale' }),
+  })
+  const delBuiltinBody = await delBuiltin.json()
+  const builtinIds = (delBuiltinBody.roles || []).filter((r) => r.builtin).map((r) => r.id)
+  check(
+    '内置形象可删除（从列表隐藏，others 不受影响）',
+    delBuiltin.ok && delBuiltinBody.ok === true && builtinIds.indexOf('whale') === -1 && builtinIds.indexOf('fox') !== -1,
+    JSON.stringify({ selected: delBuiltinBody.selected, builtins: builtinIds })
+  )
+  const idxAfterBuiltinDel = JSON.parse(fs.readFileSync(path.join(dataDir, 'roles.json'), 'utf8'))
+  check(
+    '内置形象删除记进 hiddenBuiltins（可手动找回）',
+    Array.isArray(idxAfterBuiltinDel.hiddenBuiltins) && idxAfterBuiltinDel.hiddenBuiltins.indexOf('whale') !== -1,
+    JSON.stringify(idxAfterBuiltinDel.hiddenBuiltins || null)
+  )
+  const delBuiltinSelected = await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roleId: 'fox' }),
+  })
+  await delBuiltinSelected.json()
+  const delBuiltinInUse = await fetch('http://127.0.0.1:' + port + '/whale/role-delete.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'fox' }),
+  })
+  const delBuiltinInUseBody = await delBuiltinInUse.json()
+  const imgAfterBuiltinDel = await fetch('http://127.0.0.1:' + port + '/whale/image.png')
+  check(
+    '删掉正在用的内置形象 → 选中项换到剩下那个且图片仍可用',
+    delBuiltinInUse.ok &&
+      delBuiltinInUseBody.ok === true &&
+      delBuiltinInUseBody.selected !== 'fox' &&
+      delBuiltinInUseBody.roles.some((r) => r.id === delBuiltinInUseBody.selected) &&
+      imgAfterBuiltinDel.ok,
+    JSON.stringify({ selected: delBuiltinInUseBody.selected, img: imgAfterBuiltinDel.status })
+  )
+  // 复原：把两个内置形象从 hiddenBuiltins 里拿掉（= 用户在 roles.json 里手动找回）
+  const idxRestore = JSON.parse(fs.readFileSync(path.join(dataDir, 'roles.json'), 'utf8'))
+  idxRestore.hiddenBuiltins = []
+  fs.writeFileSync(path.join(dataDir, 'roles.json'), JSON.stringify(idxRestore, null, 2), 'utf8')
+  const rolesRestored = await getJson(port, '/whale/roles.json')
+  check(
+    '清掉 hiddenBuiltins 后内置形象回来（README 的找回路径可用）',
+    rolesRestored.roles.filter((r) => r.builtin).length === 5,
+    JSON.stringify(rolesRestored.roles.filter((r) => r.builtin).map((r) => r.id))
+  )
+
+  // 按压泡泡（v2 点击序列 + 模块行）：默认空、v2 写入归一、v1 迁移、持久化回读
+  const bc0 = await getJson(port, '/whale/bubble-content.json')
+  check(
+    '按压泡泡默认空（v2, steps=[], tapAdvance=true）',
+    bc0 && bc0.ok === true && bc0.v === 2 && bc0.tapAdvance === true && Array.isArray(bc0.steps) && bc0.steps.length === 0,
+    JSON.stringify(bc0)
+  )
+  const manySteps = []
+  for (let i = 0; i < 20; i++) {
+    manySteps.push({ modules: [{ type: 'text', text: 'x'.repeat(300), size: 'Z' }] })
+  }
+  const bcPost = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      v: 2,
+      tapAdvance: false,
+      steps: [{ modules: [{ type: 'text', text: '第一行\n第二行', size: 'B' }, { type: 'text', text: '   ', size: 'A' }] }].concat(manySteps),
+    }),
+  })
+  const bcBody = await bcPost.json()
+  check(
+    '按压泡泡 v2 写入归一（空白模块丢弃 / 最多 12 步 / 每行 200 字 / 非法字号回 A / tapAdvance 保留）',
+    bcPost.ok &&
+      bcBody.ok === true &&
+      bcBody.v === 2 &&
+      bcBody.tapAdvance === false &&
+      bcBody.steps.length === 12 &&
+      bcBody.steps[0].modules.length === 1 &&
+      bcBody.steps[0].modules[0].size === 'B' &&
+      bcBody.steps[0].modules[0].text === '第一行\n第二行',
+    JSON.stringify({ n: bcBody.steps.length, mods: bcBody.steps[0].modules.length, size: bcBody.steps[0].modules[0].size })
+  )
+  const bcBack = await getJson(port, '/whale/bubble-content.json')
+  check(
+    '按压泡泡持久化回读一致',
+    bcBack && bcBack.v === 2 && bcBack.steps.length === 12 && bcBack.steps[0].modules[0].text === '第一行\n第二行',
+    JSON.stringify(bcBack).slice(0, 120)
+  )
+  // 「内置视图」模块（v1.5.2）：整泡语义，既不被当空模块过滤、也不被当空步丢弃
+  const bcView = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: [{ modules: [{ type: 'view', size: 'A' }] }, { modules: [{ type: 'text', text: '第二泡' }] }, { modules: [] }] }),
+  })
+  const bcViewBody = await bcView.json()
+  check(
+    '按压泡泡「内置视图」步保留（空模块步仍丢弃）',
+    bcViewBody.ok === true &&
+      bcViewBody.steps.length === 2 &&
+      bcViewBody.steps[0].modules.length === 1 &&
+      bcViewBody.steps[0].modules[0].type === 'view' &&
+      bcViewBody.steps[1].modules[0].text === '第二泡',
+    JSON.stringify(bcViewBody).slice(0, 200)
+  )
+  // v1 旧配置 POST → 迁移成 v2（first → 第 1 步，items → 后续步）
+  const bcMig = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 1, first: { text: '旧配置首次', size: 'A' }, items: [{ text: '旧配置第二条', size: 'C' }, { text: '  ', size: 'A' }] }),
+  })
+  const bcMigBody = await bcMig.json()
+  check(
+    '按压泡泡 v1 配置自动迁移（first→步1 / items→步2+ / 空条目丢弃）',
+    bcMigBody.ok === true &&
+      bcMigBody.v === 2 &&
+      bcMigBody.steps.length === 2 &&
+      bcMigBody.steps[0].modules[0].text === '旧配置首次' &&
+      bcMigBody.steps[1].modules[0].size === 'C',
+    JSON.stringify(bcMigBody).slice(0, 160)
+  )
+  await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: [] }),
+  })
+  const bcReset = await getJson(port, '/whale/bubble-content.json')
+  check('按压泡泡可恢复默认（清空序列）', bcReset && bcReset.v === 2 && bcReset.steps.length === 0, JSON.stringify(bcReset).slice(0, 80))
+  // 大而合法的定制配置必须能存（回归：写入路由曾走默认 8KB 请求体上限，
+  // 编辑器允许的合法配置保存必被 400「body too large」拒掉——审查 P2-1）
+  const bigSteps = []
+  for (let i = 0; i < 12; i++) {
+    bigSteps.push({
+      modules: [
+        { type: 'rand', size: 'A', lines: Array.from({ length: 12 }, (_, j) => '字'.repeat(199) + j) },
+        { type: 'text', size: 'B', text: '文'.repeat(200) },
+        { type: 'rand', size: 'C', lines: Array.from({ length: 12 }, () => '词'.repeat(200)) },
+      ],
+    })
+  }
+  const bigBc = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: bigSteps }),
+  })
+  const bigBcBody = await bigBc.json()
+  check(
+    '按压泡泡大而合法的配置可保存（12 步 × 3 模块 × 12 行 × 200 字 ≈ 200KB）',
+    bigBc.ok && bigBcBody.ok === true && bigBcBody.steps.length === 12 &&
+      bigBcBody.steps[0].modules.length === 3 &&
+      bigBcBody.steps[0].modules[0].type === 'rand' && bigBcBody.steps[0].modules[0].lines.length === 12 &&
+      bigBcBody.steps[0].modules[0].lines[0].length === 200 &&
+      bigBcBody.steps[0].modules[1].text.length === 200,
+    JSON.stringify({ status: bigBc.status, steps: bigBcBody.steps && bigBcBody.steps.length })
+  )
+  await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: [] }),
+  })
+  // —— v2.1 扩展（DSH 泡泡系统移植）：link / img / randimg / variants / lib ——
+  const extPost = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      v: 2,
+      tapAdvance: true,
+      steps: [
+        { modules: [{ type: 'link', text: '点这里', href: 'https://example.com/a', size: 'A' }] },
+        { modules: [{ type: 'link', text: '坏链接', href: 'javascript:alert(1)', size: 'A' }, { type: 'text', text: '兜底', size: 'A' }] },
+        {
+          variants: [
+            { w: 3, modules: [{ type: 'text', text: '甲', size: 'A' }] },
+            { w: 1, modules: [{ type: 'text', text: '乙', size: 'A' }] },
+          ],
+        },
+        { modules: [{ type: 'img', img: '../etc/passwd', size: 'A' }, { type: 'img', img: 'rua', size: 'A' }] },
+        { modules: [{ type: 'randimg', imgs: ['rua', 'rua', 'x1'], size: 'A' }] },
+      ],
+      lib: [{ label: '常用句', module: { type: 'text', text: '你好呀', size: 'A' } }],
+    }),
+  })
+  const extBody = await extPost.json()
+  check(
+    '气泡 v2.1：link 合法保存 / 危险 href 丢弃 / variants 加权保留 / 非法图片 id 丢弃且一步只留一个图片模块 / randimg 去重 / lib 随配置读写',
+    extPost.ok &&
+      extBody.ok === true &&
+      extBody.steps.length === 5 &&
+      extBody.steps[0].modules[0].type === 'link' &&
+      extBody.steps[0].modules[0].href === 'https://example.com/a' &&
+      extBody.steps[1].modules.length === 1 &&
+      extBody.steps[1].modules[0].text === '兜底' &&
+      Array.isArray(extBody.steps[2].variants) &&
+      extBody.steps[2].variants.length === 2 &&
+      extBody.steps[2].variants[0].w === 3 &&
+      extBody.steps[3].modules.length === 1 &&
+      extBody.steps[3].modules[0].img === 'rua' &&
+      extBody.steps[4].modules[0].imgs.length === 2 &&
+      Array.isArray(extBody.lib) &&
+      extBody.lib.length === 1 &&
+      extBody.lib[0].label === '常用句',
+    JSON.stringify({ n: extBody.steps.length, lib: extBody.lib && extBody.lib.length })
+  )
+  const extBack = await getJson(port, '/whale/bubble-content.json')
+  check(
+    '气泡 v2.1 持久化回读一致（variants/lib 落盘）',
+    extBack.steps.length === 5 && Array.isArray(extBack.lib) && extBack.lib.length === 1,
+    JSON.stringify({ steps: extBack.steps.length, lib: extBack.lib && extBack.lib.length })
+  )
+  await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: [] }),
+  })
+  // 泡泡模板路由：写 / 读 / 清 / 非法 kind
+  const tplPost = await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'turncost', config: { steps: [{ modules: [{ type: 'text', text: '本轮 {cost}', size: 'A' }] }] } }),
+  })
+  const tplPostBody = await tplPost.json()
+  const tplGet = await getJson(port, '/whale/bubble-templates.json')
+  check(
+    '泡泡模板：turncost 写入并读回（单步 {cost} 文案）',
+    tplPost.ok &&
+      tplPostBody.ok === true &&
+      tplGet.ok === true &&
+      tplGet.turnCost &&
+      tplGet.turnCost.steps.length === 1 &&
+      tplGet.turnCost.steps[0].modules[0].text === '本轮 {cost}',
+    JSON.stringify({ ok: tplPostBody.ok, has: !!tplGet.turnCost })
+  )
+  const tplClear = await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'turncost', config: null }),
+  })
+  const tplClearBody = await tplClear.json()
+  const tplGet2 = await getJson(port, '/whale/bubble-templates.json')
+  check(
+    '泡泡模板：config=null 恢复内置（清空）',
+    tplClear.ok && tplClearBody.ok === true && tplGet2.turnCost === null,
+    JSON.stringify({ cleared: tplGet2.turnCost === null })
+  )
+  const tplBad = await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'nope', config: null }),
+  })
+  check('泡泡模板：未知 kind 拒绝', tplBad.status === 400, 'status=' + tplBad.status)
+  // 契约钉死（审查 P2-A/P2-B/P3-C）：模板容量与按压泡泡同口径、kind 带不带 alert- 前缀都认、
+  // 清空内容 ≡ 恢复内置——三条都是「编辑器允许的操作必须存得下」这条教训的不同切面
+  const bigTplLines = []
+  for (let j = 0; j < 12; j++) bigTplLines.push('第' + (j + 1) + '行 ' + '模'.repeat(180))
+  const bigTplModules = [1, 2, 3].map((n) => ({ type: 'rand', lines: bigTplLines.map((t) => n + '·' + t) }))
+  const bigTplRaw = JSON.stringify({ kind: 'plan', config: { steps: [{ modules: bigTplModules }] } })
+  const bigTpl = await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: bigTplRaw,
+  })
+  const bigTplBody = await bigTpl.json()
+  const bigTplGet = await getJson(port, '/whale/bubble-templates.json')
+  check(
+    '泡泡模板：8KB 以上的合法模板可存（曾沿用 8KB 默认上限 → 合法内容必败，审查 P2-A）',
+    Buffer.byteLength(bigTplRaw) > 8192 &&
+      bigTpl.ok &&
+      bigTplBody.ok === true &&
+      !!(bigTplGet.alerts && bigTplGet.alerts.plan),
+    JSON.stringify({ bytes: Buffer.byteLength(bigTplRaw), status: bigTpl.status, ok: bigTplBody.ok })
+  )
+  const preRestore = await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'alert-plan', config: null }),
+  })
+  const preRestoreBody = await preRestore.json()
+  const preRestoreGet = await getJson(port, '/whale/bubble-templates.json')
+  check(
+    '泡泡模板：编辑器形态 alert-plan 的「恢复内置」被接受并清空（前缀契约，审查 P2-B）',
+    preRestore.ok && preRestoreBody.ok === true && preRestoreGet.alerts.plan === null,
+    JSON.stringify({ status: preRestore.status, error: preRestoreBody.error || null })
+  )
+  await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'plan', config: { steps: [{ modules: [{ type: 'text', text: '预警 {percent}', size: 'A' }] }] } }),
+  })
+  const tplEmpty = await fetch('http://127.0.0.1:' + port + '/whale/bubble-templates.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'plan', config: { steps: [{ modules: [] }] } }),
+  })
+  const tplEmptyBody = await tplEmpty.json()
+  const tplEmptyGet = await getJson(port, '/whale/bubble-templates.json')
+  check(
+    '泡泡模板：清空内容保存 ≡ 恢复内置（编辑器提示这么写的就得兑现，审查 P3-C）',
+    tplEmpty.ok && tplEmptyBody.ok === true && tplEmptyGet.alerts.plan === null,
+    JSON.stringify({ status: tplEmpty.status, error: tplEmptyBody.error || null })
+  )
+  // 组权重机制已废弃（2026-10-06）：内置第二次点击内容改为普通配置（出厂默认
+  // 队列在 widget.js），权重落在变体与逐条语句上。旧配置里的 groupW 被忽略。
+  const gwDrop = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: [], groupW: [10, 0, 0, 0, 0, 3] }),
+  })
+  const gwDropBack = await getJson(port, '/whale/bubble-content.json')
+  check('气泡配置：废弃的 groupW 字段被忽略（不再落盘）', gwDrop.ok && gwDropBack.groupW === undefined, JSON.stringify(gwDropBack.groupW))
+  // 逐条字号档：随机语句可混合 B/A/C 档（默认队列里「挑经句大字 + 文案中字」同池）
+  const szPost = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      v: 2,
+      tapAdvance: true,
+      steps: [
+        {
+          modules: [
+            {
+              type: 'rand',
+              size: 'A',
+              lines: [
+                { t: '大字', w: 4, size: 'B' },
+                { t: '中字带样式', w: 2, st: { bold: true } },
+                { t: '欠账', w: 1 },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  })
+  const szBody = await szPost.json()
+  const szl = szBody.steps && szBody.steps[0] && szBody.steps[0].modules[0] && szBody.steps[0].modules[0].lines
+  check(
+    '随机语句逐条字号档：size=B 落对象 / 无样式无档位落字符串（|权重）',
+    szPost.ok &&
+      Array.isArray(szl) &&
+      szl.length === 3 &&
+      szl[0].t === '大字' &&
+      szl[0].size === 'B' &&
+      szl[0].w === 4 &&
+      szl[1].st.bold === true &&
+      szl[2] === '欠账',
+    JSON.stringify(szl)
+  )
+  // 时段档 / 不换行 / 跟随峰谷色 / 变体只在有峰谷差价的源参与（only:'time'）
+  const ext2 = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      v: 2,
+      tapAdvance: true,
+      steps: [
+        { modules: [{ type: 'rand', size: 'A', lines: [{ t: '单行台词', size: 'P', wrap: false }] }] },
+        { modules: [{ type: 'text', text: '{period}', size: 'P', wrap: false, st: { color: 'peak' } }] },
+        {
+          variants: [
+            { w: 50, only: 'time', modules: [{ type: 'text', text: '时段' }] },
+            { w: 45, modules: [{ type: 'text', text: '台词' }] },
+          ],
+        },
+      ],
+    }),
+  })
+  const ext2Body = await ext2.json()
+  const e2l = ext2Body.steps && ext2Body.steps[0] && ext2Body.steps[0].modules[0].lines
+  check(
+    '时段档 P / wrap:false（不换行）/ color:peak（跟随峰谷）/ 变体 only:time 往返保留',
+    ext2.ok &&
+      Array.isArray(e2l) &&
+      e2l[0].size === 'P' &&
+      e2l[0].wrap === false &&
+      ext2Body.steps[1].modules[0].st.color === 'peak' &&
+      ext2Body.steps[1].modules[0].wrap === false &&
+      ext2Body.steps[2].variants[0].only === 'time' &&
+      ext2Body.steps[2].variants[1].only === undefined,
+    JSON.stringify({ line: e2l && e2l[0], v0: ext2Body.steps[2].variants[0] })
+  )
+  // 行级样式（对照 DSH 单句编辑）：样式对象往返 / 「句子|权重」字符串兼容 /
+  // 非法样式值（超界字号、非 hex 颜色、未知字体）被丢弃
+  const styledPost = await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      v: 2,
+      tapAdvance: true,
+      steps: [
+        {
+          modules: [
+            {
+              type: 'rand',
+              size: 'A',
+              lines: [
+                { t: '好耶', w: 3, st: { px: 18, bold: true, color: '#E0433F', font: 'serif' } },
+                '普通一句|5',
+                { t: '样式全非法', st: { px: 999, color: 'javascript:alert(1)', font: 'comic' } },
+                { t: '只带下划线', st: { ul: true } },
+              ],
+            },
+          ],
+        },
+        { modules: [{ type: 'text', text: '带样式文本', size: 'A', st: { bold: true, ul: true, bg: '#2b2b2b' } }] },
+      ],
+    }),
+  })
+  const styledBody = await styledPost.json()
+  const sl = styledBody.steps && styledBody.steps[0] && styledBody.steps[0].modules[0] && styledBody.steps[0].modules[0].lines
+  check(
+    '气泡行级样式：样式对象往返（含权重）/ 字符串「|权重」保持字符串 / 非法样式值丢弃 / 文本模块样式保留',
+    styledPost.ok &&
+      Array.isArray(sl) &&
+      sl.length === 4 &&
+      typeof sl[0] === 'object' &&
+      sl[0].t === '好耶' &&
+      sl[0].w === 3 &&
+      sl[0].st.px === 18 &&
+      sl[0].st.bold === true &&
+      sl[0].st.color === '#e0433f' &&
+      sl[0].st.font === 'serif' &&
+      sl[1] === '普通一句|5' &&
+      sl[2] === '样式全非法' &&
+      sl[3].st.ul === true &&
+      sl[3].st.px === undefined &&
+      styledBody.steps[1].modules[0].st.bold === true &&
+      styledBody.steps[1].modules[0].st.bg === '#2b2b2b',
+    JSON.stringify({ n: sl && sl.length, first: sl && sl[0], third: sl && sl[2] })
+  )
+  await fetch('http://127.0.0.1:' + port + '/whale/bubble-content.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 2, tapAdvance: true, steps: [] }),
+  })
+  // 泡泡图库路由：上传 → 列表（含内置 rua）→ 取图 → 删除后 404
+  const PNG1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const imgPost = await fetch('http://127.0.0.1:' + port + '/whale/bubble-img.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '测试图', dataUrl: PNG1x1 }),
+  })
+  const imgPostBody = await imgPost.json()
+  const imgList = await getJson(port, '/whale/bubble-imgs.json')
+  const imgId = imgPostBody.id
+  const imgBytes = await fetch('http://127.0.0.1:' + port + '/whale/bubble-img.png?id=' + imgId)
+  const imgRua = await fetch('http://127.0.0.1:' + port + '/whale/bubble-img.png?id=rua')
+  const imgDel = await fetch('http://127.0.0.1:' + port + '/whale/bubble-img-delete.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: imgId }),
+  })
+  const imgAfterDel = await fetch('http://127.0.0.1:' + port + '/whale/bubble-img.png?id=' + imgId)
+  check(
+    '泡泡图库：上传 png → 列表含内置 rua → 取图（png/gif 字节）→ 删除后 404',
+    imgPost.ok &&
+      imgPostBody.ok === true &&
+      imgList.ok === true &&
+      imgList.imgs.some((r) => r.id === imgId) &&
+      imgList.builtin.some((r) => r.id === 'rua') &&
+      imgBytes.ok &&
+      (imgBytes.headers.get('content-type') || '').indexOf('image/png') === 0 &&
+      imgRua.ok &&
+      (imgRua.headers.get('content-type') || '').indexOf('image/gif') === 0 &&
+      imgDel.ok &&
+      imgAfterDel.status === 404,
+    JSON.stringify({ up: imgPostBody.ok, list: imgList.imgs.length, png: imgBytes.status, rua: imgRua.status, del: imgAfterDel.status })
+  )
+
+  // 余额校正接口：GET 汇总 + POST 落账（自检环境无 DeepSeek 账本，应为空本形态）
+  const adjGet = await getJson(port, '/whale/balance-adjustments.json')
+  check('余额校正 GET 返回汇总', adjGet && adjGet.ok === true && adjGet.hasBook === false, JSON.stringify(adjGet))
+  const adjPost = await fetch('http://127.0.0.1:' + port + '/whale/balance-adjustments.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credits: 10, otherDebits: 2 }),
+  })
+  const adjBody = await adjPost.json()
+  check(
+    '余额校正 POST 落账（credits=10/otherDebits=2）',
+    adjPost.ok && adjBody.ok && adjBody.credits === 10 && adjBody.otherDebits === 2 && adjBody.needsReview === false,
+    JSON.stringify(adjBody)
+  )
+  const adjBad = await fetch('http://127.0.0.1:' + port + '/whale/balance-adjustments.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credits: -5, otherDebits: 0 }),
+  })
+  const adjBadBody = await adjBad.json()
+  check('负数金额被拒绝', adjBad.ok && adjBadBody.ok === false, JSON.stringify(adjBadBody))
+
+  // 挂件配置：displayMode（智能切换的手动覆盖）写读往返；非法值回落 auto
+  const dmPut = await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scale: 1.5, displayMode: 'plan' }),
+  })
+  const dmGet = await getJson(port, '/whale/size.json')
+  check('displayMode 写入并持久化回读', dmPut.ok && dmGet.displayMode === 'plan', 'displayMode=' + dmGet.displayMode)
+  await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scale: 1.5, displayMode: 'hacker' }),
+  })
+  const dmBad = await getJson(port, '/whale/size.json')
+  check('displayMode 非法值被丢弃（保留原值）', dmBad.displayMode === 'plan', 'displayMode=' + dmBad.displayMode)
+
+  // 安全路由：Host 校验（防 DNS rebinding）/ Origin 校验（防跨站写）/ 关闭令牌
+  function rawRequest(method, requestPath, headers, body) {
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port, method, path: requestPath, headers: headers || {}, timeout: 3000 },
+        (res) => {
+          let buf = ''
+          res.on('data', (c) => (buf += c))
+          res.on('end', () => resolve({ status: res.statusCode, body: buf }))
+        }
+      )
+      req.on('timeout', () => req.destroy(new Error('timeout')))
+      req.on('error', reject)
+      if (body) req.write(body)
+      req.end()
+    })
+  }
+  const badHost = await rawRequest('GET', '/whale/health', { host: 'evil.example:' + port })
+  check('伪造 Host 头被 403', badHost.status === 403, 'HTTP ' + badHost.status)
+  const crossOrigin = await rawRequest(
+    'PUT',
+    '/whale/size.json',
+    { host: '127.0.0.1:' + port, origin: 'http://evil.example', 'content-type': 'application/json' },
+    JSON.stringify({ scale: 2 })
+  )
+  check('跨 Origin 写请求被 403', crossOrigin.status === 403, 'HTTP ' + crossOrigin.status)
+  const badToken = await rawRequest('POST', '/whale/shutdown', { host: '127.0.0.1:' + port, 'x-whale-token': 'wrong-token' })
+  check('错误令牌关闭被 403', badToken.status === 403, 'HTTP ' + badToken.status)
+  const noToken = await rawRequest('POST', '/whale/shutdown', { host: '127.0.0.1:' + port })
+  check('无令牌关闭被 403', noToken.status === 403, 'HTTP ' + noToken.status)
+
+  // 服务重启：seq 必须从持久化值续上——否则重启后已打开的页面对齐在旧计数上，
+  // 新服务的每一轮都会被当成"旧轮次"，每轮消耗气泡静默失效
+  const seqBeforeRestart = (await getJson(port, '/whale/last-turn.json')).seq
+  await new Promise((resolve) => {
+    child.once('exit', resolve)
+    child.kill()
+  })
+  child = spawnServer()
+  const health2 = await waitReady(port, 8000)
+  check('重启后服务重新就绪', !!health2, health2 ? 'pid=' + health2.pid : childLog.slice(-200))
+  const afterRestart = await getJson(port, '/whale/last-turn.json')
+  check(
+    '重启后 seq 从持久化值续上（对齐不回退）',
+    afterRestart && afterRestart.seq === seqBeforeRestart && afterRestart.turn === null,
+    '重启前 seq=' + seqBeforeRestart + '，重启后 ' + JSON.stringify(afterRestart)
+  )
+  insertTurn('sess_selftest', 'turn_D', USAGE_B, Date.now())
+  let fourth = null
+  const deadlineD = Date.now() + 6000
+  while (Date.now() < deadlineD) {
+    await new Promise((r) => setTimeout(r, 400))
+    fourth = await getJson(port, '/whale/last-turn.json')
+    if (fourth.seq > seqBeforeRestart) break
+  }
+  check(
+    '重启后新一轮 seq 继续单调递增',
+    fourth && fourth.seq === seqBeforeRestart + 1 && fourth.turn === 'turn_D',
+    JSON.stringify(fourth ? { seq: fourth.seq, turn: fourth.turn } : fourth)
+  )
+
+  // v1.4.2：多行套餐轮求和——model_usage 一行是一次 API 请求，长 agent 轮
+  // 有几十行（上下文逐请求增长），取「最大单行」会少算一到两个数量级
+  // （实测 38 行轮 sum=9.97M vs 单行最大 275k，显示 0.28% 而非 9.97%）
+  const atE = Date.now()
+  const planRows = [
+    { model: 'GLM-5.3-Flash', providerId: 'account:zai-start-plan', usage: { input_tokens: 400_000, cache_read_input_tokens: 350_000, output_tokens: 50_000, computed_total_tokens: 400_000 } },
+    { model: 'GLM-5.3-Flash', providerId: 'account:zai-start-plan', usage: { input_tokens: 300_000, cache_read_input_tokens: 250_000, output_tokens: 50_000, computed_total_tokens: 300_000 } },
+    { model: 'GLM-5.3-Flash', providerId: 'account:zai-start-plan', usage: { input_tokens: 250_000, cache_read_input_tokens: 200_000, output_tokens: 50_000, computed_total_tokens: 250_000 } },
+  ]
+  insertTurn('sess_selftest', 'turn_E', USAGE_B, atE, planRows)
+  let fifth = null
+  const deadlineE = Date.now() + 6000
+  while (Date.now() < deadlineE) {
+    await new Promise((r) => setTimeout(r, 400))
+    fifth = await getJson(port, '/whale/last-turn.json')
+    if (fifth.seq > seqBeforeRestart + 1) break
+  }
+  // 行 tokens 口径 = 命中+未命中+缓存写+输出（与计费一致），三行分别是
+  // 450k/350k/300k（input 全部带 cache_read 时 = input+output）
+  const sumTokens = 1_100_000
+  const expectSumPct = Math.round((sumTokens / 104_000_000) * 10000) / 100
+  check(
+    '多行套餐轮按全行求和（planTokens=1.1M，planPct 同基数）',
+    fifth && fifth.turn === 'turn_E' && fifth.planTurn === true && fifth.planTokens === sumTokens && fifth.planPct === expectSumPct,
+    '期望 ' + sumTokens + ' tokens / ' + expectSumPct + '%，实际 ' + (fifth && fifth.planTokens) + ' / ' + (fifth && fifth.planPct) + '%'
+  )
+
+  // 智能跟随：selection 优先；不可识别时回落最近 model_usage（对话发起时识别）
+  db.prepare('INSERT INTO session_entry (type, data, time_updated) VALUES (?, ?, ?)').run(
+    'runtime/model_selection',
+    JSON.stringify({ modelSelection: { providerId: 'bigmodel-standard-api', modelId: 'GLM-5.3-Flash' } }),
+    Date.now()
+  )
+  const sel1 = await getJson(port, '/whale/session.json')
+  check(
+    'session.json：输入框选择即生效（bigmodel URL → glm 源）',
+    sel1 && sel1.ok && sel1.from === 'selection' && sel1.source === 'glm' && sel1.label === 'GLM 按量',
+    JSON.stringify(sel1).slice(0, 160)
+  )
+  db.prepare('UPDATE session_entry SET data = ?, time_updated = ? WHERE type = ?').run(
+    JSON.stringify({ modelSelection: { providerId: 'xiaomi-mimo', modelId: 'mimo-v2.6-pro' } }),
+    Date.now() + 1,
+    'runtime/model_selection'
+  )
+  const sel2 = await getJson(port, '/whale/session.json')
+  check(
+    'session.json：MiMo 无 URL 信息默认 mimo-api（平价无时段行）',
+    sel2 && sel2.ok && sel2.source === 'mimo-api' && sel2.timeMode === 'none',
+    JSON.stringify(sel2).slice(0, 160)
+  )
+  insertTurn('sess_sel', 'turn_sel', { input_tokens: 1000, output_tokens: 100 }, Date.now() + 10, [
+    { model: 'kimi-k3', providerId: 'moonshot-kimi', usage: { input_tokens: 1000, output_tokens: 100 } },
+  ])
+  db.prepare('UPDATE session_entry SET data = ?, time_updated = ? WHERE type = ?').run(
+    JSON.stringify({ modelSelection: { providerId: 'mystery-corp', modelId: 'totally-unknown-9000' } }),
+    Date.now() + 2,
+    'runtime/model_selection'
+  )
+  const sel3 = await getJson(port, '/whale/session.json')
+  check(
+    'session.json：selection 不可识别时回落 model_usage（kimi-k3 → kimi 源）',
+    sel3 && sel3.ok && sel3.from === 'model-usage' && sel3.source === 'kimi' && sel3.modelId === 'kimi-k3',
+    JSON.stringify(sel3).slice(0, 160)
+  )
+
+  // ---------- v1.6.0：音效库导入/删除、今日 token 榜、ZCode 主题跟随 ----------
+  {
+    // 纯逻辑：token 榜按 token 降序（头部常与金额榜不同——便宜的模型 token 巨大）
+    const { modelsByTokens } = await import('../lib/usage-records.mjs')
+    const row = (model, amount, tokens) => [
+      model,
+      { model, providerId: 'p', vendorLabel: 'V', currency: 'CNY', amount, tokens },
+    ]
+    const m = new Map([row('cheap', 0, 9_000_000), row('pricey', 12.5, 100_000), row('mid', 3, 500_000)])
+    const byTok = modelsByTokens(m, 12)
+    check(
+      'token 榜按 token 降序（头部与金额榜不同）',
+      byTok.map((x) => x.model).join(',') === 'cheap,mid,pricey',
+      byTok.map((x) => x.model + ':' + x.tokens).join(' ')
+    )
+    check('token 榜尊重 limit（截断后仍是 token 最大的那批）', modelsByTokens(m, 1).length === 1 && modelsByTokens(m, 1)[0].model === 'cheap')
+  }
+
+  // 接口：今日用量同时给出两个榜（页面「按金额 / 按 Token」切换用）
+  const usageRank = await getJson(port, '/whale/usage-records.json')
+  if (usageRank && usageRank.ok) {
+    const amtList = usageRank.today.models || []
+    const tokList = usageRank.today.modelsByTokens || []
+    // 金额榜按「排名值」（等价市值，Plan 行 amount=0 但 market>0）降序；
+    // token 榜按 tokens 降序
+    const rankOf = (m) => Number(m.market) || Number(m.amount) || 0
+    const descRank = (arr) => arr.every((v, i) => i === 0 || rankOf(arr[i - 1]) >= rankOf(v))
+    const desc = (arr, key) => arr.every((v, i) => i === 0 || Number(arr[i - 1][key]) >= Number(v[key]))
+    const maxTok = Math.max.apply(null, amtList.map((x) => Number(x.tokens) || 0))
+    check(
+      '用量记录：两个榜各自降序（金额榜按排名值 / token 榜按 tokens）',
+      amtList.length > 0 && tokList.length > 0 && descRank(amtList) && desc(tokList, 'tokens'),
+      JSON.stringify({ amt: amtList.map(rankOf), tok: tokList.map((x) => x.tokens) })
+    )
+    check(
+      '用量记录：token 榜首位 = 今日 token 最多的模型',
+      tokList.length > 0 && Number(tokList[0].tokens) === maxTok,
+      'top=' + (tokList[0] && tokList[0].model) + ' tokens=' + (tokList[0] && tokList[0].tokens) + ' max=' + maxTok
+    )
+  } else {
+    check('用量记录：两个榜各自降序（金额榜按排名值 / token 榜按 tokens）', false, '接口不可用')
+  }
+
+  // 接口：ZCode 主题（跟随 ZCode 的数据源）
+  const zt = await getJson(port, '/whale/zcode-theme.json')
+  check(
+    'ZCode 主题：读 <ZCODE_HOME>/cli/config.json 的 ui.theme（zai-dark → dark）',
+    zt && zt.ok === true && zt.theme === 'dark' && zt.raw === 'zai-dark' && zt.source === 'user-config',
+    JSON.stringify(zt)
+  )
+  // 观测层（v1.7.2）：浮层把 ZCode 窗口的 DWM 暗色标志落盘，接口优先用它——
+  // 跟随的是「ZCode 现在实际用的主题」，配置/系统都可能与实况相反
+  const obsFile = path.join(dataDir, 'zcode-theme-observed.json')
+  fs.writeFileSync(obsFile, JSON.stringify({ dark: 1, at: Date.now(), source: 'dwm' }), 'utf8')
+  await new Promise((r) => setTimeout(r, 5200)) // 服务端读取缓存 5s
+  const ztObs = await getJson(port, '/whale/zcode-theme.json')
+  check(
+    'ZCode 主题：观测层生效（DWM 暗色标志 → dark）',
+    ztObs && ztObs.ok === true && ztObs.theme === 'dark' && ztObs.source === 'zcode-window' && ztObs.observed && ztObs.observed.dark === 1,
+    JSON.stringify(ztObs)
+  )
+  fs.writeFileSync(obsFile, JSON.stringify({ dark: 0, at: Date.now(), source: 'dwm' }), 'utf8')
+  await new Promise((r) => setTimeout(r, 5200))
+  const ztObs2 = await getJson(port, '/whale/zcode-theme.json')
+  check(
+    'ZCode 主题：观测为浅色时不被配置 zai-dark 带偏（跟随实况）',
+    ztObs2 && ztObs2.theme === 'light' && ztObs2.source === 'zcode-window',
+    JSON.stringify(ztObs2)
+  )
+  fs.rmSync(obsFile, { force: true })
+  await new Promise((r) => setTimeout(r, 5200))
+  const ztBack = await getJson(port, '/whale/zcode-theme.json')
+  check(
+    'ZCode 主题：观测文件消失后回落配置层（zai-dark → dark）',
+    ztBack && ztBack.theme === 'dark' && ztBack.source === 'user-config',
+    JSON.stringify(ztBack)
+  )
+
+  // 接口：音效库（内置两套 + 导入 + 回放 + 删除）
+  const snd0 = await getJson(port, '/whale/sounds.json')
+  check(
+    '音效库：内置两套在列、默认选中小黄鸭',
+    snd0 && snd0.ok === true && snd0.sets.filter((s) => s.builtin).map((s) => s.id).join(',') === 'duck,fx1' && snd0.selected === 'duck',
+    JSON.stringify(snd0 && snd0.sets)
+  )
+  const wavBytes = Buffer.from('RIFF0000WAVEfmt ', 'latin1')
+  const wavB64 = wavBytes.toString('base64')
+  const oggBytes = Buffer.from('OggS-fake-release-bytes', 'latin1')
+  const postSound = (url, body) =>
+    fetch('http://127.0.0.1:' + port + url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  // 单文件导入：按压/松手共用
+  const up1Res = await postSound('/whale/sound-upload.json', {
+    name: '自测音效1',
+    press: { dataUrl: 'data:audio/wav;base64,' + wavB64, name: 'a.wav' },
+  })
+  const up1 = await up1Res.json()
+  check(
+    '音效导入：单个文件成功（按压与松手共用），并出现在列表里',
+    up1Res.ok && up1.ok === true && up1.id && up1.sets.some((s) => s.id === up1.id && s.builtin === false && s.name === '自测音效1'),
+    JSON.stringify({ id: up1.id, sets: (up1.sets || []).map((s) => s.id) })
+  )
+  const sndP = await fetch('http://127.0.0.1:' + port + '/whale/sound/press.mp3?set=' + up1.id)
+  const sndR = await fetch('http://127.0.0.1:' + port + '/whale/sound/release.mp3?set=' + up1.id)
+  const sndPBytes = Buffer.from(await sndP.arrayBuffer())
+  check(
+    '音效回放：导入集按压/松手都拿得到，且单文件时内容一致（wav → audio/wav）',
+    sndP.ok && sndR.ok && sndPBytes.equals(wavBytes) && sndP.headers.get('content-type') === 'audio/wav',
+    'HTTP ' + sndP.status + ' ct=' + sndP.headers.get('content-type') + ' bytes=' + sndPBytes.length
+  )
+  // 两个文件导入：按压/松手各自一份
+  const up2Res = await postSound('/whale/sound-upload.json', {
+    press: { dataUrl: 'data:audio/wav;base64,' + wavB64, name: 'press.wav' },
+    release: { dataUrl: 'data:audio/ogg;base64,' + oggBytes.toString('base64'), name: 'release.ogg' },
+  })
+  const up2 = await up2Res.json()
+  const snd2R = await fetch('http://127.0.0.1:' + port + '/whale/sound/release.mp3?set=' + up2.id)
+  const snd2RBytes = Buffer.from(await snd2R.arrayBuffer())
+  check(
+    '音效导入：两个文件时松手音是第二份（名字缺省取第一个文件名）',
+    up2Res.ok && up2.ok === true && up2.sets.some((s) => s.id === up2.id && s.name === 'press') && snd2RBytes.equals(oggBytes),
+    JSON.stringify({ id: up2.id, name: (up2.sets || []).filter((s) => s.id === up2.id).map((s) => s.name)[0] })
+  )
+  // 内置集回放不受影响
+  const duckRes = await fetch('http://127.0.0.1:' + port + '/whale/sound/press.mp3?set=duck')
+  const duckBytes = Buffer.from(await duckRes.arrayBuffer())
+  check(
+    '音效回放：内置集照旧可用（audio/mpeg）',
+    duckRes.ok && duckBytes.length > 100 && duckRes.headers.get('content-type') === 'audio/mpeg',
+    'bytes=' + duckBytes.length
+  )
+  // 非法输入被拒
+  const badSound = await postSound('/whale/sound-upload.json', { press: { dataUrl: 'data:text/plain;base64,aGk=' } })
+  const badSoundBody = await badSound.json()
+  check('音效导入：非音频 dataUrl 被拒（400）', badSound.status === 400 && badSoundBody.ok === false, JSON.stringify(badSoundBody))
+  // 删除正在用的那套：选中项回落内置 duck。
+  // 注意 size.json 的写入以 scale 为必填（缺了直接 400）——少了它这条断言会
+  // 「因为没写进去」而假通过，所以这里连写入结果一起断言。
+  const putSoundSel = await fetch('http://127.0.0.1:' + port + '/whale/size.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scale: 1.5, soundSet: up2.id }),
+  })
+  const putSoundSelBody = await putSoundSel.json()
+  check(
+    '音效选择写入 widget-state（PUT size.json 带 scale）',
+    putSoundSel.ok && putSoundSelBody.soundSet === up2.id,
+    JSON.stringify({ ok: putSoundSelBody.ok, soundSet: putSoundSelBody.soundSet })
+  )
+  const delSoundRes = await postSound('/whale/sound-delete.json', { id: up2.id })
+  const delSound = await delSoundRes.json()
+  check(
+    '音效删除：从列表消失，正在用则选中项回落小黄鸭',
+    delSoundRes.ok && delSound.ok === true && !delSound.sets.some((s) => s.id === up2.id) && delSound.selected === 'duck',
+    JSON.stringify({ selected: delSound.selected, sets: (delSound.sets || []).map((s) => s.id) })
+  )
+  const goneSound = await fetch('http://127.0.0.1:' + port + '/whale/sound/press.mp3?set=' + up2.id)
+  check('音效删除：文件也清掉了（回放 404）', goneSound.status === 404, 'HTTP ' + goneSound.status)
+  const delBuiltinSound = await postSound('/whale/sound-delete.json', { id: 'duck' })
+  check('音效删除：内置集不可删（400）', delBuiltinSound.status === 400, 'HTTP ' + delBuiltinSound.status)
+  await postSound('/whale/sound-delete.json', { id: up1.id })
+
+  // ---------- v1.7.0：今日已用主口径 = 本机库，账号口径做对账 + 兜底 ----------
+  {
+    // 合并逻辑（纯函数）：本机库有记录就用本机，没有就回退账号口径；两个口径
+    // 都留在 payload 里，hint/对账行把它们并排放出来（含其它设备的花费只有
+    // 账号口径看得到）。
+    const a = resolveTodayUsage({ hasRows: true, amount: 45.14, tokens: 1000 }, { amount: 3.27, source: 'ledger' })
+    check(
+      '今日口径：本机库有记录 → 主显示本机口径，账号口径留作对账',
+      a.todayUsage === 45.14 &&
+        a.todayUsageSource === 'db' &&
+        a.todayUsageDb === 45.14 &&
+        a.accountUsage === 3.27 &&
+        a.accountUsageSource === 'ledger',
+      JSON.stringify(a)
+    )
+    const b = resolveTodayUsage({ hasRows: false, amount: 0, tokens: 0 }, { amount: 3.27, source: 'ledger' })
+    check(
+      '今日口径：本机库无记录 → 兜底账号记账口径',
+      b.todayUsage === 3.27 && b.todayUsageSource === 'ledger' && b.todayUsageDb === null,
+      JSON.stringify(b)
+    )
+    const c = resolveTodayUsage({ hasRows: false, amount: 0, tokens: 0 }, { amount: 12.5, source: 'token' })
+    check(
+      '今日口径：兜底来源随对账口径走（实时·令牌）',
+      c.todayUsage === 12.5 && c.todayUsageSource === 'token',
+      JSON.stringify(c)
+    )
+    const e = resolveTodayUsage({ hasRows: false, amount: 0, tokens: 0 }, { amount: null, source: 'ledger' })
+    check(
+      '今日口径：两路都没数据 → 显示层标 --（todayUsage=null）',
+      e.todayUsage === null && e.todayUsageSource === null && e.accountUsage === null,
+      JSON.stringify(e)
+    )
+    const f = resolveTodayUsage(null, { amount: 1, source: 'ledger' })
+    check('今日口径：db 缺失按「无记录」处理（不抛异常）', f.todayUsage === 1 && f.todayUsageSource === 'ledger', JSON.stringify(f))
+  }
+
+  // 接口：today.byVendor 厂商级汇总（主显示与对账行的数字来源），与逐模型明细同源
+  const vendorRec = await getJson(port, '/whale/usage-records.json')
+  if (vendorRec && vendorRec.ok) {
+    const models = vendorRec.today.models || []
+    // models 是 Top12 截断列表；截断时 byVendor（全量）只多不少，按不等式断言
+    const truncated = models.length >= 12
+    const sumBy = (label) => models.filter((m) => m.vendorLabel === label).reduce((s, m) => s + (Number(m.amount) || 0), 0)
+    const bv = vendorRec.today.byVendor || {}
+    const agree = (label) =>
+      bv[label] && (truncated ? bv[label].amount >= sumBy(label) - 1e-6 : Math.abs(bv[label].amount - sumBy(label)) < 1e-6)
+    check(
+      '厂商汇总 byVendor 与逐模型明细同源（DeepSeek / GLM 各自一致）',
+      agree('DeepSeek') && agree('GLM') && bv.DeepSeek.tokens > 0 && bv.GLM.tokens > 0,
+      JSON.stringify(bv)
+    )
+  } else {
+    check('厂商汇总 byVendor 与逐模型明细同源（DeepSeek / GLM 各自一致）', false, '接口不可用')
+  }
+
+  // ---------- QA 补缺：纯函数直测（余额挑选 / 套餐轮口径 / 校正公式 / 主题 / 镜像白名单） ----------
+  {
+    // pickBalanceInfo：多币种余额挑选（优先 CNY>0 → 任意非零 → CNY 项 → 首项）
+    const pb = (list) => {
+      const r = pickBalanceInfo(list)
+      return r ? r.currency + ':' + r.total_balance : 'null'
+    }
+    check(
+      'pickBalanceInfo：优先 CNY 且余额 > 0',
+      pb([{ currency: 'USD', total_balance: 5 }, { currency: 'CNY', total_balance: 2 }]) === 'CNY:2',
+      pb([{ currency: 'USD', total_balance: 5 }, { currency: 'CNY', total_balance: 2 }])
+    )
+    check(
+      'pickBalanceInfo：无 CNY 正数时取任意非零项',
+      pb([{ currency: 'USD', total_balance: 5 }, { currency: 'EUR', total_balance: 3 }]) === 'USD:5',
+      pb([{ currency: 'USD', total_balance: 5 }, { currency: 'EUR', total_balance: 3 }])
+    )
+    check(
+      'pickBalanceInfo：CNY 为零、USD 为正 → 取 USD',
+      pb([{ currency: 'CNY', total_balance: 0 }, { currency: 'USD', total_balance: 5 }]) === 'USD:5',
+      pb([{ currency: 'CNY', total_balance: 0 }, { currency: 'USD', total_balance: 5 }])
+    )
+    check(
+      'pickBalanceInfo：全部为零退回 CNY 项',
+      pb([{ currency: 'USD', total_balance: 0 }, { currency: 'CNY', total_balance: 0 }]) === 'CNY:0',
+      pb([{ currency: 'USD', total_balance: 0 }, { currency: 'CNY', total_balance: 0 }])
+    )
+    check(
+      'pickBalanceInfo：无 CNY 且全零取首项',
+      pb([{ currency: 'EUR', total_balance: 0 }, { currency: 'USD', total_balance: 0 }]) === 'EUR:0',
+      pb([{ currency: 'EUR', total_balance: 0 }, { currency: 'USD', total_balance: 0 }])
+    )
+    check('pickBalanceInfo：空/非数组返回 null', pickBalanceInfo([]) === null && pickBalanceInfo(null) === null, 'null')
+    check(
+      'pickBalanceInfo：缺 total_balance 不当数（跳到下一项）',
+      pb([{ currency: 'CNY' }, { currency: 'USD', total_balance: 1 }]) === 'USD:1',
+      pb([{ currency: 'CNY' }, { currency: 'USD', total_balance: 1 }])
+    )
+  }
+
+  {
+    // 套餐扣费轮的「余额口径」（plan-balance.turnPlanUsage）：套餐行按 tokens
+    // 全行求和、百分比与主显示同基数；混合轮的真金白银只含非套餐行
+    const savedBase = process.env.ZCODE_DATA_BASE_DIR
+    process.env.ZCODE_DATA_BASE_DIR = tmpHome
+    try {
+      const plan = readPlanBalance()
+      const bucket = quotaBucketForModel(plan, 'GLM-5.3-Flash')
+      check(
+        'quotaBucketForModel：模型名归一匹配到 100M 桶',
+        !!bucket && bucket.totalUnits === 100_000_000 && bucket.remainingUnits === 90_000_000,
+        JSON.stringify(bucket)
+      )
+      check(
+        'quotaBucketForModel：对不上的模型返回 null',
+        quotaBucketForModel(plan, 'totally-unknown-9000') === null,
+        JSON.stringify(quotaBucketForModel(plan, 'totally-unknown-9000'))
+      )
+      const mixedTurn = {
+        models: [
+          { model: 'GLM-5.3-Flash', providerId: 'account:zai-start-plan', tokens: 550_000, amount: 4.2, currency: 'CNY', billable: true },
+          { model: 'deepseek-flash', providerId: 'deepseek-test', tokens: 330_000, amount: 3.21, currency: 'CNY', billable: true },
+        ],
+      }
+      const pu = turnPlanUsage(mixedTurn)
+      check(
+        'turnPlanUsage：混合轮只算套餐行 tokens（550k/104M = 0.53%）',
+        pu && pu.planTurn === true && pu.tokens === 550_000 && Math.abs(pu.pctOfTotal - 0.53) < 0.005,
+        JSON.stringify(pu)
+      )
+      check(
+        'turnPlanUsage：占桶百分比同基数（550k/100M = 0.55%）',
+        pu && Math.abs(pu.pctOfBucket - 0.55) < 0.005,
+        JSON.stringify(pu && { pctOfBucket: pu.pctOfBucket })
+      )
+      const ex = extraAmountsOfTurn(mixedTurn)
+      check(
+        'extraAmountsOfTurn：套餐行被剔除，只留真金白银',
+        ex && ex.CNY === 3.21 && Object.keys(ex).length === 1,
+        JSON.stringify(ex)
+      )
+      const onlyPlan = { models: [mixedTurn.models[0]] }
+      const pu2 = turnPlanUsage(onlyPlan)
+      check(
+        'turnPlanUsage：纯套餐轮无混合金额（extraAmounts=null）',
+        pu2 && pu2.planTurn === true && extraAmountsOfTurn(onlyPlan) === null,
+        JSON.stringify(pu2)
+      )
+      check(
+        'turnPlanUsage：非套餐轮返回 null（不冒充套餐口径）',
+        turnPlanUsage({ models: [mixedTurn.models[1]] }) === null,
+        'null'
+      )
+    } finally {
+      if (savedBase === undefined) delete process.env.ZCODE_DATA_BASE_DIR
+      else process.env.ZCODE_DATA_BASE_DIR = savedBase
+    }
+  }
+
+  {
+    // 余额校正公式（effectiveTodayUsage）：起点 + 到账 − 非调用扣减 − 当前余额。
+    // 自检环境没有真实余额观测，先落一本带 dayOpening/lastBalance 的账本再走真实 POST
+    const ledgerFile = path.join(dataDir, 'usage-ledger.json')
+    fs.writeFileSync(
+      ledgerFile,
+      JSON.stringify({
+        date: new Date().toISOString().slice(0, 10),
+        lastBalance: 80,
+        lastCurrency: 'CNY',
+        todayUsage: 0,
+        history: {},
+        keyFingerprint: 'fixture-ledger',
+        dayOpening: 100,
+        credits: 0,
+        otherDebits: 0,
+        correctedAt: null,
+        pendingCredit: 5,
+        needsReview: true,
+        previousBooks: [],
+      }),
+      'utf8'
+    )
+    const post = (body) =>
+      fetch('http://127.0.0.1:' + port + '/whale/balance-adjustments.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then((r) => r.json())
+    const fix1 = await post({ credits: 5, otherDebits: 3 })
+    check(
+      '余额校正公式：起点 100 + 到账 5 − 扣减 3 − 当前 80 = 22',
+      fix1 && fix1.ok === true && fix1.todayUsage === 22 && fix1.needsReview === false,
+      JSON.stringify(fix1)
+    )
+    const fix2 = await post({ credits: 1, otherDebits: 0 })
+    check(
+      '余额校正公式：重复校正按新参数重算（100 + 1 − 0 − 80 = 21）',
+      fix2 && fix2.ok === true && fix2.todayUsage === 21,
+      JSON.stringify(fix2)
+    )
+  }
+
+  {
+    // ZCode 主题映射（纯函数）：zai 皮肤 → 浅/深，system/auto/缺失 → system
+    check(
+      'mapZcodeTheme：zai-light/zai-dark 映射浅/深',
+      mapZcodeTheme('zai-light') === 'light' && mapZcodeTheme('zai-dark') === 'dark' && mapZcodeTheme('LIGHT') === 'light',
+      mapZcodeTheme('zai-dark')
+    )
+    check(
+      'mapZcodeTheme：system/auto/缺失/垃圾值回 system',
+      mapZcodeTheme('system') === 'system' && mapZcodeTheme('auto') === 'system' && mapZcodeTheme(null) === 'system' && mapZcodeTheme('hacker') === 'system',
+      'system'
+    )
+    check(
+      'themeOfConfig：只认 ui.theme 字符串',
+      themeOfConfig({ ui: { theme: 'dark' } }) === 'dark' && themeOfConfig({}) === null && themeOfConfig({ ui: { theme: '  ' } }) === null,
+      JSON.stringify(themeOfConfig({ ui: { theme: 'dark' } }))
+    )
+    // 三层判定（v1.7.2）：观测（ZCode 窗口 DWM 暗色标志）> 配置 > 系统
+    const tnow = Date.now()
+    check(
+      'resolveZcodeTheme：新鲜观测压过配置（ZCode 实际暗色 + 配置写浅色 → dark）',
+      resolveZcodeTheme({ dark: 1, at: tnow }, 'light') === 'dark' && resolveZcodeTheme({ dark: 0, at: tnow }, 'dark') === 'light',
+      resolveZcodeTheme({ dark: 1, at: tnow }, 'light')
+    )
+    check(
+      'resolveZcodeTheme：过期观测不算数（回落配置映射）',
+      resolveZcodeTheme({ dark: 1, at: tnow - 48 * 3600_000 }, 'zai-light') === 'light',
+      resolveZcodeTheme({ dark: 1, at: tnow - 48 * 3600_000 }, 'zai-light')
+    )
+    check(
+      'resolveZcodeTheme：无观测走配置、配置缺失回 system',
+      resolveZcodeTheme(null, 'zai-dark') === 'dark' && resolveZcodeTheme(undefined, null) === 'system',
+      'dark / system'
+    )
+    check(
+      'resolveZcodeTheme：观测缺 at 视为新鲜（跟随脚本只在变化时写）',
+      resolveZcodeTheme({ dark: 0 }, 'dark') === 'light',
+      resolveZcodeTheme({ dark: 0 }, 'dark')
+    )
+  }
+
+  {
+    // 镜像地址白名单（safeMirrorUrl）：形态 + 主机双重校验，不干净一律回落默认。
+    // 这是「拉工具时会去请求的 URL」，与出站硬约束同口径拒环回/私有/保留地址。
+    const FB = 'FALLBACK'
+    check(
+      '镜像白名单：规范 https 地址放行（含路径/端口）',
+      safeMirrorUrl('https://registry.npmmirror.com', FB) === 'https://registry.npmmirror.com' &&
+        safeMirrorUrl('https://npmmirror.com/mirrors/electron/', FB) === 'https://npmmirror.com/mirrors/electron/' &&
+        safeMirrorUrl('http://1.2.3.4:4873/mirror/', FB) === 'http://1.2.3.4:4873/mirror/',
+      safeMirrorUrl('https://registry.npmmirror.com', FB)
+    )
+    check(
+      '镜像白名单：shell 元字符/引号/空白被拒',
+      safeMirrorUrl('https://registry.npmmirror.com&calc.exe', FB) === FB &&
+        safeMirrorUrl('https://registry.npmmirror.com/x";calc', FB) === FB &&
+        safeMirrorUrl('https://registry.npmmirror.com/x y', FB) === FB &&
+        safeMirrorUrl('file:///etc/passwd', FB) === FB &&
+        safeMirrorUrl('', FB) === FB,
+      'FALLBACK'
+    )
+    check(
+      '镜像白名单：环回/私有/localhost 主机被拒（与出站硬约束同口径）',
+      safeMirrorUrl('http://127.0.0.1:4873', FB) === FB &&
+        safeMirrorUrl('http://10.0.0.1:4873', FB) === FB &&
+        safeMirrorUrl('http://192.168.1.5/npm', FB) === FB &&
+        safeMirrorUrl('http://localhost:4873', FB) === FB,
+      'FALLBACK'
+    )
+  }
+
+  {
+    // 平台用量接口 URL（纯函数）：start=当日零点（秒）、end=+24h、tz=偏移秒数
+    check(
+      '平台用量 URL：start/end/tz 拼装正确',
+      platformUsageUrl(1790000000, 1790086400, 28800) ===
+        'https://platform.deepseek.com/api/v0/usage/by_api_key/amount?start=1790000000&end=1790086400&tz=28800',
+      platformUsageUrl(1790000000, 1790086400, 28800)
+    )
+    check(
+      '平台用量 URL：小数参数向下取整（floor 语义，接口只认整数秒）',
+      platformUsageUrl(1790000000.9, 1790086400.2, -18000.5).endsWith('?start=1790000000&end=1790086400&tz=-18001'),
+      platformUsageUrl(1790000000.9, 1790086400.2, -18000.5)
+    )
+  }
+
+  await new Promise((r) => setTimeout(r, 200))
+  // 令牌关闭
+  const info = JSON.parse(fs.readFileSync(path.join(dataDir, 'server.json'), 'utf8'))
+  const res = await fetch('http://127.0.0.1:' + port + '/whale/shutdown', {
+    method: 'POST',
+    headers: { 'x-whale-token': info.token },
+    signal: AbortSignal.timeout(3000),
+  })
+  const stopped = await res.json()
+  check('带令牌可以关闭服务', !!(stopped && stopped.ok), JSON.stringify(stopped))
+
+  await new Promise((r) => setTimeout(r, 500))
+  let alive = true
+  try {
+    await fetch('http://127.0.0.1:' + port + '/whale/health', { signal: AbortSignal.timeout(1000) })
+  } catch (err) {
+    alive = false
+  }
+  check('关闭后端口不再响应', !alive)
+} catch (err) {
+  check('自检过程未抛异常', false, String((err && err.message) || err) + (childLog ? ' | ' + childLog.slice(0, 300) : ''))
+} finally {
+  try {
+    child.kill()
+  } catch (err) {}
+  try {
+    db.close()
+  } catch (err) {}
+  try {
+    fs.rmSync(tmpHome, { recursive: true, force: true })
+  } catch (err) {}
+}
+
+const failed = results.filter((r) => !r.ok)
+console.log('\n' + (failed.length === 0 ? '全部通过（' + results.length + '/' + results.length + '）' : '失败 ' + failed.length + ' 项'))
+process.exit(failed.length === 0 ? 0 : 1)

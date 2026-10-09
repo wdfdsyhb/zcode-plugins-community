@@ -3,3 +3,6 @@ docs/auto-candidates.md
 *.log
 .DS_Store
 Thumbs.db
+
+# 本机工具产物(勿入库)
+.mimosa/

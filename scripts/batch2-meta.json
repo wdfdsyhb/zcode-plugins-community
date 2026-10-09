@@ -303,5 +303,20 @@
     "category": "dev-tools",
     "author_github": "roman-ryzenadvanced",
     "display_zh": "混合多模型编排:共识/顺序/专家/辩论四种模式自动切换"
+  },
+  "zcode-fox-widget": {
+    "category": "productivity",
+    "author_github": "pigeon189",
+    "display_zh": "ZCode 狐娘桌面挂件:DeepSeek 峰谷计价 · GLM Plan · 余额显示"
+  },
+  "blender-design-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "Blender 场景设计/评审/导出:受控操作与审批流"
+  },
+  "dreamina-design-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "即梦(Dreamina)图片与视频创作:带审批的创建和编辑"
   }
 }

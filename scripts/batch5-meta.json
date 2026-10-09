@@ -1,0 +1,32 @@
+{
+  "zcode-fox-widget": {
+    "category": "productivity",
+    "author_github": "pigeon189",
+    "display_zh": "ZCode 狐娘桌面挂件:DeepSeek 峰谷计价 · GLM Plan · 余额显示"
+  },
+  "artcraft-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "ArtCraft 创意工作流:跨插件创意编排(开发版,首次使用需安装依赖)"
+  },
+  "blender-design-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "Blender 场景设计/评审/导出:受控操作与审批流"
+  },
+  "dreamina-design-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "即梦(Dreamina)图片与视频创作:带审批的创建和编辑"
+  },
+  "filmcraft-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "FilmCraft 可编辑视频工作流:中英双语(开发版)"
+  },
+  "photocraft-plugin": {
+    "category": "creative",
+    "author_github": "full-aigc-plugins",
+    "display_zh": "PhotoCraft 分层图像设计工作流(开发版)"
+  }
+}

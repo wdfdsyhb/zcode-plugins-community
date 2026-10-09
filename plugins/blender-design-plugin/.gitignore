@@ -1,0 +1,16 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+build/
+dist/
+*.egg-info/
+.env
+.env.*
+.superpowers/
+.codegraph/
+
+# Runtime acceptance output (regenerable; never commit evidence dumps)
+artifacts/
+tests/runtime/evidence/

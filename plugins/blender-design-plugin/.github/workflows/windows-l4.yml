@@ -1,0 +1,68 @@
+name: Windows L4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blender-windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install FFmpeg
+        shell: pwsh
+        run: choco install ffmpeg --no-progress -y
+      - name: Download and verify Blender 5.2.1 x64
+        shell: pwsh
+        run: |
+          $config = Get-Content "config/blender-release-matrix.json" | ConvertFrom-Json
+          $combo = $config.combinations | Where-Object { $_.version -eq "5.2.1" -and $_.platform -eq "windows-x64" }
+          if (-not $combo) { throw "5.2.1/windows-x64 not found in matrix config" }
+          $archive = Join-Path $env:RUNNER_TEMP $combo.artifact
+          Invoke-WebRequest $combo.url -OutFile $archive
+          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = $combo.sha256
+          if ($actual -ne $expected) { throw "Blender SHA-256 mismatch: $actual (expected $expected)" }
+          $destination = Join-Path $env:RUNNER_TEMP "blender"
+          Expand-Archive $archive -DestinationPath $destination
+          $binary = Get-ChildItem $destination -Filter blender.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $binary) { throw "blender.exe not found" }
+          "BLENDER_BIN=$binary" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Run Windows Python and distribution tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -m unittest discover -s tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/validate_distribution.py .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/package_connector.py dist/blender-connector-0.3.0-windows-l4.zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run real Blender recovery and Rigify acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & $env:BLENDER_BIN --version
+          New-Item -ItemType Directory -Path artifacts/frame-pipeline | Out-Null
+          New-Item -ItemType Directory -Path artifacts/rigify | Out-Null
+          & $env:BLENDER_BIN --background --factory-startup --python-exit-code 1 --python tests/runtime/p8_frame_pipeline_acceptance.py -- "$(Resolve-Path artifacts/frame-pipeline)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:BLENDER_BIN --background --factory-startup --python-exit-code 1 --python tests/runtime/p9_rigify_install_acceptance.py -- "$(Resolve-Path artifacts/rigify)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: blender-design-windows-l4
+          path: |
+            artifacts
+            dist/blender-connector-0.3.0-windows-l4.zip
+          if-no-files-found: warn
+          retention-days: 14

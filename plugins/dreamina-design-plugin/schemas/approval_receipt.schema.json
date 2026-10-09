@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/full-aigc-plugins/dreamina-design-plugin/schemas/approval_receipt.schema.json",
+  "title": "Dreamina Approval Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["approval_id", "request_fingerprint", "acknowledged_cost", "acknowledged_scope", "approved_at", "approver", "expires_at", "consumed_at"],
+  "properties": {
+    "approval_id": {"type": "string", "minLength": 32},
+    "request_fingerprint": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the canonical generation request payload.",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "acknowledged_cost": {
+      "type": "string",
+      "enum": ["credits", "membership", "free"]
+    },
+    "acknowledged_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 1, "maximum": 10},
+        "model": {"type": "string"},
+        "resolution": {"type": "string"},
+        "ratio": {"type": "string"},
+        "duration_seconds": {"type": "integer", "minimum": 1, "maximum": 60}
+      }
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approver": {
+      "type": "string",
+      "description": "Local identifier for the approving principal (no credentials)."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional expiry; once passed the receipt must be re-issued."
+    },
+    "consumed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Atomic single-use marker set immediately before submission."
+    }
+  }
+}
