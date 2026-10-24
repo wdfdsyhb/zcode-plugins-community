@@ -18,9 +18,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/discover.py docs/auto-candidates.md
-      - name: Open issue from candidate report
+      - name: Update rolling candidate issue
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: "candidates: ZCode 插件候选清单(每日自动)"
           content-filepath: docs/auto-candidates.md
           labels: discovery
+          issue-number: 19   # 滚动更新同一个 issue,不再每天新建
+          comment: "每日自动扫描结果,直接更新本 issue 正文,历史见仓库 docs/auto-candidates.md"
