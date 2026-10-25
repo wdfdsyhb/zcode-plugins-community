@@ -1,8 +1,10 @@
-# zcode-plugins-community
+# zcode-plugins-community · ZCode 社区插件市场
 
-社区维护的 [ZCode](https://github.com/zai-org/ZCode) 第三方插件市场。官方市场之外的收录地：中文安全技能包、数据竞赛工作流、以及散落在 GitHub 各处的社区插件。
+[![CI](https://github.com/wdfdsyhb/zcode-plugins-community/actions/workflows/discover.yml/badge.svg)](https://github.com/wdfdsyhb/zcode-plugins-community/actions/workflows/discover.yml)
 
-Community-run third-party plugin marketplace for ZCode: Chinese security packs, data-science workflows, and curated community plugins.
+> 官方市场之外的第三方插件收录地：34 个插件一条命令挂载，含中文安全技能包、数据竞赛工作流和散落 GitHub 各处的社区插件。
+>
+> English: Community-run third-party marketplace for ZCode — 34 plugins, one command to add: security packs, data-science workflows, and curated community plugins.
 
 ## 安装 / Install
 
@@ -84,3 +86,9 @@ zcode plugins marketplace add https://cdn.jsdelivr.net/gh/wdfdsyhb/zcode-plugins
 - 收录的第三方插件版权归原作者，均保留原 LICENSE 与署名并链接回原仓库；如你是收录项目的作者且不希望被收录，开一个 issue 即可撤条目，无需理由。
 - 收录前已通过基础安全审计（gitleaks + 入口文件检查）；使用产生的风险自担。
 - 安全技能内容仅用于授权测试与防御学习场景。
+
+---
+
+## English
+
+Full English documentation: [README_EN.md](README_EN.md)
