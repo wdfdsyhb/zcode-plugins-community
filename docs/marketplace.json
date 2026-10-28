@@ -1339,6 +1339,196 @@
         "whale",
         "usage"
       ]
+    },
+    {
+      "name": "comfy-design",
+      "source": "./plugins/comfy-design-plugin",
+      "displayName": "ComfyUI 本地出图/视频/音频/3D:自有 GPU 或 Comfy Cloud",
+      "displayName_i18n": {
+        "en": "comfy-design",
+        "zh-CN": "ComfyUI 本地出图/视频/音频/3D:自有 GPU 或 Comfy Cloud"
+      },
+      "description": "本地优先的 ComfyUI 图像、视频、音频与 3D 工作流；合作伙伴模型与上传仅在显式选择后升级到云端。",
+      "description_i18n": {
+        "en": "本地优先的 ComfyUI 图像、视频、音频与 3D 工作流；合作伙伴模型与上传仅在显式选择后升级到云端。",
+        "zh-CN": "ComfyUI 本地出图/视频/音频/3D:自有 GPU 或 Comfy Cloud"
+      },
+      "version": "0.5.0",
+      "author": {
+        "name": "full-aigc-plugins",
+        "url": "https://github.com/full-aigc-plugins"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "comfy",
+        "comfyui",
+        "workflow"
+      ]
+    },
+    {
+      "name": "deepseek-web-search",
+      "source": "./plugins/deepseek-web-search",
+      "displayName": "DeepSeek 网页搜索与页面抓取 MCP 插件,附 agent 使用技能",
+      "displayName_i18n": {
+        "en": "deepseek-web-search",
+        "zh-CN": "DeepSeek 网页搜索与页面抓取 MCP 插件,附 agent 使用技能"
+      },
+      "description": "DeepSeek web search and page fetch MCP tools for ZCode.",
+      "description_i18n": {
+        "en": "DeepSeek web search and page fetch MCP tools for ZCode.",
+        "zh-CN": "DeepSeek 网页搜索与页面抓取 MCP 插件,附 agent 使用技能"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "Ming-QWQ520",
+        "url": "https://github.com/Ming-QWQ520"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "note-curator",
+      "source": "./plugins/note-curator",
+      "displayName": "笔记整理插件:网页链接与本地草稿整理成结构化中英笔记,归档进 Obsidian,全库查重合并、自动双链、学习文风、去 AI 腔",
+      "displayName_i18n": {
+        "en": "note-curator",
+        "zh-CN": "笔记整理插件:网页链接与本地草稿整理成结构化中英笔记,归档进 Obsidian,全库查重合并、自动双链、学习文风、去 AI 腔"
+      },
+      "description": "把网页链接或本地草稿整理成结构化中文笔记，查重合并后归档到 Obsidian 知识库。",
+      "description_i18n": {
+        "en": "把网页链接或本地草稿整理成结构化中文笔记，查重合并后归档到 Obsidian 知识库。",
+        "zh-CN": "笔记整理插件:网页链接与本地草稿整理成结构化中英笔记,归档进 Obsidian,全库查重合并、自动双链、学习文风、去 AI 腔"
+      },
+      "version": "3.1.0",
+      "author": {
+        "name": "Huayudong",
+        "url": "https://github.com/Huayudong"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "xuanji",
+      "source": "./plugins/xuanji-plugin",
+      "displayName": "玄鉴:八字/奇门/紫微/风水/塔罗占卜,脚本校验排盘",
+      "displayName_i18n": {
+        "en": "xuanji",
+        "zh-CN": "玄鉴:八字/奇门/紫微/风水/塔罗占卜,脚本校验排盘"
+      },
+      "description": "娱乐向术数六科，排盘由脚本校验、引文可追溯；仅供娱乐，不构成专业建议。",
+      "description_i18n": {
+        "en": "娱乐向术数六科，排盘由脚本校验、引文可追溯；仅供娱乐，不构成专业建议。",
+        "zh-CN": "玄鉴:八字/奇门/紫微/风水/塔罗占卜,脚本校验排盘"
+      },
+      "version": "0.1.1",
+      "author": {
+        "name": "full-aigc-plugins",
+        "url": "https://github.com/full-aigc-plugins"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "bazi",
+        "qimen",
+        "ziwei",
+        "fengshui",
+        "tarot"
+      ]
+    },
+    {
+      "name": "zcode-context",
+      "source": "./plugins/zcode-context",
+      "displayName": "ZCode 上下文可视化侧栏:分类组成、演进趋势、步骤对比、压缩事件、30 天用量(只读离线)",
+      "displayName_i18n": {
+        "en": "zcode-context",
+        "zh-CN": "ZCode 上下文可视化侧栏:分类组成、演进趋势、步骤对比、压缩事件、30 天用量(只读离线)"
+      },
+      "description": "只读查看会话用量、模型输入组成、请求差异和压缩事件。装好后点右上角「切换面板」，在会话侧边栏打开「上下文」面板；建议同时在「设置 → 通用」打开「完整保留模型 I/O」——默认记录会丢弃更早的请求，且无法事后恢复。",
+      "description_i18n": {
+        "en": "只读查看会话用量、模型输入组成、请求差异和压缩事件。装好后点右上角「切换面板」，在会话侧边栏打开「上下文」面板；建议同时在「设置 → 通用」打开「完整保留模型 I/O」——默认记录会丢弃更早的请求，且无法事后恢复。",
+        "zh-CN": "ZCode 上下文可视化侧栏:分类组成、演进趋势、步骤对比、压缩事件、30 天用量(只读离线)"
+      },
+      "version": "0.3.10",
+      "author": {
+        "name": "Kevinzzz6",
+        "url": "https://github.com/Kevinzzz6"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "instrument",
+      "source": "./plugins/zcode-instrument",
+      "displayName": "ZCode 会话仪表:首字延迟、速度、token 用量、时间分解、上下文占用与配额",
+      "displayName_i18n": {
+        "en": "instrument",
+        "zh-CN": "ZCode 会话仪表:首字延迟、速度、token 用量、时间分解、上下文占用与配额"
+      },
+      "description": "Instrument cluster for ZCode model replies: a session-sidebar panel with per-reply first-token latency, generation speed, token usage, reply history, model comparison, tool time and failure stats — plus a /metrics command and a metrics tool.",
+      "description_i18n": {
+        "en": "Instrument cluster for ZCode model replies: a session-sidebar panel with per-reply first-token latency, generation speed, token usage, reply history, model comparison, tool time and failure stats — plus a /metrics command and a metrics tool.",
+        "zh-CN": "ZCode 会话仪表:首字延迟、速度、token 用量、时间分解、上下文占用与配额"
+      },
+      "version": "0.6.1",
+      "author": {
+        "name": "Againstthewindtofly",
+        "url": "https://github.com/Againstthewindtofly"
+      },
+      "category": "dev-tools",
+      "keywords": []
+    },
+    {
+      "name": "zcode-token-monitor",
+      "source": "./plugins/zcode-tokmon",
+      "displayName": "Tokmon:ZCode token 用量与生成速率监控(本地+SSH 远程),零侵入",
+      "displayName_i18n": {
+        "en": "zcode-token-monitor",
+        "zh-CN": "Tokmon:ZCode token 用量与生成速率监控(本地+SSH 远程),零侵入"
+      },
+      "description": "Tokmon：ZCode token 用量与生成速率监控（本地 + SSH 远程）。MCP 工具与命令原生跨机查询，远端自动部署、SSH 连接复用；核心不修改任何客户端文件。",
+      "description_i18n": {
+        "en": "Tokmon：ZCode token 用量与生成速率监控（本地 + SSH 远程）。MCP 工具与命令原生跨机查询，远端自动部署、SSH 连接复用；核心不修改任何客户端文件。",
+        "zh-CN": "Tokmon:ZCode token 用量与生成速率监控(本地+SSH 远程),零侵入"
+      },
+      "version": "1.1.15",
+      "author": {
+        "name": "EV12138",
+        "url": "https://github.com/EV12138"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "tokmon",
+        "token",
+        "usage",
+        "rate",
+        "monitor"
+      ]
+    },
+    {
+      "name": "usage-detail",
+      "source": "./plugins/zcode-usage-detail",
+      "displayName": "ZCode 逐条用量明细:区分官方套餐与 BYOK,交互式仪表盘",
+      "displayName_i18n": {
+        "en": "usage-detail",
+        "zh-CN": "ZCode 逐条用量明细:区分官方套餐与 BYOK,交互式仪表盘"
+      },
+      "description": "Per-request usage analytics for ZCode: live dashboard & side-panel with token/cost/cache breakdown, 5h windows, budget alerts, vendor quotas. Read-only, zero model overhead, zh/en.",
+      "description_i18n": {
+        "en": "Per-request usage analytics for ZCode: live dashboard & side-panel with token/cost/cache breakdown, 5h windows, budget alerts, vendor quotas. Read-only, zero model overhead, zh/en.",
+        "zh-CN": "ZCode 逐条用量明细:区分官方套餐与 BYOK,交互式仪表盘"
+      },
+      "version": "0.30.5",
+      "author": {
+        "name": "axdlee",
+        "url": "https://github.com/axdlee"
+      },
+      "category": "dev-tools",
+      "keywords": [
+        "usage",
+        "tokens",
+        "cost",
+        "dashboard",
+        "quota"
+      ]
     }
   ]
 }
