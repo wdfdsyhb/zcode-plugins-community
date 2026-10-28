@@ -1,0 +1,42 @@
+{
+ "zcode-context": {
+  "category": "productivity",
+  "author_github": "Kevinzzz6",
+  "display_zh": "ZCode 上下文可视化侧栏:分类组成、演进趋势、步骤对比、压缩事件、30 天用量(只读离线)"
+ },
+ "comfy-design-plugin": {
+  "category": "creative",
+  "author_github": "full-aigc-plugins",
+  "display_zh": "ComfyUI 本地出图/视频/音频/3D:自有 GPU 或 Comfy Cloud"
+ },
+ "xuanji-plugin": {
+  "category": "creative",
+  "author_github": "full-aigc-plugins",
+  "display_zh": "玄鉴:八字/奇门/紫微/风水/塔罗占卜,脚本校验排盘"
+ },
+ "zcode-instrument": {
+  "category": "productivity",
+  "author_github": "Againstthewindtofly",
+  "display_zh": "ZCode 会话仪表:首字延迟、速度、token 用量、时间分解、上下文占用与配额"
+ },
+ "zcode-usage-detail": {
+  "category": "productivity",
+  "author_github": "axdlee",
+  "display_zh": "ZCode 逐条用量明细:区分官方套餐与 BYOK,交互式仪表盘"
+ },
+ "zcode-tokmon": {
+  "category": "productivity",
+  "author_github": "EV12138",
+  "display_zh": "Tokmon:ZCode token 用量与生成速率监控(本地+SSH 远程),零侵入"
+ },
+ "deepseek-web-search": {
+  "category": "dev-tools",
+  "author_github": "Ming-QWQ520",
+  "display_zh": "DeepSeek 网页搜索与页面抓取 MCP 插件,附 agent 使用技能"
+ },
+ "note-curator": {
+  "category": "productivity",
+  "author_github": "Huayudong",
+  "display_zh": "笔记整理插件:网页链接与本地草稿整理成结构化中英笔记,归档进 Obsidian,全库查重合并、自动双链、学习文风、去 AI 腔"
+ }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "deepseek-web-search",
+  "version": "0.1.0",
+  "description": "DeepSeek web search and page fetch MCP tools for ZCode.",
+  "description_i18n": {
+    "en": "DeepSeek web search and page fetch MCP tools for ZCode.",
+    "zh-CN": "DeepSeek 网页搜索与页面抓取 MCP 插件,附 agent 使用技能"
+  },
+  "license": "MIT",
+  "skills": "./skills",
+  "mcpServers": {
+    "deepseek_web_search": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/server/index.mjs"
+      ],
+      "env": {
+        "DEEPSEEK_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "DeepSeek API Key",
+      "description": "DeepSeek 开放平台的 API Key（sk- 开头）。",
+      "default": "",
+      "required": true
+    }
+  },
+  "author": {
+    "name": "Ming-QWQ520",
+    "url": "https://github.com/Ming-QWQ520"
+  }
+}

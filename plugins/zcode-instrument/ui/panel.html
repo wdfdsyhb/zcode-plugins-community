@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>仪表盘</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --bg-soft: #f6f7f9;
+    --bg-soft-2: #eef0f4;
+    --fg: #1c1d21;
+    --fg-muted: #6b7280;
+    --fg-subtle: #9aa0aa;
+    --line: #e5e7eb;
+    --accent: #2f6df6;
+    --accent-soft: #eaf0fe;
+    --warn: #b45309;
+    --bad: #d14343;
+    --bar: #9db9f5;
+    --bar-strong: #2f6df6;
+    --tool: #8f7fe0;
+    --split-other: #d9dce3;
+    --phase-ttft: #e8933a;
+    --phase-gen: #2f6df6;
+    --phase-tool: #8f7fe0;
+    --phase-gap: #d9dce3;
+    --ok: #2f9e6b;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #17181c;
+    --bg-soft: #1e2025;
+    --bg-soft-2: #262931;
+    --fg: #ecedf1;
+    --fg-muted: #9aa0aa;
+    --fg-subtle: #757b86;
+    --line: #2b2e35;
+    --accent: #7aa2ff;
+    --accent-soft: #22293c;
+    --warn: #f0b357;
+    --bad: #f07a7a;
+    --bar: #3c4a6b;
+    --bar-strong: #7aa2ff;
+    --tool: #6f5fae;
+    --split-other: #33363d;
+    --phase-ttft: #b9762a;
+    --phase-gen: #7aa2ff;
+    --phase-tool: #8f7fe0;
+    --phase-gap: #33363d;
+    --ok: #4fb383;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 10px 12px 16px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 400 13px/1.5 ui-sans-serif, system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .muted { color: var(--fg-muted); }
+  .subtle { color: var(--fg-subtle); }
+  .hidden { display: none !important; }
+
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  header h1 { margin: 0; font-size: 13px; font-weight: 600; }
+  header .brand { flex-shrink: 0; }
+  header .session { flex: 1; min-width: 0; font-size: 11.5px; color: var(--fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button {
+    font: inherit; color: var(--fg-muted); background: transparent;
+    border: 1px solid var(--line); border-radius: 7px; padding: 2px 7px;
+    cursor: pointer; font-size: 11.5px;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button[aria-pressed="true"], button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  nav { display: flex; gap: 4px; margin-bottom: 10px; }
+  nav button { flex: 1; padding: 4px 0; text-align: center; }
+
+  .model { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; margin-bottom: 8px; }
+  .model .name { font-weight: 600; }
+  .model .meta { font-size: 11.5px; color: var(--fg-subtle); }
+  .scope-toggle { margin-left: auto; display: flex; gap: 4px; }
+  .note { margin: -2px 0 8px; font-size: 11.5px; color: var(--warn); }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; }
+  .tile .label { font-size: 11px; color: var(--fg-muted); }
+  .tile .value { font-size: 19px; font-weight: 600; line-height: 1.25; }
+  .tile .unit { font-size: 10.5px; font-weight: 400; color: var(--fg-subtle); margin-left: 3px; }
+  .tile.primary .value { color: var(--accent); }
+
+  .rows { margin-top: 9px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
+  .rows dt { color: var(--fg-muted); white-space: nowrap; }
+  .rows dd { margin: 0; }
+  .rows dd.warn { color: var(--warn); }
+  .rows dd.bad { color: var(--bad); }
+
+  section.block { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--line); }
+  section.block > h2 { margin: 0 0 6px; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); }
+  .line { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 12px; }
+
+  .split { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--bg-soft-2); margin: 6px 0 5px; }
+  .split .m { background: var(--accent); }
+  .split .t { background: var(--tool); }
+  .split .o { background: var(--split-other); }
+  .split .ttft { background: var(--phase-ttft); }
+  .split .gen { background: var(--phase-gen); }
+  .split .tool { background: var(--phase-tool); }
+  .split .gap { background: var(--phase-gap); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--fg-muted); }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  .legend .m { background: var(--accent); }
+  .legend .t { background: var(--tool); }
+  .legend .o { background: var(--split-other); }
+  .legend .ttft { background: var(--phase-ttft); }
+  .legend .gen { background: var(--phase-gen); }
+  .legend .tool { background: var(--phase-tool); }
+  .legend .gap { background: var(--phase-gap); }
+  .live { margin-top: 6px; font-size: 11.5px; color: var(--accent); }
+  #ph-note { margin: 6px 0 0; }
+  .ctx-line { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 11.5px; }
+  .quota-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 10px; }
+  .quota-head .name { font-size: 13px; font-weight: 600; }
+  .quota-head #quota-period { flex-basis: 100%; order: 3; font-size: 11.5px; }
+  .quota-head #quota-refresh { margin-left: auto; white-space: nowrap; }
+  .health-bars { display: flex; align-items: flex-end; gap: 3px; height: 28px; margin: 6px 0 4px; }
+  .health-bars .hb { flex: 1; min-width: 3px; min-height: 4px; border-radius: 2px; background: var(--ok); }
+  .health-bars .hb.bad { background: var(--bad); }
+  .health-bars .hb.warn { background: var(--warn); }
+
+  .trend { display: flex; align-items: flex-end; gap: 3px; height: 52px; margin-top: 2px; }
+  .trend .bar { flex: 1; min-width: 3px; background: var(--bar); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .trend .bar:last-child { background: var(--bar-strong); }
+  .trend-axis { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10.5px; color: var(--fg-subtle); }
+  .metrics { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+  .metrics button { padding: 2px 6px; font-size: 11px; }
+
+  .reply { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; background: var(--bg-soft); }
+  .reply .top { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; color: var(--fg-subtle); }
+  .reply .top .model-short { color: var(--fg-muted); }
+  .reply .top .chip { margin-left: auto; }
+  .reply .q, .reply .a { margin: 5px 0 0; font-size: 12px; }
+  .reply .q { color: var(--fg-muted); }
+  .reply .label { font-size: 10.5px; color: var(--fg-subtle); margin-right: 4px; }
+  .reply .stats { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 11.5px; }
+  .reply .toggle { margin-top: 6px; font-size: 11px; }
+  .reply .requests { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 6px; font-size: 11.5px; }
+  .reply .requests .req { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 1px 0; color: var(--fg-muted); }
+  .reply .requests .req .st-err { color: var(--bad); }
+
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; background: var(--bg-soft); }
+  .card .head { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+  .card .head .name { font-weight: 600; }
+  .card .head .count { margin-left: auto; color: var(--fg-subtle); font-size: 11.5px; }
+  .card .sub { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 11.5px; color: var(--fg-muted); }
+  .bar-track { height: 6px; border-radius: 4px; background: var(--bg-soft-2); margin-top: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+  .bar-fill.tool { background: var(--tool); }
+  .bar-fill.bad { background: var(--bad); }
+  .bar-fill.warn { background: var(--warn); }
+  .mini-split { display: flex; height: 4px; border-radius: 2px; overflow: hidden; background: var(--bg-soft-2); margin-top: 6px; }
+  .mini-split .ttft { background: var(--phase-ttft); }
+  .mini-split .gen { background: var(--phase-gen); }
+  .mini-split .tool { background: var(--phase-tool); }
+  .mini-split .gap { background: var(--phase-gap); }
+
+  .state { border: 1px solid var(--line); background: var(--bg-soft); border-radius: 10px; padding: 14px; text-align: center; color: var(--fg-muted); font-size: 12.5px; }
+  .state .title { color: var(--fg); font-weight: 600; margin-bottom: 4px; }
+  .state .hint { margin-top: 8px; font-size: 11.5px; color: var(--fg-subtle); }
+  .state button { margin-top: 10px; }
+  footer { margin-top: 13px; padding-top: 9px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--fg-subtle); }
+  footer .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<header>
+  <svg class="brand" viewBox="0 0 64 64" width="16" height="16" aria-hidden="true">
+    <defs>
+      <linearGradient id="brandBadge" x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#2e313b"/><stop offset="1" stop-color="#181920"/>
+      </linearGradient>
+      <linearGradient id="brandArc" x1="12" y1="50" x2="52" y2="16" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#e8933a"/><stop offset="0.5" stop-color="#f0b357"/><stop offset="1" stop-color="#7aa2ff"/>
+      </linearGradient>
+    </defs>
+    <rect width="64" height="64" rx="15" fill="url(#brandBadge)"/>
+    <circle cx="32" cy="33" r="19" fill="none" stroke="#3a3d47" stroke-width="7"
+            stroke-linecap="round" stroke-dasharray="89.5 29.9" transform="rotate(135 32 33)"/>
+    <circle cx="32" cy="33" r="19" fill="none" stroke="url(#brandArc)" stroke-width="7"
+            stroke-linecap="round" stroke-dasharray="59 59.4" transform="rotate(135 32 33)"/>
+    <path d="M32 33 L41.5 23.5" fill="none" stroke="#ecedf1" stroke-width="3.6" stroke-linecap="round"/>
+    <circle cx="32" cy="33" r="4.6" fill="#ecedf1"/>
+    <circle cx="32" cy="33" r="1.9" fill="#17181c"/>
+  </svg>
+  <h1 id="title">仪表盘</h1>
+  <span class="session" id="session-title"></span>
+  <button id="follow" aria-pressed="true">跟随最新</button>
+  <button id="refresh">刷新</button>
+</header>
+
+<div id="state" class="state">
+  <div class="title" id="state-title">正在连接 ZCode…</div>
+  <div id="state-detail">等待宿主握手</div>
+  <div class="hint" id="state-hint"></div>
+  <button id="retry" class="hidden">重试</button>
+</div>
+
+<main id="content" class="hidden">
+  <nav>
+    <button data-tab="overview" class="on" id="tab-overview">总览</button>
+    <button data-tab="replies" id="tab-replies">回复</button>
+    <button data-tab="models" id="tab-models">模型</button>
+    <button data-tab="tools" id="tab-tools">工具</button>
+    <button data-tab="quota" id="tab-quota">额度</button>
+  </nav>
+
+  <div data-view="overview">
+    <div class="model">
+      <span class="name" id="model-name">—</span>
+      <span class="meta" id="model-meta"></span>
+      <span class="scope-toggle">
+        <button data-ov-scope="turn" class="on" id="ov-scope-turn">本轮</button>
+        <button data-ov-scope="session" id="ov-scope-session">会话</button>
+      </span>
+    </div>
+    <div class="note hidden" id="reply-note"></div>
+
+    <div class="tiles">
+      <div class="tile primary">
+        <div class="label" id="label-ttft">首字延迟（平均）</div>
+        <div class="value num" id="value-ttft">—</div>
+      </div>
+      <div class="tile">
+        <div class="label" id="label-tps">生成速度（平均）</div>
+        <div class="value num" id="value-tps">—<span class="unit">tok/s</span></div>
+      </div>
+      <div class="tile">
+        <div class="label" id="label-output">输出</div>
+        <div class="value num" id="value-output">—<span class="unit">tok</span></div>
+      </div>
+    </div>
+
+    <dl class="rows">
+      <dt id="label-input">输入</dt><dd class="num" id="row-input">—</dd>
+      <dt id="label-cache">缓存命中</dt><dd class="num" id="row-cache">—</dd>
+      <dt id="label-reasoning">推理</dt><dd class="num" id="row-reasoning">—</dd>
+      <dt id="label-total">合计</dt><dd class="num" id="row-total">—</dd>
+      <dt id="label-duration">实际耗时</dt><dd class="num" id="row-duration">—</dd>
+      <dt id="label-tools">工具调用</dt><dd class="num" id="row-tools">—</dd>
+      <dt id="label-requests">请求数</dt><dd class="num" id="row-requests">—</dd>
+      <dt id="label-ctx">上下文</dt><dd class="num" id="row-ctx">—</dd>
+    </dl>
+
+
+    <section class="block" id="composition-block">
+      <h2 id="h-composition">本轮回复时间构成</h2>
+      <div class="split">
+        <div class="ttft" id="cmp-ttft"></div>
+        <div class="gen" id="cmp-gen"></div>
+        <div class="tool" id="cmp-tool"></div>
+        <div class="gap" id="cmp-gap"></div>
+      </div>
+      <div class="legend">
+        <span><i class="ttft"></i><span id="cmp-ttft-text">—</span></span>
+        <span><i class="gen"></i><span id="cmp-gen-text">—</span></span>
+        <span><i class="tool"></i><span id="cmp-tool-text">—</span></span>
+        <span><i class="gap"></i><span id="cmp-gap-text">—</span></span>
+      </div>
+      <div class="live hidden" id="cmp-live"></div>
+      <div class="ctx-line muted num hidden" id="cmp-total">—</div>
+    </section>
+
+    <section class="block">
+      <h2 id="h-trend">速度趋势</h2>
+      <div class="metrics" id="trend-metrics">
+        <button data-metric="tps" class="on">速度</button>
+        <button data-metric="ttftMs">首字</button>
+        <button data-metric="outputTokens">输出</button>
+        <button data-metric="hitRate">命中</button>
+      </div>
+      <div class="trend" id="trend"></div>
+      <div class="trend-axis"><span id="trend-old">—</span><span id="trend-new">—</span></div>
+    </section>
+
+
+
+    <section class="block">
+      <h2 id="h-session">会话累计</h2>
+      <div class="line num" id="session-line-1">—</div>
+      <div class="line muted num" id="session-line-2"></div>
+    </section>
+  </div>
+
+  <div data-view="replies" class="hidden">
+    <div id="replies"></div>
+  </div>
+
+  <div data-view="models" class="hidden">
+    <div class="metrics">
+      <button data-scope="session" class="on" id="scope-session">本会话</button>
+      <button data-scope="workspace" id="scope-workspace">本工作区</button>
+    </div>
+    <div id="models"></div>
+  </div>
+
+  <div data-view="tools" class="hidden">
+    <div id="tools"></div>
+    <section class="block">
+      <h2 id="h-health">健康度</h2>
+      <div class="line num" id="health-totals">—</div>
+      <div class="health-bars" id="health-bars"></div>
+      <div class="legend"><span id="health-axis">—</span></div>
+    </section>
+    <section class="block">
+      <h2 id="h-failures">失败与重试</h2>
+      <div id="failures"></div>
+    </section>
+  </div>
+
+  <div data-view="quota" class="hidden">
+    <div class="quota-head">
+      <span class="name" id="quota-plan">—</span>
+      <span class="muted" id="quota-period"></span>
+      <button id="quota-refresh">刷新额度</button>
+    </div>
+    <div id="quota-body"></div>
+  </div>
+</main>
+
+<footer>
+  <span id="status">等待连接</span>
+  <span class="spacer"></span>
+  <span id="session-id" class="num"></span>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------- bridge */
+
+  // MCP Apps handshake over postMessage JSON-RPC 2.0 with the host (or a local
+  // harness that embeds this page).
+  var BRIDGE_TIMEOUT_MS = 8000;
+  var pending = new Map();
+  var nextId = 1;
+  var connected = false;
+  var hostContext = {};
+  var onNotification = null;
+
+  function post(message) { window.parent.postMessage(message, '*'); }
+  function notify(method, params) { post({ jsonrpc: '2.0', method: method, params: params }); }
+  function request(method, params) {
+    var id = nextId++;
+    return new Promise(function (resolve, reject) {
+      pending.set(id, { resolve: resolve, reject: reject });
+      post({ jsonrpc: '2.0', id: id, method: method, params: params });
+    });
+  }
+
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (!data || typeof data !== 'object' || data.jsonrpc !== '2.0') return;
+    if (data.id !== undefined && data.id !== null && pending.has(data.id)) {
+      var slot = pending.get(data.id);
+      pending.delete(data.id);
+      if (data.error) slot.reject(new Error(data.error.message || 'rpc error'));
+      else slot.resolve(data.result);
+      return;
+    }
+    if (typeof data.method === 'string' && onNotification) onNotification(data.method, data.params);
+  });
+
+  function withTimeout(promise, ms, label) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () { reject(new Error(label)); }, ms);
+      promise.then(function (v) { clearTimeout(timer); resolve(v); },
+                   function (e) { clearTimeout(timer); reject(e); });
+    });
+  }
+
+  function handshake() {
+    return withTimeout(request('ui/initialize', {
+      appInfo: { name: 'instrument-panel', version: '0.3.0' },
+      appCapabilities: {},
+      protocolVersion: '2025-11-21'
+    }), BRIDGE_TIMEOUT_MS, 'host-not-responding').then(function (result) {
+      hostContext = (result && result.hostContext) || {};
+      connected = true;
+      notify('ui/notifications/initialized');
+      applyHostContext();
+      return result;
+    });
+  }
+
+  function reportSize() {
+    if (!connected) return;
+    notify('ui/notifications/size-changed', {
+      height: Math.ceil(document.documentElement.getBoundingClientRect().height)
+    });
+  }
+
+  /* ------------------------------------------------------------------ i18n */
+
+  var STRINGS = {
+    zh: {
+      title: '仪表盘', follow: '跟随最新', paused: '已暂停', refresh: '刷新',
+      tabOverview: '总览', tabReplies: '回复', tabModels: '模型', tabTools: '工具', tabQuota: '额度',
+      quotaFiveHour: '5 小时', quotaWeekly: '本周', quotaMonthly: '本月',
+      quotaRemaining: '剩余', quotaResetTemplate: '{d} 后重置', quotaBilling: '计费周期',
+      quotaPeriodUsage: '本期', quotaRefresh: '刷新额度', quotaUpdated: '更新于',
+      quotaActive: '活跃', quotaError: '查询额度失败',
+      quotaNoKey: '没找到 CommandCode API key：可在插件配置 commandCodeKey 里填写，或在 ZCode 里配置 api.commandcode.ai 的 provider。',
+      quotaSoon: '即将重置',
+      scopeTurn: '本轮', scopeSession: '会话',
+      labelTtft: '首字延迟（平均）', labelTps: '生成速度（平均）',
+      outputLabel: '输出（合计）',
+      durationTurn: '实际耗时', durationSession: '活跃耗时', activeTime: '活跃时长',
+      requestsLabel: '请求数', ctxLabel: '上下文',
+      firstRequestTtft: '首个请求首字', waitFirstAccum: '等待首字累计',
+      ttft: '首字', tps: '速度', output: '输出', input: '输入', cache: '缓存命中',
+      reasoning: '推理', total: '合计', duration: '请求耗时', tools: '工具调用',
+      turn: '本轮汇总', trend: '速度趋势', session: '会话累计',
+      turnPhases: '本轮回复时间构成', sessionSplitTitle: '本次会话时间构成',
+      waitFirst: '等待首字', gen: '生成',
+      toolTime: '工具', gap: '间隙', liveTool: '正在执行工具', liveModel: '正在等待模型响应',
+      phaseNote: '{n} 次请求没有首字记录，时间计入生成（等待首字为下限）',
+      thisTurn: '本轮', avgTtft: '平均首字',
+      ctx: '上下文占用', ctxWindow: '窗口', ctxUnknown: '窗口未知，可在插件配置里用 contextWindows 指定',
+      windowSource: { user: '手动', manual: '模型规则', provider: 'provider', builtin: '内置', unknown: '未知' },
+      health: '健康度', successRate: '成功率', failed: '失败', cancelled: '取消',
+      retries: '重试', toolErrors: '工具报错',
+      healthAxis: '最近 20 轮：绿=正常，橙=有工具报错，红=有请求失败',
+      metricTps: '速度', metricTtft: '首字', metricOutput: '输出', metricHit: '命中',
+      split: '时间构成（本次会话）', modelTime: '模型', toolTime: '工具', otherTime: '其他', wallClock: '实际耗时',
+      scopeSessionModels: '本会话', scopeWorkspace: '本工作区',
+      failures: '失败与重试', noFailures: '本会话没有失败、取消或重试记录',
+      modelFailures: '模型失败', toolFailures: '工具报错', retries: '重试',
+      noReplies: '还没有可阅读的回复',
+      ask: '问', answer: '答', expand: '展开本轮请求', collapse: '收起',
+      requests: '次请求', toolCalls: '工具', wall: '实际耗时',
+      calls: '次调用', slowest: '最慢', failed: '失败', errors: '报错',
+      noTools: '本会话还没有工具调用记录', noModels: '没有模型记录',
+      connecting: '正在连接 ZCode…', waitHost: '等待宿主握手',
+      failedHost: '连接宿主失败', retry: '重试',
+      hint: '如果面板在浏览器里直接打开，不会有数据；请在 ZCode 会话侧栏中打开本面板。',
+      noData: '这个会话还没有已完成的请求记录',
+      noDataHint: '发出一次对话后再刷新；记录在请求结束时写入。',
+      fallbackNote: '当前回复还在生成，这里显示最近一条已完成请求',
+      updatedAt: '更新于', secondsAgo: '秒前', notFollowing: '（已暂停）', waiting: '等待连接',
+      unitRate: 'tok/s', unitToken: 'tok'
+    },
+    en: {
+      title: 'Instrument', follow: 'Follow', paused: 'Paused', refresh: 'Refresh',
+      tabOverview: 'Overview', tabReplies: 'Replies', tabModels: 'Models', tabTools: 'Tools', tabQuota: 'Quota',
+      quotaFiveHour: '5 hours', quotaWeekly: 'This week', quotaMonthly: 'This month',
+      quotaRemaining: 'left', quotaResetTemplate: 'resets in {d}', quotaBilling: 'Billing period',
+      quotaPeriodUsage: 'Period', quotaRefresh: 'Refresh quota', quotaUpdated: 'updated',
+      quotaActive: 'active', quotaError: 'Could not load quota',
+      quotaNoKey: 'No CommandCode API key found. Set commandCodeKey in the plugin config, or add a provider pointed at api.commandcode.ai in ZCode.',
+      quotaSoon: 'any moment',
+      scopeTurn: 'Turn', scopeSession: 'Session',
+      labelTtft: 'First token (avg)', labelTps: 'Speed (avg)',
+      outputLabel: 'Output (total)',
+      durationTurn: 'Elapsed', durationSession: 'Active time', activeTime: 'active',
+      requestsLabel: 'requests', ctxLabel: 'Context',
+      firstRequestTtft: 'first request', waitFirstAccum: 'first-token wait (total)',
+      ttft: 'First token', tps: 'Speed', output: 'Output', input: 'Input', cache: 'Cache',
+      reasoning: 'Reasoning', total: 'Total', duration: 'Request time', tools: 'Tool calls',
+      turn: 'This turn', trend: 'Speed trend', session: 'Session total',
+      turnPhases: 'Where this turn went', sessionSplitTitle: 'Session time composition',
+      waitFirst: 'First token', gen: 'Generation',
+      toolTime: 'Tools', gap: 'Gaps', liveTool: 'Running tool', liveModel: 'Waiting for the model',
+      phaseNote: '{n} requests have no first-token record; their time counts as generation (so the wait is a lower bound)',
+      thisTurn: 'This turn', avgTtft: 'avg first token',
+      ctx: 'Context usage', ctxWindow: 'window', ctxUnknown: 'Window unknown — set contextWindows in the plugin config',
+      windowSource: { user: 'manual', manual: 'model rule', provider: 'provider', builtin: 'built-in', unknown: 'unknown' },
+      health: 'Health', successRate: 'success', failed: 'failed', cancelled: 'cancelled',
+      retries: 'retries', toolErrors: 'tool errors',
+      healthAxis: 'Last 20 turns: green=ok, orange=tool errors, red=failed requests',
+      metricTps: 'Speed', metricTtft: 'First token', metricOutput: 'Output', metricHit: 'Cache',
+      split: 'Where the time went (session)', modelTime: 'Model', toolTime: 'Tools', otherTime: 'other', wallClock: 'elapsed',
+      scopeSessionModels: 'This session', scopeWorkspace: 'Workspace',
+      failures: 'Failures & retries', noFailures: 'No failures, cancellations or retries in this session',
+      modelFailures: 'Model failures', toolFailures: 'Tool errors', retries: 'Retries',
+      noReplies: 'No readable replies yet',
+      ask: 'Q', answer: 'A', expand: 'Show requests in this turn', collapse: 'Hide',
+      requests: 'requests', toolCalls: 'tools', wall: 'elapsed',
+      calls: 'calls', slowest: 'slowest', failed: 'failed', errors: 'errors',
+      noTools: 'No tool calls recorded in this session yet', noModels: 'No model records',
+      connecting: 'Connecting to ZCode…', waitHost: 'Waiting for the host handshake',
+      failedHost: 'Could not reach the host', retry: 'Retry',
+      hint: 'Opening this page directly in a browser shows no data; open the panel from a ZCode session sidebar.',
+      noData: 'No completed model requests in this session yet',
+      noDataHint: 'Send a message and refresh — records are written when a request finishes.',
+      fallbackNote: 'The current reply is still generating — showing the latest completed request',
+      updatedAt: 'updated', secondsAgo: 's ago', notFollowing: ' (paused)', waiting: 'waiting',
+      unitRate: 'tok/s', unitToken: 'tok'
+    }
+  };
+  var lang = 'zh';
+  var t = STRINGS.zh;
+
+  /* -------------------------------------------------------------- formatting */
+
+  function num(v) { return v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US'); }
+  function dec(v, d) { return v === null || v === undefined || isNaN(v) ? '—' : Number(v).toFixed(d === undefined ? 1 : d); }
+  function pct(r) { return r === null || r === undefined ? '—' : (r * 100).toFixed(1) + '%'; }
+  function duration(ms) {
+    if (ms === null || ms === undefined) return '—';
+    if (ms < 1000) return Math.round(ms) + 'ms';
+    if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+    var totalSec = Math.round(ms / 1000);
+    var m = Math.floor(totalSec / 60);
+    var s = totalSec - m * 60;
+    return s === 0 ? m + 'm' : m + 'm' + s + 's';
+  }
+  function shortModelId(id) { return String(id || '—').split('/').pop(); }
+  function clock(ms) {
+    var d = new Date(ms);
+    function p(n) { return String(n).padStart(2, '0'); }
+    return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+  function $(id) { return document.getElementById(id); }
+
+  /* ------------------------------------------------------------------ state */
+
+  var following = true;
+  var content = $('content');
+  var lastUpdated = 0;
+  var refreshing = false;
+  var lastPayload = null;
+  var state = { tab: 'overview', scope: 'turn', trendMetric: 'tps', modelScope: 'session', expanded: {} };
+
+  function applyHostContext() {
+    lang = String(hostContext.locale || 'zh').toLowerCase().indexOf('en') === 0 ? 'en' : 'zh';
+    t = STRINGS[lang];
+    document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+    document.documentElement.dataset.theme = hostContext.theme === 'dark' ? 'dark' : 'light';
+
+    $('title').textContent = t.title;
+    $('follow').textContent = following ? t.follow : t.paused;
+    $('refresh').textContent = t.refresh;
+    $('tab-overview').textContent = t.tabOverview;
+    $('tab-replies').textContent = t.tabReplies;
+    $('tab-models').textContent = t.tabModels;
+    $('tab-tools').textContent = t.tabTools;
+    $('tab-quota').textContent = t.tabQuota;
+    $('quota-refresh').textContent = t.quotaRefresh;
+    $('label-ttft').textContent = t.labelTtft;
+    $('label-tps').textContent = t.labelTps;
+    $('label-output').textContent = t.outputLabel;
+    $('label-input').textContent = t.input;
+    $('label-cache').textContent = t.cache;
+    $('label-reasoning').textContent = t.reasoning;
+    $('label-total').textContent = t.total;
+    $('label-tools').textContent = t.tools;
+    $('label-requests').textContent = t.requestsLabel;
+    $('label-ctx').textContent = t.ctxLabel;
+    $('h-health').textContent = t.health;
+    $('h-trend').textContent = t.trend;
+    $('h-session').textContent = t.session;
+    $('h-failures').textContent = t.failures;
+    $('ov-scope-turn').textContent = t.scopeTurn;
+    $('ov-scope-session').textContent = t.scopeSession;
+    $('scope-session').textContent = t.scopeSessionModels;
+    $('scope-workspace').textContent = t.scopeWorkspace;
+    $('state-hint').textContent = t.hint;
+    $('retry').textContent = t.retry;
+    var metricLabels = { tps: t.metricTps, ttftMs: t.metricTtft, outputTokens: t.metricOutput, hitRate: t.metricHit };
+    Array.prototype.forEach.call($('trend-metrics').children, function (button) {
+      button.textContent = metricLabels[button.dataset.metric] || button.dataset.metric;
+    });
+    if (!content.dataset.rendered) $('status').textContent = t.waiting;
+  }
+
+  function showState(title, detail, canRetry) {
+    $('state-title').textContent = title;
+    $('state-detail').textContent = detail || '';
+    $('retry').classList.toggle('hidden', !canRetry);
+    $('state').classList.remove('hidden');
+    content.classList.add('hidden');
+    reportSize();
+  }
+
+  /* ---------------------------------------------------------------- overview */
+
+  // Adaptive units for token counts: exact digits while small, k/M/B beyond
+  // that. The exact value stays available as a tooltip.
+  function bigNum(v) {
+    if (v === null || v === undefined) return '—';
+    var abs = Math.abs(v);
+    if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+    if (abs >= 1e5) return (v / 1e3).toFixed(1) + 'k';
+    return num(v);
+  }
+
+  function renderComposition(p) {
+    var isTurn = state.scope === 'turn';
+    var src = isTurn ? p.phases : p.timeSplit;
+    var block = $('composition-block');
+    $('h-composition').textContent = isTurn ? t.turnPhases : t.sessionSplitTitle;
+    if (!src || !src.totalMs) { block.classList.add('hidden'); return; }
+    block.classList.remove('hidden');
+    var total = src.totalMs;
+    // Host-side preparation before the first request belongs to "other".
+    var gapMs = isTurn ? src.gapMs + (src.prepMs || 0) : src.gapMs;
+    var segments = [
+      { id: 'ttft', ms: src.ttftMs, label: t.waitFirst },
+      { id: 'gen', ms: src.genMs, label: t.gen },
+      { id: 'tool', ms: src.toolMs, label: t.toolTime },
+      { id: 'gap', ms: gapMs, label: t.gap }
+    ];
+    segments.forEach(function (part) {
+      $('cmp-' + part.id).style.width = part.ms > 0
+        ? Math.max(0.8, (part.ms / total) * 100) + '%' : '0';
+      $('cmp-' + part.id + '-text').textContent = part.label + ' ' + duration(part.ms)
+        + '（' + pct(part.ms / total) + '）';
+    });
+    // Requests without a first-token record inflate "generation"; keep that
+    // caveat on hover instead of a permanent line.
+    $('cmp-ttft-text').title = src.untrackedRequests
+      ? t.phaseNote.replace('{n}', src.untrackedRequests) : '';
+
+    var live = isTurn ? src.live : null;
+    var liveEl = $('cmp-live');
+    if (live) {
+      liveEl.classList.remove('hidden');
+      liveEl.textContent = (live.phase === 'tool'
+        ? t.liveTool + (live.name ? ' ' + live.name : '')
+        : t.liveModel) + ' · ' + duration(live.elapsedMs);
+    } else {
+      liveEl.classList.add('hidden');
+    }
+
+    var totalLine = $('cmp-total');
+    if (!isTurn) {
+      totalLine.classList.remove('hidden');
+      totalLine.textContent = t.activeTime + ' ' + duration(total)
+        + ' · ' + num(src.requestCount) + ' ' + t.requests;
+    } else {
+      totalLine.classList.add('hidden');
+    }
+  }
+
+  function renderScope(p) {
+    var isTurn = state.scope === 'turn';
+    var data = isTurn ? p.turn : p.sessionTotals;
+    $('ov-scope-turn').classList.toggle('on', isTurn);
+    $('ov-scope-session').classList.toggle('on', !isTurn);
+    $('label-duration').textContent = isTurn ? t.durationTurn : t.durationSession;
+    if (!data) return;
+    var avgTtft = data.avgTtftMs !== null && data.avgTtftMs !== undefined
+      ? data.avgTtftMs : data.ttftMs;
+    $('value-ttft').textContent = avgTtft === null || avgTtft === undefined ? '—' : duration(avgTtft);
+    $('value-tps').innerHTML = (data.tps === null ? '—' : dec(data.tps))
+      + '<span class="unit">' + t.unitRate + '</span>';
+    $('value-output').innerHTML = bigNum(data.outputTokens)
+      + '<span class="unit">' + t.unitToken + '</span>';
+    $('value-output').title = num(data.outputTokens);
+
+    setRow('row-input', bigNum(data.inputTokens), data.inputTokens);
+    setRow('row-cache', data.cacheReadTokens
+      ? bigNum(data.cacheReadTokens) + '（' + pct(data.hitRate) + '）' : '0',
+      data.cacheReadTokens);
+    setRow('row-reasoning', bigNum(data.reasoningTokens), data.reasoningTokens);
+    setRow('row-total', bigNum(data.totalTokens), data.totalTokens);
+    $('row-duration').textContent = duration(isTurn
+      ? (p.phases && p.phases.totalMs) || data.wallMs
+      : (p.timeSplit && p.timeSplit.totalMs) || null);
+    $('row-tools').textContent = num(data.toolCallCount);
+    $('row-requests').textContent = num(data.requestCount);
+
+    // Context belongs to the latest request; show it in both scopes so the
+    // block does not jump when toggling.
+    var ctx = p.context;
+    $('row-ctx').classList.toggle('hidden', !ctx);
+    $('label-ctx').classList.toggle('hidden', !ctx);
+    if (ctx) {
+      var ratio = ctx.ratio;
+      $('row-ctx').className = ratio === null ? 'num'
+        : ratio > 0.85 ? 'num bad' : ratio > 0.7 ? 'num warn' : 'num';
+      $('row-ctx').textContent = ctx.window
+        ? bigNum(ctx.inputTokens) + ' / ' + bigNum(ctx.window) + '（' + pct(ctx.ratio) + '）'
+        : bigNum(ctx.inputTokens);
+      $('row-ctx').title = (t.windowSource[ctx.source] || ctx.source)
+        + (ctx.window ? '' : ' · ' + t.ctxUnknown);
+    }
+  }
+
+  function setRow(id, text, exact) {
+    var el = document.getElementById(id);
+    el.textContent = text;
+    if (exact !== null && exact !== undefined) el.title = num(exact);
+  }
+
+  function renderOverview(p) {
+    var reply = p.reply;
+    $('model-name').textContent = shortModelId(reply.modelId);
+    $('model-meta').textContent = [reply.providerName || reply.providerId, reply.variant,
+      reply.status === 'completed' ? null : reply.status].filter(Boolean).join(' · ');
+    $('reply-note').textContent = p.replyFallback ? t.fallbackNote : '';
+    $('reply-note').classList.toggle('hidden', !p.replyFallback);
+
+    renderScope(p);
+    renderComposition(p);
+
+    var trend = (p.trend || []).slice().reverse();
+    var chart = $('trend');
+    chart.textContent = '';
+    var metric = state.trendMetric;
+    var values = trend.map(function (turn) { return turn[metric]; });
+    var max = 0;
+    values.forEach(function (v) { if (typeof v === 'number' && v > max) max = v; });
+    trend.forEach(function (turn, index) {
+      var value = values[index];
+      var bar = el('div', 'bar');
+      var ratio = max > 0 && typeof value === 'number' ? value / max : 0;
+      bar.style.height = Math.max(2, Math.round(ratio * 100)) + '%';
+      bar.title = clock(turn.completedAt) + ' · ' + t.firstRequestTtft + ' ' + duration(turn.ttftMs)
+        + ' · ' + dec(turn.tps) + ' ' + t.unitRate
+        + ' · ' + t.output + ' ' + num(turn.outputTokens)
+        + ' · ' + t.cache + ' ' + pct(turn.hitRate);
+      chart.appendChild(bar);
+    });
+    if (!trend.length) chart.appendChild(el('span', 'subtle', '—'));
+    $('trend-old').textContent = trend.length ? clock(trend[0].completedAt) : '—';
+    $('trend-new').textContent = trend.length ? clock(trend[trend.length - 1].completedAt) : '—';
+
+    if (p.sessionTotals) {
+      var total = p.sessionTotals;
+      $('session-line-1').textContent = [
+        num(total.requestCount) + ' ' + t.requests,
+        t.input + ' ' + bigNum(total.inputTokens),
+        t.output + ' ' + bigNum(total.outputTokens)
+      ].join(' · ');
+      $('session-line-2').textContent = t.cache + ' ' + bigNum(total.cacheReadTokens)
+        + '（' + pct(total.hitRate) + '）· ' + t.total + ' ' + bigNum(total.totalTokens) + ' ' + t.unitToken;
+    }
+  }
+
+  /* ----------------------------------------------------------------- replies */
+
+  function requestRow(req) {
+    var row = el('div', 'req');
+    row.appendChild(el('span', 'num', clock(req.startedAt)));
+    row.appendChild(el('span', req.status === 'completed' ? '' : 'st-err', req.status));
+    row.appendChild(el('span', 'num', t.ttft + ' ' + duration(req.ttftMs)));
+    if (req.genMs !== null && req.genMs !== undefined) {
+      row.appendChild(el('span', 'num', t.gen + ' ' + duration(req.genMs)));
+    }
+    row.appendChild(el('span', 'num', dec(req.tps) + ' ' + t.unitRate));
+    row.appendChild(el('span', 'num', t.output + ' ' + num(req.outputTokens)));
+    if (req.toolCalls) row.appendChild(el('span', 'num', 'tools ' + req.toolCalls));
+    if (req.attempt > 1) row.appendChild(el('span', 'num', 'try ' + req.attempt));
+    return row;
+  }
+
+  function renderReplies(p) {
+    var host = $('replies');
+    host.textContent = '';
+    var replies = p.replies || [];
+    if (!replies.length) {
+      host.appendChild(el('div', 'state', t.noReplies));
+      return;
+    }
+    replies.forEach(function (item) {
+      var key = String(item.completedAt);
+      var card = el('div', 'reply');
+
+      var top = el('div', 'top');
+      top.appendChild(el('span', 'num', clock(item.completedAt)));
+      top.appendChild(el('span', 'model-short', shortModelId(item.modelId)));
+      if (item.status && item.status !== 'completed') top.appendChild(el('span', 'chip subtle', item.status));
+      card.appendChild(top);
+
+      if (item.userPreview) {
+        var q = el('div', 'q');
+        q.appendChild(el('span', 'label', t.ask));
+        q.appendChild(el('span', null, item.userPreview));
+        card.appendChild(q);
+      }
+      if (item.replyPreview) {
+        var a = el('div', 'a');
+        a.appendChild(el('span', 'label', t.answer));
+        a.appendChild(el('span', null, item.replyPreview));
+        card.appendChild(a);
+      }
+
+      var stats = el('div', 'stats num');
+      stats.appendChild(el('span', null, t.wall + ' ' + duration(item.wallMs)));
+      stats.appendChild(el('span', null, t.ttft + ' ' + duration(item.ttftMs)));
+      stats.appendChild(el('span', null, dec(item.tps) + ' ' + t.unitRate));
+      stats.appendChild(el('span', null, t.output + ' ' + bigNum(item.outputTokens)));
+      stats.appendChild(el('span', 'muted', t.input + ' ' + bigNum(item.inputTokens) + '（' + pct(item.hitRate) + '）'));
+      stats.appendChild(el('span', 'muted', num(item.requestCount) + ' ' + t.requests));
+      card.appendChild(stats);
+
+      // One thin strip instead of a line of percentages; details on hover.
+      if (item.phases && item.phases.totalMs) {
+        var ph = item.phases;
+        var strip = el('div', 'mini-split');
+        var parts = [
+          ['ttft', ph.ttftMs, t.waitFirstAccum],
+          ['gen', ph.genMs, t.gen],
+          ['tool', ph.toolMs, t.toolTime],
+          ['gap', ph.gapMs, t.gap]
+        ];
+        strip.title = parts.map(function (part) {
+          return part[2] + ' ' + duration(part[1]) + '（' + pct(part[1] / ph.totalMs) + '）';
+        }).join(' · ');
+        parts.forEach(function (part) {
+          var seg = el('div', part[0]);
+          seg.style.width = part[1] > 0 ? (part[1] / ph.totalMs) * 100 + '%' : '0';
+          strip.appendChild(seg);
+        });
+        card.appendChild(strip);
+      }
+
+      if (item.requests && item.requests.length) {
+        var expanded = !!state.expanded[key];
+        var toggle = el('button', 'toggle', expanded ? t.collapse : t.expand + '（' + item.requests.length + '）');
+        toggle.addEventListener('click', function () {
+          state.expanded[key] = !state.expanded[key];
+          renderReplies(lastPayload);
+          reportSize();
+        });
+        card.appendChild(toggle);
+        if (expanded) {
+          var box = el('div', 'requests');
+          item.requests.forEach(function (req) { box.appendChild(requestRow(req)); });
+          card.appendChild(box);
+        }
+      }
+      host.appendChild(card);
+    });
+  }
+
+  /* ------------------------------------------------------------------ models */
+
+  function renderModels(p) {
+    var host = $('models');
+    host.textContent = '';
+    $('scope-session').classList.toggle('on', state.modelScope === 'session');
+    $('scope-workspace').classList.toggle('on', state.modelScope === 'workspace');
+    var models = p.models || [];
+    if (!models.length) {
+      host.appendChild(el('div', 'state', t.noModels));
+      return;
+    }
+    var maxOutput = 0;
+    models.forEach(function (m) { if (m.outputTokens > maxOutput) maxOutput = m.outputTokens; });
+
+    models.forEach(function (m) {
+      var card = el('div', 'card');
+      var head = el('div', 'head');
+      head.appendChild(el('span', 'name', shortModelId(m.modelId) + (m.variant ? ' · ' + m.variant : '')));
+      head.appendChild(el('span', 'count num', num(m.requests) + ' ' + t.requests));
+      card.appendChild(head);
+
+      var sub = el('div', 'sub num');
+      sub.appendChild(el('span', 'muted', m.providerName || m.providerId || '—'));
+      sub.appendChild(el('span', null, t.avgTtft + ' ' + duration(m.avgTtftMs)));
+      sub.appendChild(el('span', null, dec(m.tps) + ' ' + t.unitRate));
+      sub.appendChild(el('span', null, t.cache + ' ' + pct(m.hitRate)));
+      card.appendChild(sub);
+
+      var sub2 = el('div', 'sub num');
+      sub2.appendChild(el('span', null, t.output + ' ' + num(m.outputTokens)));
+      sub2.appendChild(el('span', null, t.input + ' ' + bigNum(m.inputTokens)));
+      if (m.failed) sub2.appendChild(el('span', null, t.failed + ' ' + m.failed));
+      card.appendChild(sub2);
+
+      var track = el('div', 'bar-track');
+      var fill = el('div', 'bar-fill');
+      fill.style.width = Math.max(2, Math.round((m.outputTokens / (maxOutput || 1)) * 100)) + '%';
+      track.appendChild(fill);
+      card.appendChild(track);
+      host.appendChild(card);
+    });
+  }
+
+  /* ------------------------------------------------------------------- tools */
+
+  function renderHealth(p) {
+    var host = $('health-bars');
+    host.textContent = '';
+    var h = p.health;
+    if (!h || !h.totals) return;
+    var totals = h.totals;
+    $('health-totals').textContent = [
+      t.successRate + ' ' + pct(totals.successRate),
+      num(totals.requests) + ' ' + t.requests,
+      t.failed + ' ' + num(totals.failed),
+      t.cancelled + ' ' + num(totals.cancelled),
+      t.retries + ' ' + num(totals.retries),
+      t.toolErrors + ' ' + num(totals.toolErrors)
+    ].join(' · ');
+
+    var turns = (h.turns || []).slice().reverse();
+    var maxRequests = 0;
+    turns.forEach(function (turn) { if (turn.requests > maxRequests) maxRequests = turn.requests; });
+    turns.forEach(function (turn) {
+      var bar = el('div', 'hb');
+      if (turn.failed + turn.cancelled > 0) bar.className = 'hb bad';
+      else if (turn.toolErrors > 0) bar.className = 'hb warn';
+      bar.style.height = (maxRequests > 0 ? Math.max(8, (turn.requests / maxRequests) * 100) : 100) + '%';
+      bar.title = clock(turn.completedAt) + ' · ' + turn.requests + ' ' + t.requests
+        + ' · ' + t.failed + ' ' + turn.failed + ' · ' + t.cancelled + ' ' + turn.cancelled
+        + ' · ' + t.retries + ' ' + turn.retries + ' · ' + t.toolErrors + ' ' + turn.toolErrors;
+      host.appendChild(bar);
+    });
+    $('health-axis').textContent = t.healthAxis;
+  }
+
+  function renderFailures(p) {
+    var host = $('failures');
+    host.textContent = '';
+    var f = p.failures;
+    if (!f) return;
+    var modelFailed = (f.modelFailures || []).reduce(function (sum, x) { return sum + x.count; }, 0);
+    var toolFailed = (f.toolFailures || []).reduce(function (sum, x) { return sum + x.count; }, 0);
+    if (!modelFailed && !toolFailed && !f.retriedRequests) {
+      host.appendChild(el('div', 'line muted', t.noFailures));
+      return;
+    }
+    (f.modelFailures || []).forEach(function (item) {
+      host.appendChild(el('div', 'line', t.modelFailures + '：' + item.kind + ' × ' + item.count + '（' + item.status + '）'));
+    });
+    (f.toolFailures || []).forEach(function (item) {
+      host.appendChild(el('div', 'line', t.toolFailures + '：' + item.name + ' × ' + item.count));
+    });
+    host.appendChild(el('div', 'line', t.retries + ' ' + f.retryTotal
+      + '（' + f.retriedRequests + ' ' + t.requests + '，max ' + f.retryMax + '）'));
+    (f.recent || []).slice(0, 5).forEach(function (event) {
+      var line = el('div', 'line muted num');
+      line.textContent = clock(event.startedAt) + ' ' + shortModelId(event.modelId) + ' ' + event.status
+        + (event.code ? ' ' + event.code : '') + (event.message ? ' — ' + event.message : '');
+      host.appendChild(line);
+    });
+  }
+
+  function renderTools(p) {
+    var host = $('tools');
+    host.textContent = '';
+    var tools = p.tools || [];
+    if (!tools.length) {
+      host.appendChild(el('div', 'state', t.noTools));
+    } else {
+      var max = 0;
+      tools.forEach(function (tool) { if (tool.totalMs > max) max = tool.totalMs; });
+      tools.forEach(function (tool) {
+        var card = el('div', 'card');
+        var head = el('div', 'head');
+        var name = el('span', 'name', tool.short || tool.name);
+        name.title = tool.name;
+        head.appendChild(name);
+        head.appendChild(el('span', 'count num', num(tool.count) + ' ' + t.calls));
+        card.appendChild(head);
+        var sub = el('div', 'sub num');
+        sub.appendChild(el('span', null, duration(tool.totalMs)));
+        sub.appendChild(el('span', 'muted', t.slowest + ' ' + duration(tool.maxMs)));
+        if (tool.errors) sub.appendChild(el('span', null, t.errors + ' ' + tool.errors));
+        card.appendChild(sub);
+        var track = el('div', 'bar-track');
+        var fill = el('div', 'bar-fill' + (tool.errors ? ' bad' : ' tool'));
+        fill.style.width = Math.max(2, Math.round((tool.totalMs / (max || 1)) * 100)) + '%';
+        track.appendChild(fill);
+        card.appendChild(track);
+        host.appendChild(card);
+      });
+    }
+    renderFailures(p);
+    renderHealth(p);
+  }
+
+  /* ------------------------------------------------------------------ render */
+
+  function setTab(tab) {
+    state.tab = tab;
+    Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (button) {
+      button.classList.toggle('on', button.dataset.tab === tab);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (view) {
+      view.classList.toggle('hidden', view.dataset.view !== tab);
+    });
+  }
+
+  /* -------------------------------------------------------------- quota tab */
+
+  var quotaPayload = null;
+  var quotaAt = 0;
+  var quotaLoading = false;
+
+  function money(v) { return v === null || v === undefined ? '—' : '$' + Number(v).toFixed(2); }
+
+  function shortDate(iso) {
+    var d = new Date(iso);
+    function p(n) { return String(n).padStart(2, '0'); }
+    return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function untilReset(ms) {
+    var diff = ms - Date.now();
+    if (diff <= 0) return t.quotaSoon;
+    var mins = Math.round(diff / 60000);
+    if (mins < 60) return mins + 'm';
+    var hours = Math.floor(mins / 60);
+    if (hours < 48) return hours + 'h' + (mins % 60 ? ' ' + (mins % 60) + 'm' : '');
+    var days = Math.floor(hours / 24);
+    return days + 'd' + (hours % 24 ? ' ' + (hours % 24) + 'h' : '');
+  }
+
+  function quotaCard(label, used, cap, ratio, resetAt, extra) {
+    var card = el('div', 'card');
+    var head = el('div', 'head');
+    head.appendChild(el('span', 'name', label));
+    head.appendChild(el('span', 'count num', money(used) + ' / ' + money(cap)));
+    card.appendChild(head);
+    var track = el('div', 'bar-track');
+    var fill = el('div', 'bar-fill'
+      + (ratio !== null && ratio > 0.85 ? ' bad' : ratio !== null && ratio > 0.7 ? ' warn' : ''));
+    fill.style.width = (ratio === null ? 0 : Math.max(1, Math.min(100, ratio * 100))) + '%';
+    track.appendChild(fill);
+    card.appendChild(track);
+    var sub = el('div', 'sub num');
+    sub.appendChild(el('span', null, pct(ratio)));
+    if (extra) sub.appendChild(el('span', 'muted', extra));
+    if (resetAt) {
+      sub.appendChild(el('span', 'muted', t.quotaResetTemplate.replace('{d}', untilReset(resetAt))));
+    }
+    card.appendChild(sub);
+    return card;
+  }
+
+  function renderQuota() {
+    var host = $('quota-body');
+    host.textContent = '';
+    var q = quotaPayload;
+    if (!q) return;
+
+    if (!q.ok) {
+      $('quota-plan').textContent = t.tabQuota;
+      $('quota-period').textContent = '';
+      var state = el('div', 'state');
+      state.appendChild(el('div', 'title', q.error === 'no-key' ? t.quotaNoKey : t.quotaError));
+      if (q.error && q.error !== 'no-key') state.appendChild(el('div', 'muted', q.error));
+      var retry = el('button', null, t.quotaRefresh);
+      retry.addEventListener('click', function () { loadQuota(true); });
+      state.appendChild(retry);
+      host.appendChild(state);
+      return;
+    }
+
+    var planName = String(q.plan.id || 'subscription').replace(/^individual-/, '').toUpperCase();
+    setStatus();
+    $('quota-plan').textContent = 'CommandCode ' + planName
+      + (q.plan.status ? ' · ' + (q.plan.status === 'active' ? t.quotaActive : q.plan.status) : '');
+    $('quota-period').textContent = q.plan.periodStart && q.plan.periodEnd
+      ? t.quotaBilling + ' ' + shortDate(q.plan.periodStart) + ' → ' + shortDate(q.plan.periodEnd)
+      : '';
+
+    if (q.fiveHour) {
+      host.appendChild(quotaCard(t.quotaFiveHour, q.fiveHour.used, q.fiveHour.cap,
+        q.fiveHour.ratio, q.fiveHour.resetAt));
+    }
+    if (q.weekly) {
+      host.appendChild(quotaCard(t.quotaWeekly, q.weekly.used, q.weekly.cap,
+        q.weekly.ratio, q.weekly.resetAt));
+    }
+    host.appendChild(quotaCard(t.quotaMonthly, q.monthly.used, q.monthly.cap,
+      q.monthly.ratio, q.monthly.resetAt, t.quotaRemaining + ' ' + money(q.monthly.remaining)));
+
+    if (q.periodUsage) {
+      var usage = el('div', 'line num muted');
+      usage.textContent = t.quotaPeriodUsage + ' ' + num(q.periodUsage.requests) + ' ' + t.requests
+        + ' · ' + t.input + ' ' + bigNum(q.periodUsage.tokensIn)
+        + ' · ' + t.output + ' ' + bigNum(q.periodUsage.tokensOut);
+      host.appendChild(usage);
+    }
+
+  }
+
+  function loadQuota(force) {
+    if (quotaLoading) return;
+    quotaLoading = true;
+    withTimeout(request('tools/call', {
+      name: 'quota',
+      arguments: force ? { force: true } : {},
+    }), BRIDGE_TIMEOUT_MS, 'quota-timeout').then(function (res) {
+      if (res && res.isError) {
+        throw new Error((res.content && res.content[0] && res.content[0].text) || 'quota failed');
+      }
+      quotaPayload = (res && res.structuredContent) || { ok: false, error: 'empty payload' };
+      quotaAt = Date.now();
+      renderQuota();
+    }).catch(function (err) {
+      quotaPayload = { ok: false, error: String((err && err.message) || err), fetchedAt: Date.now() };
+      renderQuota();
+    }).then(function () { quotaLoading = false; });
+  }
+
+  function render() {
+    var p = lastPayload;
+    if (!p) return;
+    content.dataset.rendered = '1';
+
+    $('session-title').textContent = p.session.title || p.session.directory || '';
+    $('title').title = ['当前会话', p.session.title, p.session.id, p.session.directory]
+      .filter(Boolean).join('\n');
+    $('session-id').textContent = p.session.id;
+
+    if (!p.reply) {
+      showState(t.noData, t.noDataHint, false);
+      return;
+    }
+    $('state').classList.add('hidden');
+    content.classList.remove('hidden');
+    setTab(state.tab);
+    renderOverview(p);
+    renderReplies(p);
+    renderModels(p);
+    renderTools(p);
+    reportSize();
+  }
+
+  function setStatus() {
+    if (state.tab === 'quota') {
+      if (quotaAt) $('status').textContent = t.quotaUpdated + ' ' + clock(quotaAt);
+      return;
+    }
+    if (!lastUpdated) return;
+    var seconds = Math.max(0, Math.round((Date.now() - lastUpdated) / 1000));
+    $('status').textContent = t.updatedAt + ' ' + clock(lastUpdated)
+      + (seconds >= 2 ? '（' + seconds + t.secondsAgo + '）' : '')
+      + (following ? '' : t.notFollowing);
+  }
+
+  function load() {
+    if (refreshing) return Promise.resolve();
+    refreshing = true;
+    return withTimeout(request('tools/call', {
+      name: 'panel_snapshot',
+      arguments: { modelScope: state.modelScope }
+    }), BRIDGE_TIMEOUT_MS, 'panel-timeout').then(function (result) {
+      if (result && result.isError) {
+        throw new Error((result.content && result.content[0] && result.content[0].text) || 'read failed');
+      }
+      var payload = result && result.structuredContent;
+      if (!payload) throw new Error('empty payload');
+      lastPayload = payload;
+      render();
+      lastUpdated = Date.now();
+      setStatus();
+    }).catch(function (err) {
+      if (!content.dataset.rendered) showState(t.failedHost, String((err && err.message) || err), true);
+      else $('status').textContent = '⚠ ' + String((err && err.message) || err);
+    }).then(function () { refreshing = false; });
+  }
+
+  function connect() {
+    showState(t.connecting, t.waitHost, false);
+    handshake().then(function () { return load(); })
+      .catch(function (err) { showState(t.failedHost, String((err && err.message) || err), true); });
+  }
+
+  /* ---------------------------------------------------------------- controls */
+
+  $('refresh').addEventListener('click', function () { if (connected) load(); else connect(); });
+  $('retry').addEventListener('click', function () { connect(); });
+  $('follow').addEventListener('click', function () {
+    following = !following;
+    $('follow').setAttribute('aria-pressed', following ? 'true' : 'false');
+    $('follow').textContent = following ? t.follow : t.paused;
+    setStatus();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (button) {
+    button.addEventListener('click', function () {
+      setTab(button.dataset.tab);
+      if (button.dataset.tab === 'quota') {
+        if (quotaPayload) renderQuota(); else loadQuota(false);
+      }
+      reportSize();
+    });
+  });
+  $('quota-refresh').addEventListener('click', function () { loadQuota(true); });
+  Array.prototype.forEach.call($('trend-metrics').children, function (button) {
+    button.addEventListener('click', function () {
+      state.trendMetric = button.dataset.metric;
+      Array.prototype.forEach.call($('trend-metrics').children, function (other) {
+        other.classList.toggle('on', other === button);
+      });
+      if (lastPayload) renderOverview(lastPayload);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ov-scope]'), function (button) {
+    button.addEventListener('click', function () {
+      state.scope = button.dataset.ovScope;
+      if (lastPayload) {
+        renderScope(lastPayload);
+        renderComposition(lastPayload);
+      }
+      reportSize();
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-scope]'), function (button) {
+    button.addEventListener('click', function () {
+      state.modelScope = button.dataset.scope;
+      $('scope-session').classList.toggle('on', state.modelScope === 'session');
+      $('scope-workspace').classList.toggle('on', state.modelScope === 'workspace');
+      load();
+    });
+  });
+
+  onNotification = function (method, params) {
+    if (method === 'ui/notifications/host-context-changed' && params) {
+      hostContext = Object.assign({}, hostContext, params);
+      applyHostContext();
+      if (content.dataset.rendered && lastPayload) render();
+    }
+  };
+
+  setInterval(function () {
+    setStatus();
+    if (connected && following && !document.hidden) load();
+    if (connected && state.tab === 'quota' && Date.now() - quotaAt > 60000) loadQuota(false);
+  }, 3000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && connected && following) load();
+  });
+
+  applyHostContext();
+  connect();
+})();
+</script>
+</body>
+</html>

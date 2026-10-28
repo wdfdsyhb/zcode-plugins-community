@@ -1,0 +1,54 @@
+{
+  "name": "comfy-design",
+  "displayName": "Comfy（ComfyUI 工作流）",
+  "displayName_i18n": {
+    "en": "Comfy Design · ComfyUI Workflows",
+    "zh-CN": "Comfy（ComfyUI 工作流）"
+  },
+  "version": "0.5.0",
+  "description": "本地优先的 ComfyUI 图像、视频、音频与 3D 工作流；合作伙伴模型与上传仅在显式选择后升级到云端。",
+  "description_i18n": {
+    "en": "本地优先的 ComfyUI 图像、视频、音频与 3D 工作流；合作伙伴模型与上传仅在显式选择后升级到云端。",
+    "zh-CN": "ComfyUI 本地出图/视频/音频/3D:自有 GPU 或 Comfy Cloud"
+  },
+  "author": {
+    "name": "full-aigc-plugins",
+    "url": "https://github.com/full-aigc-plugins"
+  },
+  "homepage": "https://github.com/full-aigc-plugins/comfy-design-plugin",
+  "repository": "https://github.com/full-aigc-plugins/comfy-design-plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "comfy",
+    "comfyui",
+    "workflow"
+  ],
+  "skills": "skills",
+  "commands": "commands",
+  "mcpServers": {
+    "comfy-mcp": {
+      "command": "python3",
+      "args": [
+        "${ZCODE_PLUGIN_ROOT}/scripts/comfy_mcp_bootstrap.py"
+      ],
+      "cwd": "${ZCODE_PLUGIN_ROOT}",
+      "timeoutMs": 60000
+    },
+    "comfy-cloud": {
+      "type": "http",
+      "url": "https://cloud.comfy.org/mcp",
+      "headers": {
+        "X-API-Key": "${user_config.comfy_api_key}"
+      }
+    }
+  },
+  "userConfig": {
+    "comfy_api_key": {
+      "type": "string",
+      "title": "Comfy API Key",
+      "description": "在 platform.comfy.org/profile/api-keys 创建（前缀 comfyui-）；留空则首次使用时走 OAuth 登录。",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}

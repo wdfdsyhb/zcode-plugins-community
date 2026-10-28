@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>panel harness</title>
+<style>
+  body { margin: 0; display: flex; font: 13px/1.5 system-ui, sans-serif; background: #edeef1; }
+  #side { padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 200px; }
+  #side button { font: inherit; padding: 6px 8px; border: 1px solid #c9ccd3; border-radius: 6px; background: #fff; cursor: pointer; text-align: left; }
+  #frame { width: 430px; height: 900px; border: 0; border-right: 1px solid #c9ccd3; background: #fff; }
+  #log { font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; color: #555; }
+</style>
+</head>
+<body>
+<iframe id="frame" src="../ui/panel.html"></iframe>
+<div id="side">
+  <strong>面板测试宿主</strong>
+  <button data-mode="data">正常数据</button>
+  <button data-mode="fallback">回复生成中</button>
+  <button data-mode="failures">有失败/重试</button>
+  <button data-mode="empty">无记录</button>
+  <button data-mode="fail">工具失败</button>
+  <button data-mode="quota-nokey">额度无 key</button>
+  <button id="theme">切换主题</button>
+  <button id="locale">Switch locale</button>
+  <button id="reload">重新加载面板</button>
+  <div id="log"></div>
+</div>
+
+<script>
+// Emulates the ZCode side: answers the App handshake and serves panel_snapshot.
+const frame = document.getElementById('frame');
+const log = document.getElementById('log');
+function say(line) { log.textContent = line + '\n' + log.textContent; }
+
+let mode = 'data';
+let theme = 'light';
+let locale = 'zh-CN';
+
+const now = Date.now();
+const minutes = (n) => now - n * 60000;
+
+// Newest first, exactly like the server sends it.
+const TREND = Array.from({ length: 12 }, (_, i) => ({
+  completedAt: minutes(i * 7 + 1),
+  modelId: 'deepseek/deepseek-v4.1-flash',
+  tps: 70 + Math.round(Math.cos(i) * 40) + i * 4,
+  ttftMs: 4200 + i * 500,
+  inputTokens: 120000 + i * 9000,
+  outputTokens: 700 + i * 120,
+  totalTokens: 120700 + i * 9000,
+  hitRate: 0.9 + (i % 5) * 0.02,
+  wallMs: 24000 + i * 1800,
+  modelMs: 19000 + i * 1200,
+  toolMs: 4000 + i * 300,
+  toolCount: 2 + (i % 4),
+  requestCount: 2 + (i % 3),
+}));
+
+const REPLY_TEXT = [
+  '我把面板改成了四个标签：总览、回复、模型、工具，并加上了时间构成与失败统计。',
+  '第一条回复的摘要会显示在这里，方便你按时间回看每条回复花了多少时间、多少 token。',
+  '模型对比支持本会话与本工作区两个范围，可以拿来做测速对比。',
+];
+
+const REPLIES = TREND.slice(0, 6).map((turn, i) => ({
+  completedAt: turn.completedAt,
+  modelId: turn.modelId,
+  status: i === 5 ? 'cancelled' : 'completed',
+  userPreview: i === 0 ? '面板现在只显示最新一条回复，能不能多加点信息？顺便把插件名字改洋气一点。' : `（第 ${i + 1} 轮的提问示例）这一步你打算怎么验证？`,
+  replyPreview: REPLY_TEXT[i % REPLY_TEXT.length],
+  ttftMs: turn.ttftMs,
+  firstTtftMs: 3200 + i * 400,
+  tps: turn.tps,
+  durationMs: 11000 + i * 700,
+  inputTokens: turn.inputTokens,
+  outputTokens: turn.outputTokens,
+  cacheReadTokens: Math.round(turn.inputTokens * turn.hitRate),
+  totalTokens: turn.totalTokens,
+  hitRate: turn.hitRate,
+  requestCount: turn.requestCount,
+  toolCount: turn.toolCount,
+  toolMs: turn.toolMs,
+  wallMs: turn.wallMs,
+  phases: {
+    ttftMs: Math.round(turn.ttftMs * turn.requestCount * 0.55),
+    genMs: 6000 + i * 900,
+    toolMs: turn.toolMs,
+    gapMs: 400,
+    totalMs: Math.round(turn.ttftMs * turn.requestCount * 0.55) + 6000 + i * 900 + turn.toolMs + 400,
+    live: null,
+  },
+  requests: i < 3 ? Array.from({ length: 5 }, (_, k) => ({
+    startedAt: turn.completedAt - (5 - k) * 90000,
+    status: 'completed',
+    ttftMs: 3000 + k * 700,
+    genMs: 4000 + k * 500,
+    tps: 60 + k * 12,
+    outputTokens: 300 + k * 90,
+    inputTokens: 110000 + k * 8000,
+    cacheReadTokens: 100000 + k * 8000,
+    toolCalls: k % 3,
+    attempt: 1,
+    finishReason: k === 4 ? 'stop' : 'tool-calls',
+  })) : null,
+}));
+
+function payload() {
+  const base = {
+    session: { id: 'sess_harness_0001', title: '开发ZCode插件展示模型回复统计信息', directory: 'E:\\AI Projects' },
+    generatedAt: now,
+    replyFallback: false,
+    reply: {
+      modelId: 'deepseek/deepseek-v4.1-flash', providerId: 'new-provider-2',
+      providerName: 'GOAT(LiteLLM)', variant: 'max',
+      status: 'completed', finishReason: 'stop', ttftMs: 9100, tps: 111.1, durationMs: 10900,
+      inputTokens: 126604, outputTokens: 207, reasoningTokens: 10, cacheReadTokens: 124928,
+      cacheWriteTokens: 0, totalTokens: 126811, hitRate: 0.987, toolCallCount: 2, completedAt: now,
+    },
+    turn: {
+      requestCount: 26, toolCallCount: 48, inputTokens: 2146018, outputTokens: 42456,
+      reasoningTokens: 28535, cacheReadTokens: 2018048, cacheWriteTokens: 0, totalTokens: 2188474,
+      hitRate: 0.94, ttftMs: 9300, avgTtftMs: 14200, ttftCount: 26, untrackedCount: 2,
+      tps: 102.7, wallMs: 979000, completedAt: now,
+    },
+    sessionTotals: {
+      requestCount: 145, toolCallCount: 214, inputTokens: 30747635, outputTokens: 167406,
+      reasoningTokens: 84343, cacheReadTokens: 30130560, cacheWriteTokens: 0, totalTokens: 30915041,
+      hitRate: 0.98, ttftMs: 9300, avgTtftMs: 12100, ttftCount: 145, untrackedCount: 0,
+      tps: 98.2, wallMs: 6156000, completedAt: now,
+    },
+    trend: TREND,
+    replies: REPLIES,
+    phases: {
+      prepMs: 0, ttftMs: 122900, genMs: 111000, toolMs: 10900, gapMs: 700,
+      totalMs: 245500, sumsToTotal: true, requestCount: 15, untrackedRequests: 3,
+      live: { phase: 'tool', name: 'Bash', elapsedMs: 2400, since: now - 2400 },
+    },
+    context: {
+      inputTokens: 537931, window: 1000000, ratio: 0.538,
+      source: 'builtin', modelId: 'deepseek/deepseek-v4.1-flash',
+    },
+    health: {
+      totals: { requests: 293, ok: 291, failed: 2, cancelled: 0, retries: 3, toolErrors: 12, successRate: 291 / 293 },
+      turns: TREND.map((turn, i) => ({
+        completedAt: turn.completedAt,
+        requests: turn.requestCount,
+        ok: turn.requestCount - (i % 4 === 0 ? 1 : 0),
+        failed: i % 4 === 0 ? 1 : 0,
+        cancelled: 0,
+        retries: i % 5 === 0 ? 1 : 0,
+        toolErrors: i % 3 === 0 ? 2 : 0,
+      })),
+    },
+    timeSplit: {
+      ttftMs: 1120000, genMs: 1900000, toolMs: 502000, gapMs: 113000, totalMs: 3635000,
+      requestCount: 147, toolCalls: 217,
+    },
+    modelScope: 'session',
+    models: [
+      { modelId: 'deepseek/deepseek-v4.1-flash', providerId: 'new-provider-2', providerName: 'GOAT(LiteLLM)',
+        variant: 'max', requests: 145, failed: 3,
+        avgTtftMs: 13494, tps: 97.4, inputTokens: 30747635, outputTokens: 167406, totalTokens: 30915041, hitRate: 0.98 },
+    ],
+    tools: [
+      { name: 'Bash', short: 'Bash', count: 93, errors: 0, totalMs: 441000, maxMs: 120300, bytes: 266644 },
+      { name: 'WebFetch', short: 'WebFetch', count: 2, errors: 0, totalMs: 40300, maxMs: 22700, bytes: 3639 },
+      { name: 'mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script', short: 'chrome:evaluate_script', count: 5, errors: 0, totalMs: 14900, maxMs: 6900, bytes: 3386 },
+      { name: 'Read', short: 'Read', count: 19, errors: 3, totalMs: 1500, maxMs: 146, bytes: 73775 },
+      { name: 'Edit', short: 'Edit', count: 49, errors: 1, totalMs: 896, maxMs: 27, bytes: 7908 },
+    ],
+    failures: {
+      modelFailures: [], toolFailures: [{ name: 'Read', count: 3 }, { name: 'Edit', count: 1 }],
+      retriedRequests: 0, retryTotal: 0, retryMax: 0, recent: [],
+    },
+  };
+  if (mode === 'fallback') { base.replyFallback = true; base.reply.ttftMs = null; base.reply.tps = null; }
+  if (mode === 'failures') {
+    base.failures = {
+      modelFailures: [
+        { status: 'error', kind: 'timeout', count: 2 },
+        { status: 'cancelled', kind: 'TURN_CANCELLED', count: 1 },
+      ],
+      toolFailures: [{ name: 'Read', count: 3 }],
+      retriedRequests: 2, retryTotal: 3, retryMax: 2,
+      recent: [
+        { startedAt: minutes(3), modelId: 'deepseek/deepseek-v4.1-flash', status: 'error', code: 'timeout', message: 'Request timed out after 120000ms' },
+        { startedAt: minutes(21), modelId: 'z-ai/glm-5.3-flash', status: 'error', code: 'network_error', message: 'socket hang up' },
+      ],
+    };
+  }
+  if (mode === 'empty') { base.reply = null; base.turn = null; base.trend = []; base.replies = []; base.models = []; base.tools = []; }
+  return base;
+}
+
+window.addEventListener('message', async (event) => {
+  const data = event.data;
+  if (!data || data.jsonrpc !== '2.0') return;
+  const reply = (id, result) => frame.contentWindow.postMessage({ jsonrpc: '2.0', id, result }, '*');
+
+  if (data.method === 'ui/initialize') {
+    say('handshake: ui/initialize');
+    reply(data.id, {
+      protocolVersion: (data.params && data.params.protocolVersion) || '2025-11-21',
+      hostInfo: { name: 'zcode-harness', version: '0' },
+      hostCapabilities: { serverTools: {}, serverResources: {}, logging: {} },
+      hostContext: {
+        theme, locale, platform: 'desktop', displayMode: 'fullscreen',
+        containerDimensions: { width: 430, maxHeight: 1400 },
+      },
+    });
+    return;
+  }
+  if (data.method === 'tools/call') {
+    // quota tool (the 额度 tab)
+    if (data.params.name === 'quota') {
+      say('tool call: quota (' + mode + ')');
+      if (mode === 'quota-nokey') {
+        reply(data.id, { content: [{ type: 'text', text: 'no key' }], structuredContent: { ok: false, error: 'no-key', fetchedAt: Date.now() } });
+        return;
+      }
+      if (mode === 'fail') {
+        reply(data.id, { content: [{ type: 'text', text: 'quota failed' }], structuredContent: { ok: false, error: 'HTTP 500', fetchedAt: Date.now() } });
+        return;
+      }
+      const now = Date.now();
+      reply(data.id, {
+        content: [{ type: 'text', text: 'ok' }],
+        structuredContent: {
+          ok: true, fetchedAt: now, cached: false, keySource: 'provider:GOAT',
+          plan: { id: 'individual-goat', status: 'active', cap: 70,
+            periodStart: '2026-09-18T06:39:10.000Z', periodEnd: '2026-10-18T06:39:10.000Z' },
+          monthly: { used: 32.07, cap: 70, remaining: 37.89, purchased: 0, free: 0, ratio: 0.458, resetAt: now + 75 * 60000 },
+          fiveHour: { used: 0.53, cap: 14, ratio: 0.038, resetAt: now + 5 * 60000, exceeded: false },
+          weekly: { used: 2.35, cap: 35, ratio: 0.067, resetAt: now + 5 * 86400000, exceeded: false },
+          periodUsage: { requests: 7164, tokensIn: 1904265254, tokensOut: 6598445, totalTokens: 1910863699 },
+        },
+      });
+      return;
+    }
+    const scope = (data.params.arguments || {}).modelScope || 'session';
+    say('tool call: ' + data.params.name + ' (' + mode + '/' + scope + ')');
+    if (mode === 'fail') {
+      reply(data.id, { isError: true, content: [{ type: 'text', text: '数据库不可读' }] });
+      return;
+    }
+    const out = payload();
+    if (scope === 'workspace') {
+      out.modelScope = 'workspace';
+      out.models = [
+        ...out.models,
+        { modelId: 'z-ai/glm-5.3-flash', providerId: '3c0dc3d0-92da-4061-8c5a-dd380cc84002', providerName: 'CommandCode 网关',
+          variant: 'max', requests: 143, failed: 2,
+          avgTtftMs: 27400, tps: 58.0, inputTokens: 42112259, outputTokens: 236712, totalTokens: 42348971, hitRate: 0.818 },
+        { modelId: 'deepseek/deepseek-v4.1-flash', providerId: 'new-provider-2', providerName: 'GOAT(LiteLLM)',
+          variant: 'high', requests: 5, failed: 0,
+          avgTtftMs: 45800, tps: 171.9, inputTokens: 1903871, outputTokens: 7852, totalTokens: 1911723, hitRate: 0.797 },
+      ];
+    }
+    reply(data.id, { content: [{ type: 'text', text: 'ok' }], structuredContent: out });
+    return;
+  }
+  if (data.method && data.method.indexOf('ui/notifications/') === 0) {
+    if (data.method === 'ui/notifications/size-changed') {
+      frame.style.height = Math.max(700, Math.ceil(data.params.height) + 2) + 'px';
+    } else {
+      say('notification: ' + data.method);
+    }
+  }
+});
+
+document.querySelectorAll('[data-mode]').forEach((button) => {
+  button.addEventListener('click', () => {
+    mode = button.dataset.mode;
+    say('mode -> ' + mode);
+    frame.contentWindow.location.reload();
+  });
+});
+document.getElementById('theme').addEventListener('click', () => {
+  theme = theme === 'light' ? 'dark' : 'light';
+  frame.contentWindow.postMessage({
+    jsonrpc: '2.0', method: 'ui/notifications/host-context-changed', params: { theme, locale },
+  }, '*');
+});
+document.getElementById('locale').addEventListener('click', () => {
+  locale = locale === 'zh-CN' ? 'en-US' : 'zh-CN';
+  frame.contentWindow.postMessage({
+    jsonrpc: '2.0', method: 'ui/notifications/host-context-changed', params: { theme, locale },
+  }, '*');
+});
+document.getElementById('reload').addEventListener('click', () => frame.contentWindow.location.reload());
+</script>
+</body>
+</html>

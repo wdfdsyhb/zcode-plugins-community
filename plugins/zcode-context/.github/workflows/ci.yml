@@ -1,0 +1,32 @@
+name: Context plugin
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  verify:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.14.0
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Committed marketplace must match a fresh build
+        shell: bash
+        run: |
+          changes=$(git status --porcelain -- marketplace.json plugins/)
+          if [ -n "$changes" ]; then
+            echo "marketplace.json / plugins/ differ from a fresh build."
+            echo "Run npm run build and commit the regenerated marketplace artifacts."
+            echo "$changes"
+            exit 1
+          fi
+      - run: npm run smoke
